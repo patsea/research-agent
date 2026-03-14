@@ -1,61 +1,53 @@
-# Job Search Agent — Claude Code Operational Rules
+# Research Agent — Operational Rules
 
-> Location: ~/Dropbox/ALOMA/claude-code/job-search-agent/
-> Scope: LOCAL Node.js job search agent system ONLY
+Rules Claude must follow when working in this codebase. Read this file before making any changes.
 
-## System Overview
+---
 
-| Agent | Port | Directory | Purpose |
-|-------|------|-----------|---------|
-| Dashboard | 3030 | dashboard/ | Health dashboard, activity log, workspace |
-| Signal Scanner | 3033 | signal-scanner/ | Monitors LinkedIn/news for job signals |
-| Research | 3035 | research/ | Manual research workflow + Claude audit |
-| Scorer | 3038 | scorer/ | Scores companies via ELNS framework |
-| Contact Research | 3036 | contact-research/ | Contact enrichment, Attio lookup |
-| Outreach Drafter | 3037 | outreach-drafter/ | Drafts emails, saves to Gmail Drafts, never sends |
-| Email Scan | 3034 | email-scan/ | Scans Gmail for replies, classifies, writes to Attio |
-| Gmail Hygiene | 3039 | gmail-hygiene/ | Auto-labels, unsubscribes, inbox cleanup |
+## Absolute rules
 
-## Key Paths
+1. Never use `claude-opus-4-6` in any agent — use `claude-sonnet-4-6` for synthesis, `claude-haiku-4-5-20251001` for classification only.
+2. Never call the Perplexity API directly — research is manual (generate prompt → run in browser → paste output → /api/audit).
+3. Outreach Drafter saves to Gmail Drafts only — never sends email under any circumstances.
+4. Never commit `config/user-profile.json`, `config/attio-fields.json`, `outreach-drafter/POSITIONING.md`, any `.env` file, or any `.db` file.
+5. Activity log endpoint is `http://localhost:3030/api/activity` — no other port.
+6. Agent 4 (contact-research) never writes to Attio — only Agent 2 (research) and Agent 6 (email-scan) write to Attio.
+7. Attio workspace member ID is set via `ATTIO_MEMBER_ID` env var in `email-scan/.env` — never hardcode it.
+8. Attio protected statuses (never overwrite): Interested, Call scheduled, Call had, Mandate flagged, In process.
 
-| Item | Path |
-|------|------|
-| Shared activity logger | shared/activityLogger.js |
-| Research prompts | research/prompts/ |
-| Agent databases | <agent>/data/<agent>.db |
-| Logs | /tmp/jsa-<agent>.log |
-| Old location (archived) | ~/Dropbox/ALOMA/claude-code/Track8 context/track-8/ |
+---
 
-## Execution Rules
+## Config files — how personalisation works
 
-1. Launch all agents: `claude-auto launch` from job-search-agent/
-2. Model: claude-sonnet-4-6 for all synthesis (never claude-opus-4-6)
-3. Classification only: claude-haiku-4-5-20251001
-4. MCP transport: stdio only, never HTTP
-5. Activity log: all agents POST to backend-api port 8001 — fire-and-forget, never await in response path
-6. Never auto-send emails — outreach-drafter saves to Drafts only
-7. Never delete Attio records — only update fields
-8. Attio status_8 protected values (never overwrite): Interested, Call scheduled, Call had, Mandate flagged, In process
-9. Valid status_8 values: Not contacted, Outreach sent, On File, Interested, Call scheduled, Call had, Mandate flagged, In process, Closed, Bad email
-10. Attio workspace member ID: set via ATTIO_MEMBER_ID env var in each agent's .env
-11. Perplexity API: not used — manual workflow only (generate prompt → run in browser → paste back)
-12. All instruction files use full absolute paths — never abbreviate
-13. Check package.json for @anthropic-ai/sdk before adding any module that imports it directly
-14. Prompts may live in /prompts/ subdirectory as .md files — check before assuming inline
-15. Backup before every code change: cp file file.bak.YYYYMMDDHHMMSS
+All personal data lives in config files, not in source code:
 
-## Pipeline Flow
+| File | Purpose | Tracked by git |
+|------|---------|---------------|
+| `config/user-profile.json` | Candidate name, title, proof points, target sectors/geographies | No |
+| `config/attio-fields.json` | Attio field slugs, status values, member ID | No |
+| `config/scoring-rubric.json` | ELNS scoring dimension weights and prompts | No |
+| `outreach-drafter/POSITIONING.md` | Outreach tone, proof point rules, fund-specific angles | No |
 
-Signal Scanner (3033) → Research (3035) → Scorer (3038) → Contact Research (3036) → Outreach Drafter (3037)
-                                                                                                    ↓
-Email Scan (3034) ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-Gmail Hygiene (3039) — runs independently on schedule
+Edit via Settings UI at `http://localhost:3030/config.html` or directly in the files.
 
-## Health Check
+Example files (tracked, no personal data):
+- `config/user-profile.example.json`
+- `config/attio-fields.example.json`
+- `config/scoring-rubric.example.json`
+- `outreach-drafter/POSITIONING.example.md`
 
-```bash
-for PORT in 3030 3033 3034 3035 3036 3037 3038 3039; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT 2>/dev/null)
-  echo "Port $PORT: $STATUS"
-done
-```
+---
+
+## Prompt injection
+
+`research/prompts/system_interview_prep.txt` and `research/prompts/SIGINT_WEEKLY_BRIEFING.md` use `{{CANDIDATE_*}}` placeholders. These are injected at runtime by `buildSystemPrompt()` in `research/modules/prompt-builder.js` using values from `config/user-profile.json`. Never hardcode candidate details in prompt files.
+
+---
+
+## Known issues (not bugs — deferred work)
+
+- Env var inconsistency: `CLAUDE_API_KEY` (signal-scanner, research, email-scan) vs `ANTHROPIC_API_KEY` (scorer, contact-research, outreach-drafter) — same key, not yet standardised
+- Signal Scanner forward_queue.jsonl has no consumer — forwarding a signal does not automatically trigger research
+- Agent 5 → Agent 4 notify call silently fails (endpoint mismatch: /status vs /confirm) — cosmetic only
+- FullEnrich domain derivation is naive — may fail for non-.com companies
+- 6 dead RSS feed URLs in Sigint sources — replace via GET /api/sigint/sources
