@@ -1,0 +1,6 @@
+{
+  "status_field": "status_8",
+  "next_action_field": "next_action",
+  "protected_statuses": ["Interested", "Call scheduled", "Call had", "Mandate flagged", "In process"],
+  "valid_statuses": ["Not contacted", "Outreach sent", "On File", "Interested", "Call scheduled", "Call had", "Mandate flagged", "In process", "Closed", "Bad email"]
+}

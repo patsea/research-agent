@@ -1,0 +1,256 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Signal Scanner</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--surface:#1a1d27;--border:#2a2d3a;--accent:#4f7cff;--text:#e8eaf0;--dim:#8b8fa8;--green:#22c55e;--yellow:#eab308;--red:#ef4444}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0}
+.main{flex:1;overflow-y:auto}
+.logo{padding:0 16px 20px;font-weight:700;font-size:15px;border-bottom:1px solid var(--border);margin-bottom:12px}.logo span{color:var(--accent)}
+.nav{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;color:var(--dim);font-size:13px;transition:background .1s}
+.nav:hover,.nav.active{background:rgba(79,124,255,.12);color:var(--text)}.nav.active{border-right:2px solid var(--accent)}
+.header{padding:20px 24px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:10}
+.header h1{font-size:18px;font-weight:600}.header p{font-size:12px;color:var(--dim);margin-top:2px}
+.run-btn{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px}
+.run-btn:disabled{opacity:.5;cursor:not-allowed}
+.filters{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--bg);position:sticky;top:63px;z-index:9}
+.fsel{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer}
+.fsel:focus{outline:none;border-color:var(--accent)}
+.count{background:var(--surface);border:1px solid var(--border);color:var(--dim);padding:5px 12px;border-radius:6px;font-size:12px;margin-left:auto}
+.list{padding:16px 24px;display:flex;flex-direction:column;gap:12px}
+.empty{padding:60px 24px;text-align:center;color:var(--dim)}.empty h3{font-size:16px;margin-bottom:8px;color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border-color .15s}
+.card:hover{border-color:#3a3d4a}.card.dismissed{opacity:.5}.card.forwarded{border-left:3px solid var(--green)}
+.card-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.bt-funding_round{background:rgba(34,197,94,.15);color:#22c55e}.bt-pe_acquisition{background:rgba(168,85,247,.15);color:#a855f7}
+.bt-leadership_change{background:rgba(234,179,8,.15);color:#eab308}.bt-layoffs_reorg{background:rgba(239,68,68,.15);color:#ef4444}
+.bt-product_pivot{background:rgba(20,184,166,.15);color:#14b8a6}.bt-other{background:rgba(139,143,168,.15);color:#8b8fa8}
+.bc-High{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.bc-Medium{background:rgba(234,179,8,.12);color:#eab308;border:1px solid rgba(234,179,8,.3)}
+.bc-Low{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.sect-badge{padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(79,124,255,.12);color:#7da3ff;border:1px solid rgba(79,124,255,.25);cursor:pointer;position:relative}
+.sect-badge:hover{background:rgba(79,124,255,.22)}
+.sdrop{position:absolute;top:calc(100% + 4px);left:0;background:#1f2235;border:1px solid var(--border);border-radius:7px;padding:4px;z-index:100;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.sopt{padding:6px 10px;border-radius:4px;font-size:12px;cursor:pointer;color:var(--dim)}.sopt:hover{background:rgba(79,124,255,.15);color:var(--text)}
+.bfwd{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.cdate{font-size:11px;color:var(--dim);white-space:nowrap}
+.co{font-size:15px;font-weight:600;margin-bottom:6px}
+.summary{font-size:13px;line-height:1.6;color:#c8cad8;margin-bottom:10px}
+.hl{font-size:12px;color:var(--dim);margin-bottom:10px}
+.cfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.cmeta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--dim)}.cmeta a{color:var(--accent);text-decoration:none}.cmeta a:hover{text-decoration:underline}
+.cacts{display:flex;gap:6px}
+.btn{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);transition:all .1s}
+.btn:hover{color:var(--text);border-color:var(--dim)}.bsm{padding:3px 8px;font-size:11px}
+.btn-fwd{border-color:rgba(34,197,94,.4);color:#22c55e}.btn-fwd:hover{background:rgba(34,197,94,.1);border-color:#22c55e}
+.btn-dis{border-color:rgba(239,68,68,.3);color:#ef4444}.btn-dis:hover{background:rgba(239,68,68,.1);border-color:#ef4444}
+.cpanel{padding:24px;max-width:760px}
+.stitle{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);margin-bottom:12px;margin-top:24px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.sinfo{flex:1;min-width:0}.sname{font-weight:500;font-size:13px}.surl{font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smeth{font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(79,124,255,.12);color:#7da3ff;font-weight:600;text-transform:uppercase}
+.frow{display:flex;gap:8px;margin-bottom:8px}
+.finp{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px;flex:1}
+.finp:focus{outline:none;border-color:var(--accent)}
+.btn-pri{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500}
+.btn-pri:hover{opacity:.9}
+.btn-del{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px}
+.btn-del:hover{background:rgba(239,68,68,.2)}
+.etags{display:flex;flex-wrap:wrap;gap:6px}
+.etag{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#ef4444;padding:3px 8px;border-radius:4px;font-size:12px;display:flex;align-items:center;gap:5px}
+.etag button{background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;line-height:1;padding:0}
+.logtbl{width:100%;border-collapse:collapse;font-size:12px}
+.logtbl th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--dim);font-weight:500}
+.logtbl td{padding:8px 10px;border-bottom:1px solid rgba(42,45,58,.5)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:24px;right:24px;background:#1f2235;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.3);animation:ti .2s ease}
+@keyframes ti{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.hidden{display:none!important}
+</style>
+<style id="light-mode-universal">
+/* ── Universal Light Mode Override ── */
+:root {
+  color-scheme: light !important;
+  --bg: #f5f5f5 !important;
+  --surface: #ffffff !important;
+  --border: #e0e0e0 !important;
+  --accent: #4a90d9 !important;
+  --text: #333333 !important;
+  --dim: #777777 !important;
+  --green: #22c55e !important;
+  --yellow: #eab308 !important;
+  --red: #ef4444 !important;
+}
+body { background: #f5f5f5 !important; color: #333 !important; }
+.sidebar { background: #ffffff !important; border-right: 1px solid #e0e0e0 !important; }
+.logo { border-bottom: 1px solid #e0e0e0 !important; color: #333 !important; }
+.logo span { color: #4a90d9 !important; }
+.nav { color: #777 !important; }
+.nav:hover, .nav.active { background: rgba(74,144,217,0.08) !important; color: #333 !important; }
+.nav.active { border-right-color: #4a90d9 !important; }
+.header { background: #f5f5f5 !important; border-bottom: 1px solid #e0e0e0 !important; }
+.header h1 { color: #333 !important; }
+.header p { color: #777 !important; }
+.filters { background: #f5f5f5 !important; border-bottom: 1px solid #e0e0e0 !important; }
+.fsel { background: #fff !important; border: 1px solid #ddd !important; color: #333 !important; }
+.fsel:focus { border-color: #4a90d9 !important; }
+.count { background: #fff !important; border: 1px solid #ddd !important; color: #777 !important; }
+.card { background: #fff !important; border: 1px solid #e0e0e0 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important; }
+.card:hover { border-color: #ccc !important; }
+.co { color: #333 !important; }
+.summary { color: #555 !important; }
+.hl { color: #777 !important; }
+.cfoot { border-top: 1px solid #e0e0e0 !important; }
+.cmeta { color: #777 !important; }
+.cmeta a { color: #4a90d9 !important; }
+.cdate { color: #999 !important; }
+.btn { border: 1px solid #ddd !important; color: #777 !important; background: #fff !important; }
+.btn:hover { color: #333 !important; border-color: #999 !important; background: #f5f5f5 !important; }
+.sect-badge { background: rgba(74,144,217,0.08) !important; color: #4a90d9 !important; border-color: rgba(74,144,217,0.25) !important; }
+.sdrop { background: #fff !important; border: 1px solid #ddd !important; box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important; }
+.sopt { color: #777 !important; }
+.sopt:hover { background: rgba(74,144,217,0.08) !important; color: #333 !important; }
+.empty { color: #777 !important; }
+.empty h3 { color: #333 !important; }
+.cpanel p { color: #777 !important; }
+.stitle { color: #777 !important; }
+.scard { background: #fff !important; border: 1px solid #e0e0e0 !important; }
+.sname { color: #333 !important; }
+.surl { color: #999 !important; }
+.smeth { background: rgba(74,144,217,0.08) !important; color: #4a90d9 !important; }
+.finp { background: #fff !important; border: 1px solid #ddd !important; color: #333 !important; }
+.finp:focus { border-color: #4a90d9 !important; }
+.logtbl th { border-bottom: 1px solid #e0e0e0 !important; color: #777 !important; }
+.logtbl td { border-bottom: 1px solid #f0f0f0 !important; color: #333 !important; }
+.toast { background: #fff !important; border: 1px solid #e0e0e0 !important; color: #333 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important; }
+.main { background: #f5f5f5 !important; }
+/* Badge adjustments for light backgrounds */
+.bt-funding_round { background: rgba(34,197,94,0.1) !important; color: #16a34a !important; }
+.bt-pe_acquisition { background: rgba(168,85,247,0.1) !important; color: #7c3aed !important; }
+.bt-leadership_change { background: rgba(234,179,8,0.1) !important; color: #a16207 !important; }
+.bt-layoffs_reorg { background: rgba(239,68,68,0.1) !important; color: #dc2626 !important; }
+.bt-product_pivot { background: rgba(20,184,166,0.1) !important; color: #0d9488 !important; }
+.bt-other { background: rgba(139,143,168,0.1) !important; color: #6b7280 !important; }
+.bc-High { background: rgba(34,197,94,0.08) !important; color: #16a34a !important; border-color: rgba(34,197,94,0.3) !important; }
+.bc-Medium { background: rgba(234,179,8,0.08) !important; color: #a16207 !important; border-color: rgba(234,179,8,0.3) !important; }
+.bc-Low { background: rgba(239,68,68,0.08) !important; color: #dc2626 !important; border-color: rgba(239,68,68,0.3) !important; }
+.bfwd { background: rgba(34,197,94,0.08) !important; color: #16a34a !important; border-color: rgba(34,197,94,0.3) !important; }
+.btn-fwd { border-color: rgba(34,197,94,0.4) !important; color: #16a34a !important; }
+.btn-fwd:hover { background: rgba(34,197,94,0.08) !important; }
+.btn-dis { border-color: rgba(239,68,68,0.3) !important; color: #dc2626 !important; }
+.btn-dis:hover { background: rgba(239,68,68,0.05) !important; }
+.etag { background: rgba(239,68,68,0.06) !important; border-color: rgba(239,68,68,0.2) !important; color: #dc2626 !important; }
+.etag button { color: #dc2626 !important; }
+.run-btn { background: #4a90d9 !important; }
+.btn-pri { background: #4a90d9 !important; }
+.spin { border-color: rgba(74,144,217,0.3) !important; border-top-color: #4a90d9 !important; }
+</style>
+</head>
+<body>
+<div class="layout">
+<div class="sidebar">
+  <div class="logo">Signal <span>Scanner</span></div>
+  <div class="nav active" id="nav-signals" onclick="show('signals')">📡 Signals</div>
+  <div class="nav" id="nav-config" onclick="show('config')">⚙️ Sources</div>
+  <div class="nav" id="nav-log" onclick="show('log')">📋 Run Log</div>
+</div>
+<div class="main">
+  <div id="view-signals">
+    <div class="header"><div><h1>Signals</h1><p id="run-sum">Loading...</p></div>
+      <button class="run-btn" id="run-btn" onclick="triggerRun()">▶ Run now</button></div>
+    <div class="filters">
+      <select class="fsel" id="f-status" onchange="loadSignals()"><option value="">All statuses</option><option value="new" selected>New</option><option value="reviewed">Reviewed</option><option value="forwarded">Forwarded</option><option value="dismissed">Dismissed</option></select>
+      <select class="fsel" id="f-type" onchange="loadSignals()"><option value="">All types</option></select>
+      <select class="fsel" id="f-sector" onchange="loadSignals()"><option value="">All sectors</option></select>
+      <select class="fsel" id="f-source" onchange="loadSignals()"><option value="">All sources</option></select>
+      <select class="fsel" id="f-geo" onchange="loadSignals()"><option value="">All geographies</option></select>
+      <span class="count" id="sig-count">0 signals</span></div>
+    <div class="list" id="sig-list"><div class="empty"><h3>Loading...</h3></div></div>
+  </div>
+  <div id="view-config" class="hidden">
+    <div class="header"><div><h1>Sources</h1><p>Manage sources and exclusions</p></div></div>
+    <div class="cpanel">
+      <div class="stitle">Add Source</div>
+      <div class="frow"><input class="finp" id="ns-name" placeholder="Source name"><input class="finp" id="ns-url" placeholder="URL — method is auto-detected"><button class="btn-pri" id="add-src-btn" onclick="addSource()">Add</button></div>
+      <div class="stitle">Active Sources</div><div id="src-list"></div>
+      <div class="stitle" style="margin-top:28px">Sector Exclusions</div>
+      <p style="font-size:13px;color:var(--dim);margin-bottom:12px">Signals in these sectors are suppressed. Click × to remove.</p>
+      <div class="etags" id="excl-tags"></div>
+      <div class="frow" style="margin-top:10px;max-width:320px"><input class="finp" id="new-excl" placeholder="Add sector"><button class="btn-pri" onclick="addExcl()">Add</button></div>
+    </div>
+  </div>
+  <div id="view-log" class="hidden">
+    <div class="header"><div><h1>Run Log</h1><p>Recent pipeline runs</p></div></div>
+    <div style="padding:24px"><table class="logtbl"><thead><tr><th>Started</th><th>Completed</th><th>Sources</th><th>Extracted</th><th>Suppressed</th><th>Written</th><th>Errors</th></tr></thead><tbody id="log-body"></tbody></table></div>
+  </div>
+</div></div>
+<div id="toasts"></div>
+<script>
+const SECTORS=['B2B SaaS','Enterprise Software','Marketplace','Fintech','HR Tech','Logistics','E-commerce','Media','Travel & Hospitality','Healthcare','Education','Retail','Real Estate','Other'];
+const TYPE_LABELS={funding_round:'Funding Round',pe_acquisition:'PE/VC Acquisition',leadership_change:'Leadership Change',layoffs_reorg:'Layoffs / Reorg',product_pivot:'Product Pivot',other:'Other'};
+let openPop=null;
+
+function show(v){['signals','config','log'].forEach(n=>{document.getElementById('view-'+n).classList.toggle('hidden',n!==v);document.getElementById('nav-'+n).classList.toggle('active',n===v);});if(v==='signals')loadSignals();if(v==='config')loadConfig();if(v==='log')loadLog();}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function loadSignals(){
+  const p=new URLSearchParams();['status','type','sector','source','geo'].forEach(f=>{const v=document.getElementById('f-'+f).value;if(v)p.set(f==='type'?'signal_type':f==='source'?'source_name':f==='geo'?'geography':f,v);});
+  const [sigs,meta,status]=await Promise.all([fetch('/api/signals?'+p).then(r=>r.json()),fetch('/api/signals/meta').then(r=>r.json()),fetch('/api/admin/status').then(r=>r.json())]);
+  document.getElementById('sig-count').textContent=sigs.length+' signal'+(sigs.length!==1?'s':'');
+  document.getElementById('sig-list').innerHTML=sigs.length?sigs.map(cardHTML).join(''):'<div class="empty"><h3>No signals</h3><p>Add sources and run the pipeline.</p></div>';
+  ['type','sector','source','geo'].forEach(f=>{const sel=document.getElementById('f-'+f);const cur=sel.value;const key=f==='type'?'signal_types':f==='source'?'sources':f==='geo'?'geographies':'sectors';sel.innerHTML=`<option value="">All ${f==='type'?'types':f+'s'}</option>`+(meta[key]||[]).map(i=>`<option value="${esc(i)}"${i===cur?' selected':''}>${esc(i)}</option>`).join('');});
+  const r=status.latest_run;document.getElementById('run-sum').textContent=r?`Last run: ${new Date(r.started_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} — ${r.signals_written} written from ${r.sources_succeeded}/${r.sources_attempted} sources`:'No runs yet';
+}
+
+function cardHTML(s){
+  const d=s.signal_date?new Date(s.signal_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+  return `<div class="card${s.status==='dismissed'?' dismissed':''}${s.status==='forwarded'?' forwarded':''}" id="card-${s.id}">
+    <div class="card-hdr"><div class="badges">
+      <span class="badge bt-${s.signal_type}">${esc(TYPE_LABELS[s.signal_type]||s.signal_type)}</span>
+      <span class="badge bc-${s.confidence}">${s.confidence}</span>
+      <span class="sect-badge" id="sb-${s.id}" onclick="togglePop(event,'${s.id}','${esc(s.sector)}')">${esc(s.sector)}<div class="sdrop hidden" id="pop-${s.id}">${SECTORS.map(sec=>`<div class="sopt" onclick="corSector(event,'${s.id}','${esc(sec)}')">${esc(sec)}</div>`).join('')}</div></span>
+      ${s.status==='forwarded'?'<span class="badge bfwd">Forwarded</span>':''}
+    </div><span class="cdate">${d}</span></div>
+    ${s.company_name?`<div class="co">${esc(s.company_name)}</div>`:''}
+    <div class="summary">${esc(s.ai_summary)}</div>
+    <div class="hl">${esc(s.headline)}</div>
+    <div class="cfoot"><div class="cmeta"><span>${esc(s.source_name||'')}</span>${s.geography?`<span>📍 ${esc(s.geography)}</span>`:''} ${s.source_url?`<a href="${esc(s.source_url)}" target="_blank" rel="noopener">View source →</a>`:''}</div>
+    <div class="cacts">
+      ${s.status!=='forwarded'&&s.status!=='dismissed'?`<button class="btn btn-fwd bsm" onclick="fwdSig('${s.id}')">Forward to Agent 2</button>`:''}
+      ${s.status!=='dismissed'?`<button class="btn btn-dis bsm" onclick="disSig('${s.id}')">Dismiss</button>`:`<button class="btn bsm" onclick="resSig('${s.id}')">Restore</button>`}
+    </div></div></div>`;
+}
+
+function togglePop(e,id){e.stopPropagation();const p=document.getElementById('pop-'+id);if(openPop&&openPop!==p)openPop.classList.add('hidden');p.classList.toggle('hidden');openPop=p.classList.contains('hidden')?null:p;}
+async function corSector(e,id,sector){e.stopPropagation();if(openPop){openPop.classList.add('hidden');openPop=null;}await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});loadSignals();}
+document.addEventListener('click',()=>{if(openPop){openPop.classList.add('hidden');openPop=null;}});
+async function disSig(id){await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'dismissed'})});loadSignals();}
+async function resSig(id){await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'new'})});loadSignals();}
+async function fwdSig(id){await fetch('/api/signals/'+id+'/forward',{method:'POST'});toast('Forwarded to Agent 2 queue');loadSignals();}
+
+async function triggerRun(){
+  const btn=document.getElementById('run-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Running...';
+  await fetch('/api/admin/run',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  toast('Run started');
+  const t=setInterval(async()=>{const s=await fetch('/api/admin/status').then(r=>r.json());if(!s.run_in_progress){clearInterval(t);btn.disabled=false;btn.innerHTML='▶ Run now';loadSignals();toast('Run complete');}},3000);
+}
+
+async function loadConfig(){
+  const [srcs,excl]=await Promise.all([fetch('/api/sources').then(r=>r.json()),fetch('/api/sources/exclusions').then(r=>r.json())]);
+  document.getElementById('src-list').innerHTML=srcs.length?srcs.map(s=>`<div class="scard"><div class="sinfo"><div class="sname">${esc(s.name)} <span class="smeth">${s.last_successful_method||s.method||'auto'}</span></div><div class="surl">${esc(s.url)}</div></div><button class="btn-del" onclick="delSrc('${s.id}')">Remove</button></div>`).join(''):'<p style="color:var(--dim);font-size:13px">No sources configured.</p>';
+  document.getElementById('excl-tags').innerHTML=excl.map(s=>`<span class="etag">${esc(s)} <button onclick="remExcl('${esc(s)}')">×</button></span>`).join('');
+}
+async function addSource(){const name=document.getElementById('ns-name').value.trim(),url=document.getElementById('ns-url').value.trim();if(!name||!url){toast('Name and URL required');return;}const btn=document.getElementById('add-src-btn');btn.disabled=true;btn.textContent='Adding...';try{const resp=await fetch('/api/sources',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,url})});if(!resp.ok){const err=await resp.text();toast('Error: '+err);return;}const r=await resp.json();document.getElementById('ns-name').value='';document.getElementById('ns-url').value='';toast('Source added — method: '+r.method_detected);loadConfig();}catch(e){toast('Failed: '+e.message);}finally{btn.disabled=false;btn.textContent='Add';}}
+async function delSrc(id){if(!confirm('Remove source?'))return;await fetch('/api/sources/'+id,{method:'DELETE'});loadConfig();}
+async function addExcl(){const v=document.getElementById('new-excl').value.trim();if(!v)return;await fetch('/api/sources/exclusions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector:v})});document.getElementById('new-excl').value='';loadConfig();}
+async function remExcl(s){await fetch('/api/sources/exclusions/'+encodeURIComponent(s),{method:'DELETE'});loadConfig();}
+
+async function loadLog(){const logs=await fetch('/api/admin/log').then(r=>r.json());document.getElementById('log-body').innerHTML=logs.length?logs.map(r=>`<tr><td>${new Date(r.started_at).toLocaleString('en-GB')}</td><td>${r.completed_at?new Date(r.completed_at).toLocaleString('en-GB'):'—'}</td><td>${r.sources_succeeded}/${r.sources_attempted}</td><td>${r.signals_extracted}</td><td>${r.signals_suppressed}</td><td>${r.signals_written}</td><td style="color:var(--red);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.errors||'0'}</td></tr>`).join(''):'<tr><td colspan="7" style="color:var(--dim)">No runs yet</td></tr>';}
+
+function toast(msg){const e=document.createElement('div');e.className='toast';e.textContent=msg;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),3000);}
+loadSignals();
+</script></body></html>

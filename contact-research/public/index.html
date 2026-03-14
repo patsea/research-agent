@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 4 — Contact Research</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+    h1 { font-size: 1.5rem; margin-bottom: 20px; }
+    h2 { font-size: 1.1rem; margin-bottom: 12px; color: #555; }
+
+    .section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #555; }
+    input, select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; margin-bottom: 12px; }
+    input:focus, select:focus { outline: none; border-color: #4a90d9; }
+
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+
+    button { padding: 8px 16px; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #4a90d9; color: #fff; }
+    .btn-primary:hover { background: #357abd; }
+    .btn-primary:disabled { background: #a0c4e8; cursor: not-allowed; }
+    .btn-confirm { background: #27ae60; color: #fff; }
+    .btn-confirm:hover { background: #219a52; }
+    .btn-dismiss { background: #95a5a6; color: #fff; }
+    .btn-dismiss:hover { background: #7f8c8d; }
+    .btn-export { background: #8e44ad; color: #fff; margin-left: 8px; }
+    .btn-export:hover { background: #7d3c98; }
+
+    .spinner { display: none; margin-left: 10px; }
+    .spinner.active { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-top: 16px; display: none; }
+    .card.visible { display: block; }
+    .card-name { font-size: 1.3rem; font-weight: 700; }
+    .card-title { font-size: 1rem; color: #666; margin-bottom: 8px; }
+    .card-company { font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; }
+    .card-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.9rem; }
+    .card-actions { margin-top: 16px; display: flex; gap: 8px; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; color: #fff; }
+    .badge-verified { background: #27ae60; }
+    .badge-probably { background: #f39c12; }
+    .badge-catchall, .badge-unverified { background: #95a5a6; }
+    .badge-notfound { background: #e74c3c; }
+    .badge-high { background: #27ae60; }
+    .badge-medium { background: #f39c12; }
+    .badge-low { background: #e74c3c; }
+
+    .status-confirmed { color: #27ae60; font-weight: 600; }
+    .status-dismissed { color: #95a5a6; font-weight: 600; }
+    .status-pending { color: #f39c12; font-weight: 600; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { text-align: left; padding: 8px; border-bottom: 2px solid #ddd; font-weight: 600; color: #555; }
+    td { padding: 8px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #fafafa; }
+
+    .filter-bar { margin-bottom: 12px; display: flex; gap: 8px; }
+    .filter-btn { padding: 4px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 0.8rem; cursor: pointer; }
+    .filter-btn.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+
+    .meta { font-size: 0.8rem; color: #888; }
+    a { color: #4a90d9; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .error { color: #e74c3c; margin-top: 8px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>Agent 4 — Contact Research</h1>
+
+  <div class="section">
+    <h2>Find Contact</h2>
+    <div class="row">
+      <div>
+        <label>Company Name</label>
+        <input type="text" id="companyName" placeholder="e.g. Verdane">
+      </div>
+      <div>
+        <label>Campaign Type</label>
+        <select id="campaignType">
+          <option value="portfolio_cpo">Portfolio CPO</option>
+          <option value="portfolio_coo">Portfolio COO</option>
+          <option value="pe_vc" selected>PE/VC Firm</option>
+          <option value="exec_search">Exec Search</option>
+          <option value="interim_provider">Interim Provider</option>
+        </select>
+      </div>
+    </div>
+    <label>LinkedIn URL (optional — skips web search if provided)</label>
+    <input type="text" id="linkedinUrl" placeholder="https://linkedin.com/in/...">
+    <label>Context (optional)</label>
+    <input type="text" id="context" placeholder="e.g. Referred by John Smith">
+    <button class="btn-primary" id="findBtn" onclick="runResearch()">Find Contact</button>
+    <span class="spinner" id="spinner">&#x21bb;</span>
+    <div class="error" id="error"></div>
+
+    <div class="card" id="contactCard">
+      <div class="card-name" id="cardName"></div>
+      <div class="card-title" id="cardTitle"></div>
+      <div class="card-company" id="cardCompany"></div>
+      <div class="card-row"><strong>Email:&nbsp;</strong><span id="cardEmail"></span>&nbsp;<span id="cardEmailBadge"></span></div>
+      <div class="card-row"><strong>LinkedIn:&nbsp;</strong><span id="cardLinkedin"></span></div>
+      <div class="card-row"><strong>Confidence:&nbsp;</strong><span id="cardConfidence"></span></div>
+      <div class="card-row meta"><strong>Source:&nbsp;</strong><span id="cardSource"></span>&nbsp;|&nbsp;<strong>Input:&nbsp;</strong><span id="cardInput"></span></div>
+      <div class="card-row meta"><strong>Campaign:&nbsp;</strong><span id="cardCampaign"></span>&nbsp;|&nbsp;<strong>Titles searched:&nbsp;</strong><span id="cardTitles"></span></div>
+      <div class="card-actions">
+        <button class="btn-confirm" id="confirmBtn" onclick="confirmContact()">Confirm &amp; Queue for Agent 5</button>
+        <button class="btn-dismiss" id="dismissBtn" onclick="dismissContact()">Dismiss</button>
+        <button class="btn-export" id="exportBtn" style="display:none" onclick="window.open('/api/closely-export')">Export to Closely CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Contact Queue</h2>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterContacts(null, this)">All</button>
+      <button class="filter-btn" onclick="filterContacts('pending', this)">Pending</button>
+      <button class="filter-btn" onclick="filterContacts('confirmed', this)">Confirmed</button>
+      <button class="filter-btn" onclick="filterContacts('dismissed', this)">Dismissed</button>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Status</th><th>Agent 5</th><th>Actions</th></tr></thead>
+      <tbody id="contactsTable"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let currentCardId = null;
+
+    async function runResearch() {
+      const companyName = document.getElementById('companyName').value.trim();
+      const campaignType = document.getElementById('campaignType').value;
+      const linkedinUrl = document.getElementById('linkedinUrl').value.trim();
+      const context = document.getElementById('context').value.trim();
+
+      if (!companyName && !linkedinUrl) { document.getElementById('error').textContent = 'Enter a company name or LinkedIn URL'; return; }
+
+      document.getElementById('error').textContent = '';
+      document.getElementById('findBtn').disabled = true;
+      document.getElementById('spinner').classList.add('active');
+      document.getElementById('contactCard').classList.remove('visible');
+
+      try {
+        const res = await fetch('/api/research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyName, campaignType, linkedinUrl: linkedinUrl || undefined, context: context || undefined })
+        });
+        const card = await res.json();
+        if (card.error) throw new Error(card.error);
+        showCard(card);
+        loadContacts();
+      } catch (e) {
+        document.getElementById('error').textContent = e.message;
+      } finally {
+        document.getElementById('findBtn').disabled = false;
+        document.getElementById('spinner').classList.remove('active');
+      }
+    }
+
+    function showCard(card) {
+      currentCardId = card.id;
+      document.getElementById('cardName').textContent = card.name || 'Unknown';
+      document.getElementById('cardTitle').textContent = card.title || 'No title found';
+      document.getElementById('cardCompany').textContent = card.company || '';
+      document.getElementById('cardEmail').textContent = card.email || 'Not found';
+      document.getElementById('cardLinkedin').innerHTML = card.linkedinUrl
+        ? `<a href="${card.linkedinUrl}" target="_blank">${card.linkedinUrl}</a>` : 'Not found';
+
+      const emailBadge = document.getElementById('cardEmailBadge');
+      const status = (card.emailStatus || 'Not found').toLowerCase().replace(/\s+/g, '');
+      const badgeMap = { verified: 'badge-verified', probablyvalid: 'badge-probably', 'catch-all': 'badge-catchall', catchall: 'badge-catchall', unverified: 'badge-unverified', notfound: 'badge-notfound' };
+      emailBadge.className = 'badge ' + (badgeMap[status] || 'badge-unverified');
+      emailBadge.textContent = card.emailStatus || 'Not found';
+
+      const confBadge = document.getElementById('cardConfidence');
+      confBadge.className = 'badge badge-' + (card.confidence || 'low').toLowerCase();
+      confBadge.textContent = card.confidence || 'Low';
+
+      document.getElementById('cardSource').textContent = card.source || '';
+      document.getElementById('cardInput').textContent = card.inputTypeUsed || '';
+      document.getElementById('cardCampaign').textContent = card.campaignType || '';
+      document.getElementById('cardTitles').textContent = card.targetTitleLogicApplied || '';
+
+      document.getElementById('exportBtn').style.display = card.closelyExportReady ? 'inline-block' : 'none';
+      document.getElementById('confirmBtn').disabled = false;
+      document.getElementById('dismissBtn').disabled = false;
+      document.getElementById('contactCard').classList.add('visible');
+    }
+
+    async function confirmContact() {
+      if (!currentCardId) return;
+      document.getElementById('confirmBtn').disabled = true;
+      await fetch(`/api/contacts/${currentCardId}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      document.getElementById('confirmBtn').textContent = 'Confirmed';
+      loadContacts();
+    }
+
+    async function dismissContact() {
+      if (!currentCardId) return;
+      document.getElementById('dismissBtn').disabled = true;
+      await fetch(`/api/contacts/${currentCardId}/dismiss`, { method: 'POST' });
+      document.getElementById('dismissBtn').textContent = 'Dismissed';
+      loadContacts();
+    }
+
+    let currentFilter = null;
+    async function loadContacts() {
+      const url = currentFilter ? `/api/contacts?status=${currentFilter}` : '/api/contacts';
+      const res = await fetch(url);
+      const list = await res.json();
+      const tbody = document.getElementById('contactsTable');
+      tbody.innerHTML = '';
+      for (const c of list) {
+        const statusClass = 'status-' + (c.status || 'pending');
+        const queued = c.status === 'confirmed' ? 'Yes' : '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${c.name || '—'}</td><td>${c.company || '—'}</td><td>${c.email || '—'}</td>
+          <td class="${statusClass}">${c.status || 'pending'}</td><td>${queued}</td>
+          <td>${c.status === 'pending' ? `<button class="btn-confirm" style="padding:2px 8px;font-size:0.8rem" onclick="quickConfirm('${c.id}')">Confirm</button>
+          <button class="btn-dismiss" style="padding:2px 8px;font-size:0.8rem" onclick="quickDismiss('${c.id}')">Dismiss</button>` : ''}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function filterContacts(status, btn) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadContacts();
+    }
+
+    async function quickConfirm(id) {
+      await fetch(`/api/contacts/${id}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      loadContacts();
+    }
+    async function quickDismiss(id) {
+      await fetch(`/api/contacts/${id}/dismiss`, { method: 'POST' });
+      loadContacts();
+    }
+
+    loadContacts();
+  </script>
+</body>
+</html>

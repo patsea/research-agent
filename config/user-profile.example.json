@@ -1,0 +1,16 @@
+{
+  "name": "Your Name",
+  "roles": [
+    {
+      "company": "Company Name (Context)",
+      "title": "Title",
+      "period": "YYYY-YYYY",
+      "highlight": "Key achievement with metrics"
+    }
+  ],
+  "education": "Degree, Institution",
+  "location": "City, Country — availability note",
+  "ai_experience": "N years building AI-native products",
+  "positioning": "One-line positioning statement",
+  "proof_point_order_rule": "Which company leads proof points, which never leads"
+}

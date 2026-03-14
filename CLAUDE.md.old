@@ -1,0 +1,152 @@
+# Track 8 — Claude Code Operational Rules
+
+> Location: ~/Dropbox/ALOMA/claude-code/track-8/
+> Last updated: 2026-03-09
+> Scope: LOCAL Node.js job search agent system ONLY
+
+---
+
+## ⛔ CRITICAL — This is NOT ALOMA
+
+Track 8 is a local Node.js application. It has NO relation to:
+- AKS / Kubernetes
+- Flux GitOps
+- CockroachDB
+- NATS
+- Azure infrastructure
+- Alertmanager / Prometheus
+
+Do NOT apply ALOMA operational rules here. Do NOT run kubectl commands. Do NOT check Flux.
+
+---
+
+## System Overview
+
+| Agent | Port | Directory | Purpose |
+|-------|------|-----------|---------|
+| Signal Scanner | 3033 | signal-scanner/ | Monitors LinkedIn/news for job signals |
+| Agent 2 — Research Hub | 3035 | agent2-research/ | Company research via web search |
+| Agent 3 — Scorer | 3038 | agent3-scorer/ | Scores companies (ELNS+H or exec search firm) |
+| Agent 4 — Contact Research | 3036 | agent4-contact-research/ | Finds right contact, FullEnrich enrichment |
+| Agent 5 — Outreach Drafter | 3037 | agent5-outreach-drafter/ | Drafts emails, saves to Gmail Drafts (never sends) |
+| Agent 6 — Email Scan | 3034 | agent6-email-scan/ | Scans Gmail for inbound replies, classifies, writes to Attio |
+| Dashboard | 3030 | dashboard/ | Health dashboard + workspace iframe view |
+
+---
+
+## Execution Rules
+
+### 1. Local only
+All agents run locally on Mac. No Docker. No cloud deployment. No port-forwarding.
+Start command: `node server.js` from the agent directory.
+Logs: `/tmp/track8-<agent-name>.log`
+
+### 2. Health endpoint
+Every agent exposes `/api/health` returning `{"status":"ok"}`.
+The dashboard polls this. claude-auto polls this. Never change the path.
+
+### 3. Models
+- Default: `claude-sonnet-4-6`
+- Classification only: `claude-haiku-4-5-20251001`
+- NEVER use `claude-opus-4-6` in automation
+
+### 4. MCP transport — stdio only
+Gmail, Attio MCPs use `StdioClientTransport`. NOT HTTP.
+Env vars: `GMAIL_MCP_COMMAND`, `GMAIL_MCP_ARGS`, `ATTIO_MCP_COMMAND`, `ATTIO_MCP_ARGS`
+MCP clients are singletons — reset to null on failure, call `closeClient()` on SIGTERM/SIGINT.
+
+### 5. Gmail — Drafts only, never send
+Agent 5 saves to Gmail Drafts. It never calls send. No exceptions.
+
+### 6. Attio — Agent 6 only
+Only Agent 6 writes to Attio. Agent 4 never writes to Attio.
+
+### 7. FullEnrich — manual only
+No MCP, no automation. Agent 4 enriches via FullEnrich REST API.
+Key location: `agent4-contact-research/.env` — `FULLENRICH_API_KEY=`
+
+### 8. arago always first
+In any outreach draft, arago proof point is always listed first. Non-negotiable.
+No em-dashes in any draft output.
+
+### 9. POSITIONING.md is live config
+`agent5-outreach-drafter/POSITIONING.md` — read on every draft. Edit via Agent 5 Positioning tab or directly.
+Never hardcode positioning content in source code.
+
+### 10. SQLite is the persistence layer
+Each agent has its own SQLite DB in `data/`. No shared DB. No external DB.
+DB files: `data/agent<N>.db` or `data/<name>.db` — check `db.js` for actual filename.
+
+---
+
+## Pipeline Flow
+
+```
+Signal Scanner (3033)
+  ↓ signals
+Agent 2 Research (3035)
+  ↓ company profile
+Agent 3 Scorer (3038)
+  ↓ score + forward
+Agent 4 Contact Research (3036)
+  ↓ confirmed contact
+Agent 5 Outreach Drafter (3037)
+  ↓ approved draft → Gmail Drafts
+Agent 6 Email Scan (3034)
+  ↓ inbound replies → Attio
+```
+
+---
+
+## Key Paths
+
+| Item | Path |
+|------|------|
+| Base directory | ~/Dropbox/ALOMA/claude-code/track-8/ |
+| POSITIONING.md | ~/Dropbox/ALOMA/claude-code/track-8/agent5-outreach-drafter/POSITIONING.md |
+| Agent 4 .env | ~/Dropbox/ALOMA/claude-code/track-8/agent4-contact-research/.env |
+| Logs | /tmp/track8-<name>.log |
+| claude-auto config | ~/.claude-auto.conf |
+
+---
+
+## Known Pitfalls
+
+- MCP stdio only — HTTP transport silently fails
+- Use `$HOME` not `~` in bash commands from Claude Code
+- No bash brace expansion in Claude Code — use explicit mkdir with full paths
+- `/tmp` is ephemeral — all persistent output to Dropbox paths
+- Health endpoint is `/api/health` not `/health` — mismatch breaks claude-auto detection
+- Agent 5 draft approved → saved to Gmail Drafts, then notifies Agent 4 (graceful fail if Agent 4 down)
+- FullEnrich requires real API key — mock mode returns placeholder data without it
+- CLAUDECODE env var blocks nested Claude Code sessions — unset when spawning subprocesses
+
+---
+
+## Instruction File Format
+
+Max 100 lines, numbered STEPs, one bash block per step with inline verification.
+Header on every file:
+```
+# Execute from: ~/Dropbox/ALOMA/claude-code/track-8/
+# Before executing, read: ~/Dropbox/ALOMA/claude-code/track-8/CLAUDE.md
+```
+
+End every file with a SUMMARY step (10-15 lines max: STEP pass/fail, key findings, errors verbatim).
+Move completed instructions to `../instructions/completed/` after execution.
+
+---
+
+## agent6 module exports — confirmed 09 Mar 2026
+
+Always check exports before writing instruction files:
+```bash
+grep -n "^export" "Track8 context/track-8/agent6-email-scan/modules/"*.js
+```
+
+Confirmed exports:
+- gmail.js: `searchMessages(query)`, `readMessage(id)`, `closeClient()`
+- classify.js: `classifyReply(subject, body)` — pass strings, NOT email object
+- attio.js: `lookupByEmail`, `updateStatus`, `setNextAction`, `appendNote`, `createTask`
+
+NOT exported (internal): `parseSearchResults`, `parseEmailContent`, `isBounce`

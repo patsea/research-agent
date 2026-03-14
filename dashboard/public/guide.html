@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Guide — Job Search Agents</title>
+  <link rel="stylesheet" href="light-mode.css">
+  <style id="light-mode-universal">
+    :root { color-scheme: light !important; }
+    body { background: #f0f2f5 !important; color: #1a1a2e !important; }
+    .layout { background: #f0f2f5 !important; }
+    .layout > nav { background: #ffffff !important; border-right: 1px solid #e8e8e8 !important; }
+    .layout > nav .logo { color: #555 !important; border-bottom: 1px solid #e8e8e8 !important; }
+    .layout > nav a { color: #666 !important; }
+    .layout > nav a:hover, .layout > nav a.active { color: #1a1a2e !important; background: #f0f2f5 !important; border-left-color: #1a1a2e !important; }
+    .layout > nav .section-label { color: #999 !important; }
+    .layout > main { background: #ffffff !important; }
+    .layout > main h1, .layout > main h2 { color: #1a1a2e !important; }
+    .layout > main h2 { border-bottom-color: #e8e8e8 !important; }
+    .layout > main h3 { color: #1a1a2e !important; }
+    .layout > main p { color: #555 !important; }
+    .layout > main .subtitle { color: #777 !important; }
+    ul, ol, li { color: #555 !important; }
+    .agent-card { background: #f8f8fa !important; border: 1px solid #e8e8e8 !important; }
+    .agent-card .name { color: #1a1a2e !important; }
+    .agent-card .port { color: #999 !important; }
+    .agent-card .desc { color: #777 !important; }
+    .step-list li .content .title { color: #1a1a2e !important; }
+    .step-list li .content .detail { color: #777 !important; }
+    .pipeline .node { background: #f8f8fa !important; border: 1px solid #e8e8e8 !important; color: #1a1a2e !important; }
+    .pipeline .arrow { color: #ccc !important; }
+    code { background: #f8f8fa !important; border: 1px solid #e8e8e8 !important; color: #1a1a2e !important; }
+    .callout { background: #f8f8fa !important; border-left: 3px solid #1a1a2e !important; color: #555 !important; }
+    .callout strong { color: #1a1a2e !important; }
+    .rule-list li { border-bottom-color: #f0f0f0 !important; color: #555 !important; }
+    .rule-list li span.label { color: #1a1a2e !important; }
+    .back-link { color: #1a1a2e !important; }
+  </style>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      line-height: 1.7;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    nav {
+      width: 220px;
+      background: #1a1d27;
+      border-right: 1px solid #2d3148;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    nav .logo {
+      padding: 0 20px 24px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #2d3148;
+      margin-bottom: 16px;
+    }
+    nav a {
+      display: block;
+      padding: 8px 20px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    nav a:hover, nav a.active {
+      color: #e2e8f0;
+      background: #252840;
+      border-left-color: #6366f1;
+    }
+    nav .section-label {
+      padding: 16px 20px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #4a5568;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    main {
+      margin-left: 220px;
+      flex: 1;
+      padding: 48px 60px;
+      max-width: 900px;
+    }
+    h1 { font-size: 28px; font-weight: 700; color: #f1f5f9; margin-bottom: 8px; }
+    .subtitle { color: #64748b; font-size: 15px; margin-bottom: 48px; }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #2d3148;
+    }
+    h3 { font-size: 14px; font-weight: 600; color: #a5b4fc; margin: 24px 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    p { color: #94a3b8; font-size: 14px; margin-bottom: 12px; }
+    ul, ol { padding-left: 20px; color: #94a3b8; font-size: 14px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; }
+    .agent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+    .agent-card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .agent-card .name { font-size: 13px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+    .agent-card .port { font-size: 11px; color: #4a5568; font-family: monospace; margin-bottom: 8px; }
+    .agent-card .desc { font-size: 13px; color: #64748b; }
+    .step-list { counter-reset: steps; list-style: none; padding: 0; }
+    .step-list li {
+      counter-increment: steps;
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      align-items: flex-start;
+    }
+    .step-list li::before {
+      content: counter(steps);
+      min-width: 28px;
+      height: 28px;
+      background: #6366f1;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-list li .content .title { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+    .step-list li .content .detail { font-size: 13px; color: #64748b; }
+    .pipeline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    .pipeline .node {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #a5b4fc;
+      white-space: nowrap;
+    }
+    .pipeline .arrow { color: #4a5568; font-size: 16px; }
+    code {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #a5b4fc;
+    }
+    .callout {
+      background: #1a1d27;
+      border-left: 3px solid #6366f1;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .callout strong { color: #e2e8f0; }
+    .rule-list { list-style: none; padding: 0; }
+    .rule-list li {
+      display: flex;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #1e2233;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .rule-list li span.label {
+      color: #6366f1;
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #6366f1;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+    .back-link:hover { color: #818cf8; }
+    section { scroll-margin-top: 24px; }
+  </style>
+</head>
+<body>
+<style id="guide-nav-style">
+  #guide-top-nav {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 32px !important;
+    height: 60px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e8e8e8 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 300 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+    width: 100% !important;
+  }
+  #guide-top-nav .nav-title {
+    font-size: 20px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.02em;
+  }
+  #guide-top-nav .nav-links {
+    display: flex; gap: 4px; align-items: center;
+  }
+  #guide-top-nav .nav-links a {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 16px;
+    font-size: 15px; font-weight: 500; color: #555; background: transparent;
+    border: none; border-radius: 8px; text-decoration: none; transition: background 0.15s;
+  }
+  #guide-top-nav .nav-links a:hover {
+    background: #f0f2f5; color: #1a1a2e;
+  }
+  #guide-top-nav .nav-links a.active {
+    background: #1a1a2e; color: #ffffff; font-weight: 600;
+  }
+  /* Fix guide sidebar to sit below top nav */
+  .layout > nav {
+    top: 60px !important;
+    height: calc(100vh - 60px) !important;
+    background: #ffffff !important;
+    border-right: 1px solid #e8e8e8 !important;
+  }
+  .layout > nav .logo {
+    color: #555 !important;
+    border-bottom: 1px solid #e8e8e8 !important;
+  }
+  .layout > nav a {
+    color: #666 !important;
+    border-left: 2px solid transparent !important;
+  }
+  .layout > nav a:hover, .layout > nav a.active {
+    color: #1a1a2e !important;
+    background: #f0f2f5 !important;
+    border-left-color: #1a1a2e !important;
+  }
+  .layout > nav .section-label {
+    color: #999 !important;
+  }
+  .layout > main {
+    background: #ffffff !important;
+  }
+  body {
+    background: #f0f2f5 !important;
+    color: #1a1a2e !important;
+  }
+</style>
+<nav id="guide-top-nav">
+  <span class="nav-title">Job Search Agents</span>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/?tab=workspace">Workspace</a>
+    <a href="/guide.html" class="active">Guide</a>
+    <a href="/?tab=activity">Activity</a>
+  </div>
+</nav>
+<div class="layout">
+
+  <nav>
+    <div class="logo">Job Search Agents</div>
+    <a href="index.html">&larr; Dashboard</a>
+    <div class="section-label">Guide</div>
+    <a href="#overview" class="active">Overview</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#agents">The Agents</a>
+    <a href="#workflow">Step-by-Step</a>
+    <a href="#positioning">Positioning</a>
+    <a href="#rules">Rules</a>
+    <a href="#tips">Tips</a>
+  </nav>
+
+  <main>
+    
+    <h1>User Guide</h1>
+    <p class="subtitle">How to use the Job Search Agent system to find, research, score, and outreach to executive opportunities.</p>
+
+    <section id="overview">
+      <h2>What This System Does</h2>
+      <p>This is a local AI agent pipeline that automates the research and outreach process for executive job opportunities. It monitors signals (job postings, portfolio moves, fund raises), researches companies and contacts, scores opportunities, finds contact details, drafts personalised outreach emails, and manages the Gmail draft queue.</p>
+      <p>All agents run locally on your Mac. No data leaves your machine except for API calls to Anthropic (Claude), FullEnrich, and Perplexity. All email output goes to Gmail Drafts — nothing is ever sent automatically.</p>
+      <div class="callout">
+        <strong>Key principle:</strong> The system surfaces opportunities and drafts outreach. You review and send every email. The agents do the research and writing; you make every decision.
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>The Pipeline</h2>
+      <p>Signals flow through 6 agents in sequence. Each agent has a specific job and hands off to the next.</p>
+      <div class="pipeline">
+        <div class="node">Signal Scanner<br><small style="color:#4a5568">port 3033</small></div>
+        <div class="arrow">&rarr;</div>
+        <div class="node">Research Hub<br><small style="color:#4a5568">port 3035</small></div>
+        <div class="arrow">&rarr;</div>
+        <div class="node">Scorer<br><small style="color:#4a5568">port 3038</small></div>
+        <div class="arrow">&rarr;</div>
+        <div class="node">Contact Research<br><small style="color:#4a5568">port 3036</small></div>
+        <div class="arrow">&rarr;</div>
+        <div class="node">Outreach Drafter<br><small style="color:#4a5568">port 3037</small></div>
+        <div class="arrow">&rarr;</div>
+        <div class="node">Email Scan<br><small style="color:#4a5568">port 3034</small></div>
+      </div>
+      <p>You can also enter the pipeline at any stage manually — for example, if you already have a contact name and company, you can skip straight to Agent 4 or Agent 5.</p>
+    </section>
+
+    <section id="agents">
+      <h2>The Agents</h2>
+      <div class="agent-grid">
+        <div class="agent-card">
+          <div class="name">Signal Scanner</div>
+          <div class="port">localhost:3033</div>
+          <div class="desc">Monitors job boards, fund websites, LinkedIn, and news for CPO/COO/Operating Partner signals. Produces a scored list of opportunities. Runs on a configurable schedule.</div>
+        </div>
+        <div class="agent-card">
+          <div class="name">Research Hub</div>
+          <div class="port">localhost:3035</div>
+          <div class="desc">Deep research on a company or fund. Uses Perplexity and Claude to generate a brief on the company, investment thesis, portfolio, and likely fit. Also runs interview prep and ELNS (portfolio company assessment).</div>
+        </div>
+        <div class="agent-card">
+          <div class="name">Scorer</div>
+          <div class="port">localhost:3038</div>
+          <div class="desc">Takes a company or opportunity and scores it against your target profile: fund stage, geography, sector, role type, and investment thesis alignment. Returns a 0–100 score with reasoning.</div>
+        </div>
+        <div class="agent-card">
+          <div class="name">Contact Research</div>
+          <div class="port">localhost:3036</div>
+          <div class="desc">Given a company or fund name, finds the right contact — Operating Partner, Talent Partner, or Managing Partner — and enriches their email via FullEnrich. Returns verified contact details ready for outreach.</div>
+        </div>
+        <div class="agent-card">
+          <div class="name">Outreach Drafter</div>
+          <div class="port">localhost:3037</div>
+          <div class="desc">The core drafting agent. Takes a contact, company, campaign type, and optional research context, and generates a personalised outreach email using your POSITIONING.md as the source of truth. Supports rewrite buttons and full regeneration.</div>
+        </div>
+        <div class="agent-card">
+          <div class="name">Email Scan</div>
+          <div class="port">localhost:3034</div>
+          <div class="desc">Scans your Gmail inbox for replies, OOO messages, bounces, and new opportunities. Creates Attio tasks for follow-ups. Can also detect inbound signals from contacts who have opened or replied to outreach.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow">
+      <h2>Step-by-Step Workflow</h2>
+
+      <h3>A. Full Pipeline Run (new opportunity)</h3>
+      <ol class="step-list">
+        <li>
+          <div class="content">
+            <div class="title">Open the Dashboard at localhost:3030</div>
+            <div class="detail">All agents should show green dots in the sidebar. If any are red, they are not running — start them from the terminal.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Run Signal Scanner to find new opportunities</div>
+            <div class="detail">Go to Signal Scanner (localhost:3033). Set your lookback window (e.g. 72 hours) and run a scan. The scanner returns a list of signals — fund raises, new portfolio additions, job postings, and executive moves that match your profile.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Score the opportunity</div>
+            <div class="detail">Take an interesting signal to the Scorer (localhost:3038). Paste the company name and any context. The scorer returns a 0–100 fit score against your target profile. Focus on scores above 65.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Research the company or fund</div>
+            <div class="detail">For high-scoring opportunities, go to Research Hub (localhost:3035). Enter the company or fund name. The agent generates a deep brief including investment thesis, portfolio companies, recent news, and fit assessment. Save the JSON output — you will paste it into the Outreach Drafter as context.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Find the right contact</div>
+            <div class="detail">Go to Contact Research (localhost:3036). Enter the company name and your preferred contact type (Talent Partner, Operating Partner, or Managing Partner). The agent searches for the right person and verifies their email via FullEnrich. Copy the contact details.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Draft the outreach email</div>
+            <div class="detail">Go to Outreach Drafter (localhost:3037). Fill in Name, Email, Title, Company, Campaign Type, and paste the research JSON into the Research Context field. Click Generate Draft. Review the subject and body. Use the Rewrite buttons to adjust tone, proof points, or the ask. When satisfied, click Save Draft.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Review and send from Gmail</div>
+            <div class="detail">Open Gmail Drafts. Every draft created by the system appears here for your review. Read it fresh, make any final edits, and send. Never send without reading it yourself.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Log the contact in Attio</div>
+            <div class="detail">Email Scan (localhost:3034) will detect the sent email and create an Attio record or update the existing one. Set the next follow-up date in Attio at the time of sending.</div>
+          </div>
+        </li>
+      </ol>
+
+      <h3>B. Direct Outreach (you already have a contact)</h3>
+      <ol class="step-list">
+        <li>
+          <div class="content">
+            <div class="title">Go straight to Outreach Drafter</div>
+            <div class="detail">If you already know who you are emailing and have done your own research, skip straight to Agent 5 (localhost:3037). Fill in the contact details and optionally add context in the research field.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Generate, review, save</div>
+            <div class="detail">Generate the draft, review carefully, save to Gmail Drafts, then send from Gmail.</div>
+          </div>
+        </li>
+      </ol>
+
+      <h3>C. Managing Replies</h3>
+      <ol class="step-list">
+        <li>
+          <div class="content">
+            <div class="title">Run Email Scan daily</div>
+            <div class="detail">Go to Email Scan (localhost:3034) and run a scan with your preferred lookback (24 or 48 hours). The agent reads your inbox and surfaces replies, OOO messages, and bounces.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Review Attio tasks created</div>
+            <div class="detail">For each meaningful reply, Email Scan creates an Attio task with the suggested next action and a due date. Check Attio each morning and work through the task list.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Draft follow-up replies</div>
+            <div class="detail">Use Outreach Drafter for follow-up replies as well as cold outreach. Paste the prior email thread into the Research Context field to give the agent the full conversation history.</div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="positioning">
+      <h2>POSITIONING.md — The Source of Truth</h2>
+      <p>Every draft Agent 5 generates is grounded in <code>POSITIONING.md</code>. This file contains your proof points, tone rules, fund-specific angles, what to avoid, and your call to action preference.</p>
+      <p>The file lives at: <code>Track8 context/track-8/agent5-outreach-drafter/POSITIONING.md</code></p>
+      <div class="callout">
+        <strong>If a draft is off-brand or missing key context</strong>, the fix is almost always in POSITIONING.md — not in the prompt. Update the file and regenerate.
+      </div>
+      <h3>Key sections in POSITIONING.md</h3>
+      <ul>
+        <li><strong>Proof Points</strong> — arago must always appear first. Metrics must be exact.</li>
+        <li><strong>Tone Guidance</strong> — no em-dashes, peer-to-peer register, never open with "I am reaching out to"</li>
+        <li><strong>Fund-Specific Angles</strong> — tailored angle per fund (Montagu, Verdane, Creandum, Faraday, Almato)</li>
+        <li><strong>What Not to Include</strong> — salary expectations, ALOMA revenue, technical stack names</li>
+        <li><strong>Call to Action</strong> — always "30-minute call to explore fit"</li>
+      </ul>
+      <p>You can also edit POSITIONING.md via the Positioning tab in the Outreach Drafter UI at localhost:3037.</p>
+    </section>
+
+    <section id="rules">
+      <h2>Absolute Rules</h2>
+      <ul class="rule-list">
+        <li><span class="label">Drafts only</span>All email output goes to Gmail Drafts. Nothing is ever sent automatically. You send every email.</li>
+        <li><span class="label">arago first</span>arago always appears before ALOMA in any proof point list. Never swap the order.</li>
+        <li><span class="label">No em-dashes</span>No em-dashes anywhere in outreach copy. Use commas or full stops instead.</li>
+        <li><span class="label">Under 150 words</span>Cold outreach must be under 150 words. Warm contacts can go to 250.</li>
+        <li><span class="label">Attio only</span>Only Agent 6 (Email Scan) writes to Attio. No other agent modifies CRM records.</li>
+        <li><span class="label">Haiku only</span>Classification tasks use claude-haiku-4-5. Never use claude-opus-4-6 in automation — too slow and expensive.</li>
+        <li><span class="label">No salary</span>Never include salary expectations or relocation availability in outreach unless explicitly asked.</li>
+      </ul>
+    </section>
+
+    <section id="tips">
+      <h2>Tips and Gotchas</h2>
+      <ul>
+        <li>If <code>positioningLoaded: false</code> appears in a health check, POSITIONING.md is missing or the path in <code>.env</code> is wrong. Check the file exists at the correct path and restart Agent 5.</li>
+        <li>Research context passed to Agent 5 as JSON significantly improves draft quality. Always run Agent 2 first for warm contacts.</li>
+        <li>The Scorer is most useful for comparing multiple opportunities. Don't use it as a hard filter — a score of 55 with a strong personal connection beats a score of 80 with no warm intro.</li>
+        <li>FullEnrich has a monthly credit limit. Use Contact Research only when you have a strong candidate — don't enrich everyone in a list speculatively.</li>
+        <li>Email Scan should be run before each outreach session, not just reactively. Replies that sit unread for more than 48 hours lose momentum.</li>
+        <li>If an agent shows a red dot in the dashboard sidebar, check its log: <code>cat /tmp/track8-agent[N].log</code></li>
+        <li>All agents restart cleanly with: <code>claude-auto launch</code> from the terminal. This is always the fastest way to get back to a known good state.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Highlight active nav link based on scroll position
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav a[href^="#"]');
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + entry.target.id) {
+            link.classList.add('active');
+          }
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+  
+  sections.forEach(s => observer.observe(s));
+</script>
+<script id="force-light-mode">
+(function() {
+  document.documentElement.style.colorScheme = 'light';
+  document.body.style.colorScheme = 'light';
+  const darkBgs = ['#0f1117','#1a1d27','#12141c','#252837','#1e2235','#2d3148','rgb(15, 17, 23)','rgb(26, 29, 39)','rgb(18, 20, 28)'];
+  function cleanNode(el) {
+    if (!el || !el.style) return;
+    const bg = el.style.backgroundColor || el.style.background;
+    if (bg && darkBgs.some(d => bg.includes(d))) {
+      el.style.backgroundColor = '';
+      el.style.background = '';
+    }
+    const color = el.style.color;
+    if (color && (color.includes('#e2e8f0') || color.includes('#f1f5f9') || color.includes('#94a3b8') || color.includes('#cbd5e1'))) {
+      el.style.color = '';
+    }
+  }
+  const observer2 = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if (n.nodeType === 1) {
+          cleanNode(n);
+          if (n.querySelectorAll) n.querySelectorAll('*').forEach(cleanNode);
+        }
+      });
+    });
+  });
+  observer2.observe(document.body, { childList: true, subtree: true });
+  document.querySelectorAll('*').forEach(cleanNode);
+})();
+</script>
+</body>
+</html>

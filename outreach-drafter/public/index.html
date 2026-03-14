@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 5 — Outreach Drafter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+    .tabs { display: flex; background: #fff; border-bottom: 2px solid #e0e0e0; padding: 0 20px; }
+    .tab { padding: 12px 20px; cursor: pointer; font-weight: 600; font-size: 0.95rem; border-bottom: 2px solid transparent; margin-bottom: -2px; color: #888; }
+    .tab.active { color: #4a90d9; border-bottom-color: #4a90d9; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .split { display: flex; min-height: calc(100vh - 200px); }
+    .panel { flex: 1; padding: 20px; overflow-y: auto; }
+    .panel-left { border-right: 1px solid #ddd; background: #fff; }
+    .panel-right { background: #fafafa; }
+
+    h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; color: #555; }
+    h3 { font-size: 0.9rem; margin: 12px 0 6px; color: #666; }
+
+    label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 3px; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; margin-bottom: 10px; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4a90d9; }
+    textarea { resize: vertical; }
+    .mono { font-family: 'SF Mono', Monaco, monospace; font-size: 0.85rem; }
+
+    button { padding: 8px 14px; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #4a90d9; color: #fff; }
+    .btn-primary:hover { background: #357abd; }
+    .btn-primary:disabled { background: #a0c4e8; cursor: not-allowed; }
+    .btn-approve { background: #27ae60; color: #fff; padding: 10px 20px; font-size: 0.95rem; }
+    .btn-approve:hover { background: #219a52; }
+    .btn-dismiss { background: #95a5a6; color: #fff; }
+    .btn-dismiss:hover { background: #7f8c8d; }
+    .btn-regen { background: #8e44ad; color: #fff; font-size: 0.8rem; padding: 4px 10px; }
+    .btn-regen:hover { background: #7d3c98; }
+    .btn-save { background: #27ae60; color: #fff; }
+    .btn-save:hover { background: #219a52; }
+    .btn-reload { background: #e67e22; color: #fff; }
+
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+
+    .word-count { font-size: 0.85rem; margin-bottom: 8px; }
+    .word-count.over { color: #e74c3c; font-weight: 600; }
+    .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 8px 12px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 10px; }
+    .error { color: #e74c3c; font-size: 0.85rem; margin-top: 4px; }
+    .success { color: #27ae60; font-size: 0.85rem; margin-top: 4px; }
+    .toast { position: fixed; top: 20px; right: 20px; background: #27ae60; color: #fff; padding: 12px 20px; border-radius: 6px; font-weight: 600; display: none; z-index: 999; }
+
+    .spinner { display: none; }
+    .spinner.active { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .context-block { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+    .context-block.empty { display: none; }
+    .context-label { font-size: 0.75rem; font-weight: 600; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+    .context-value { font-size: 0.9rem; }
+
+    .bottom-strip { background: #fff; border-top: 1px solid #ddd; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #ddd; font-weight: 600; color: #555; }
+    td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+    tr:hover { background: #fafafa; }
+    .filter-bar { margin-bottom: 10px; display: flex; gap: 6px; }
+    .filter-btn { padding: 3px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 0.78rem; cursor: pointer; }
+    .filter-btn.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+
+    .status-draft { color: #f39c12; }
+    .status-approved { color: #27ae60; }
+    .status-dismissed { color: #95a5a6; }
+    .char-count { font-size: 0.8rem; color: #888; margin-top: -6px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('draft')">Draft</div>
+    <div class="tab" onclick="switchTab('positioning')">Positioning</div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <!-- DRAFT TAB -->
+  <div class="tab-content active" id="tab-draft">
+    <div class="split">
+      <div class="panel panel-left">
+        <h1>Outreach Drafter</h1>
+
+        <div class="row">
+          <div><label>Name</label><input id="cName" placeholder="Tim Wiklund"></div>
+          <div><label>Email</label><input id="cEmail" placeholder="tim@verdane.com"></div>
+        </div>
+        <div class="row">
+          <div><label>Title</label><input id="cTitle" placeholder="Partner"></div>
+          <div><label>Company</label><input id="cCompany" placeholder="Verdane"></div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Campaign Type</label>
+            <select id="cCampaign">
+              <option value="portfolio_cpo">Portfolio CPO</option>
+              <option value="portfolio_coo">Portfolio COO</option>
+              <option value="pe_vc" selected>PE/VC Firm</option>
+              <option value="exec_search">Exec Search</option>
+              <option value="interim_provider">Interim Provider</option>
+            </select>
+          </div>
+          <div>
+            <label>Template</label>
+            <select id="templateSelect"><option value="default">default</option></select>
+          </div>
+        </div>
+
+        <label>Research context (optional JSON or text)</label>
+        <textarea id="researchInput" rows="3" placeholder='{"companyDescription": "...", "signal": "...", "keyFacts": "..."}'></textarea>
+
+        <button class="btn-primary" id="generateBtn" onclick="generateDraft()">Generate Draft</button>
+        <span class="spinner" id="genSpinner">&#x21bb;</span>
+        <div class="error" id="genError"></div>
+
+        <div id="draftSection" style="display:none; margin-top: 16px;">
+          <label>Subject</label>
+          <input id="draftSubject">
+          <label>Body</label>
+          <textarea id="draftBody" rows="12"></textarea>
+          <div class="word-count" id="wordCount"></div>
+          <div id="warningBanner" class="warning" style="display:none"></div>
+
+          <div style="display:flex; gap:6px; margin-bottom:12px;">
+            <button class="btn-regen" onclick="regenSection('opening')">Rewrite opening</button>
+            <button class="btn-regen" onclick="regenSection('proofpoints')">Rewrite proof points</button>
+            <button class="btn-regen" onclick="regenSection('ask')">Rewrite ask</button>
+            <button class="btn-primary" onclick="generateDraft()" style="font-size:0.8rem;padding:4px 10px;">Regenerate full</button>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <button class="btn-approve" id="approveBtn" onclick="approveDraft()">Approve and save to Gmail</button>
+            <button class="btn-dismiss" onclick="dismissDraft()">Dismiss</button>
+          </div>
+          <div class="success" id="approveMsg"></div>
+        </div>
+      </div>
+
+      <div class="panel panel-right">
+        <h2>Research Context</h2>
+        <div id="researchDisplay">
+          <p style="color:#888; font-size:0.85rem;">Enter research context on the left or load from Agent 4 queue.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-strip">
+      <h2>Drafts</h2>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterDrafts(null, this)">All</button>
+        <button class="filter-btn" onclick="filterDrafts('draft', this)">Draft</button>
+        <button class="filter-btn" onclick="filterDrafts('approved', this)">Approved</button>
+        <button class="filter-btn" onclick="filterDrafts('dismissed', this)">Dismissed</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Company</th><th>Subject</th><th>Words</th><th>Status</th><th>Approved</th><th>Gmail</th></tr></thead>
+        <tbody id="draftsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- POSITIONING TAB -->
+  <div class="tab-content" id="tab-positioning">
+    <div style="max-width:900px; margin:20px auto; padding:20px;">
+      <h1>Positioning Document</h1>
+      <textarea id="positioningEditor" class="mono" rows="30" style="min-height:400px;"></textarea>
+      <div class="char-count" id="posCharCount"></div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-save" onclick="savePositioning()">Save</button>
+        <button class="btn-reload" onclick="loadPositioning()">Reload from disk</button>
+      </div>
+      <div class="success" id="posSaveMsg"></div>
+      <p style="color:#888; font-size:0.8rem; margin-top:8px;">This document is loaded fresh for every draft. Save changes before generating.</p>
+    </div>
+  </div>
+
+  <script>
+    let currentDraftId = null;
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab-content#tab-${tab}`).classList.add('active');
+      document.querySelectorAll('.tab')[tab === 'draft' ? 0 : 1].classList.add('active');
+      if (tab === 'positioning') loadPositioning();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 2500);
+    }
+
+    async function generateDraft() {
+      const contact = {
+        name: document.getElementById('cName').value.trim(),
+        email: document.getElementById('cEmail').value.trim(),
+        title: document.getElementById('cTitle').value.trim(),
+        company: document.getElementById('cCompany').value.trim(),
+        campaignType: document.getElementById('cCampaign').value
+      };
+      if (!contact.name && !contact.company) { document.getElementById('genError').textContent = 'Name or company required'; return; }
+
+      let research = null;
+      const researchText = document.getElementById('researchInput').value.trim();
+      if (researchText) {
+        try { research = JSON.parse(researchText); } catch { research = { companyDescription: researchText }; }
+      }
+
+      const templateName = document.getElementById('templateSelect').value;
+      document.getElementById('genError').textContent = '';
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('genSpinner').classList.add('active');
+
+      try {
+        const res = await fetch('/api/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contact, research, templateName })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        currentDraftId = data.id;
+        document.getElementById('draftSubject').value = data.subject;
+        document.getElementById('draftBody').value = data.body;
+        updateWordCount(data.wordCount);
+        showWarnings(data.warnings);
+        document.getElementById('draftSection').style.display = 'block';
+        document.getElementById('approveBtn').disabled = false;
+        document.getElementById('approveMsg').textContent = '';
+
+        if (research) renderResearch(research);
+        loadDrafts();
+      } catch (e) {
+        document.getElementById('genError').textContent = e.message;
+      } finally {
+        document.getElementById('generateBtn').disabled = false;
+        document.getElementById('genSpinner').classList.remove('active');
+      }
+    }
+
+    function updateWordCount(count) {
+      const el = document.getElementById('wordCount');
+      el.textContent = `${count} words`;
+      el.className = count > 200 ? 'word-count over' : 'word-count';
+    }
+
+    function showWarnings(warnings) {
+      const el = document.getElementById('warningBanner');
+      if (warnings && warnings.length > 0) {
+        el.textContent = warnings.join(' | ');
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    function renderResearch(r) {
+      const el = document.getElementById('researchDisplay');
+      const blocks = [
+        { label: 'Company', value: r.companyDescription },
+        { label: 'Signal', value: r.signal },
+        { label: 'Scoring', value: r.scoringRationale },
+        { label: 'Key Facts', value: r.keyFacts },
+        { label: 'Interview Prep', value: r.interviewPrepSummary }
+      ].filter(b => b.value);
+      el.innerHTML = blocks.map(b =>
+        `<div class="context-block"><div class="context-label">${b.label}</div><div class="context-value">${b.value}</div></div>`
+      ).join('') || '<p style="color:#888;font-size:0.85rem;">No research context provided.</p>';
+    }
+
+    async function regenSection(section) {
+      if (!currentDraftId) return;
+      try {
+        const res = await fetch('/api/draft/regenerate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ draftId: currentDraftId, section })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        document.getElementById('draftBody').value = data.body;
+        updateWordCount(data.wordCount);
+      } catch (e) {
+        document.getElementById('genError').textContent = e.message;
+      }
+    }
+
+    async function approveDraft() {
+      if (!currentDraftId) return;
+      document.getElementById('approveBtn').disabled = true;
+      try {
+        const res = await fetch(`/api/draft/${currentDraftId}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        document.getElementById('approveMsg').textContent = data.savedToGmail ? 'Saved to Gmail Drafts' : 'Approved (Gmail save failed)';
+        showToast('Draft approved and saved to Gmail');
+        loadDrafts();
+      } catch (e) {
+        document.getElementById('approveMsg').textContent = e.message;
+        document.getElementById('approveMsg').style.color = '#e74c3c';
+      }
+    }
+
+    async function dismissDraft() {
+      if (!currentDraftId) return;
+      await fetch(`/api/draft/${currentDraftId}/dismiss`, { method: 'POST' });
+      document.getElementById('draftSection').style.display = 'none';
+      loadDrafts();
+    }
+
+    let draftFilter = null;
+    async function loadDrafts() {
+      const url = draftFilter ? `/api/drafts?status=${draftFilter}` : '/api/drafts';
+      const res = await fetch(url);
+      const list = await res.json();
+      const tbody = document.getElementById('draftsTable');
+      tbody.innerHTML = '';
+      for (const d of list) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${d.contact_name || ''}</td><td>${d.company || ''}</td><td>${d.subject || ''}</td>
+          <td>${d.word_count || ''}</td><td class="status-${d.status}">${d.status}</td>
+          <td>${d.approved_at || ''}</td><td>${d.status === 'approved' ? 'Yes' : ''}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function filterDrafts(status, btn) {
+      draftFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadDrafts();
+    }
+
+    async function loadPositioning() {
+      const res = await fetch('/api/positioning');
+      const data = await res.json();
+      document.getElementById('positioningEditor').value = data.content || '';
+      updatePosCharCount();
+    }
+
+    async function savePositioning() {
+      const content = document.getElementById('positioningEditor').value;
+      await fetch('/api/positioning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      const msg = document.getElementById('posSaveMsg');
+      msg.textContent = 'Saved';
+      setTimeout(() => msg.textContent = '', 2000);
+    }
+
+    function updatePosCharCount() {
+      const v = document.getElementById('positioningEditor').value;
+      document.getElementById('posCharCount').textContent = `${v.length} characters`;
+    }
+    document.getElementById('positioningEditor')?.addEventListener('input', updatePosCharCount);
+
+    // Live word count on body edit
+    document.getElementById('draftBody')?.addEventListener('input', function() {
+      const words = this.value.split(/\s+/).filter(w => w.length > 0).length;
+      updateWordCount(words);
+    });
+
+    // Load templates
+    async function loadTemplates() {
+      const res = await fetch('/api/templates');
+      const list = await res.json();
+      const sel = document.getElementById('templateSelect');
+      sel.innerHTML = '';
+      for (const t of list) {
+        const opt = document.createElement('option');
+        opt.value = t.name; opt.textContent = t.name;
+        sel.appendChild(opt);
+      }
+    }
+
+    loadTemplates();
+    loadDrafts();
+  </script>
+</body>
+</html>

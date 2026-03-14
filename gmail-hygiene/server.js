@@ -1,0 +1,118 @@
+import 'dotenv/config';
+import express from 'express';
+import { scanInbox } from './modules/scanner.js';
+import { attemptUnsubscribe, extractUnsubUrl } from './modules/unsubscriber.js';
+import { callGmail } from './modules/gmail.js';
+import { getDb } from './db.js';
+import { logActivity } from '../shared/activityLogger.js';
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3039;
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'agent7-gmail-hygiene', port: PORT });
+});
+
+app.post('/api/scan', async (req, res) => {
+  const { daysBack = 7 } = req.body;
+  try {
+    const result = await scanInbox(daysBack);
+    logActivity({ agent: 'agent7', action: 'scan_complete', result: 'success',
+      detail: `new=${result.newSenders}, known=${result.knownSenders}` });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    logActivity({ agent: 'agent7', action: 'scan_complete', result: 'error', detail: err.message });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/senders', (req, res) => {
+  const db = getDb();
+  const { status, label } = req.query;
+  let query = 'SELECT * FROM senders WHERE 1=1';
+  const params = [];
+  if (status) { query += ' AND status = ?'; params.push(status); }
+  if (label) { query += ' AND label_name = ?'; params.push(label); }
+  query += ' ORDER BY last_seen DESC LIMIT 200';
+  res.json(db.prepare(query).all(...params));
+});
+
+app.post('/api/senders/:id/unsubscribe', async (req, res) => {
+  const db = getDb();
+  const sender = db.prepare('SELECT * FROM senders WHERE id = ?').get(req.params.id);
+  if (!sender) return res.status(404).json({ error: 'Sender not found' });
+  try {
+    const url = sender.unsub_url || (await extractUnsubUrl(sender.email_address))?.url;
+    if (!url) {
+      return res.json({ success: false, result: 'no_url', detail: 'No unsubscribe URL found' });
+    }
+    const outcome = await attemptUnsubscribe(url);
+    const now = new Date().toISOString();
+    db.prepare('UPDATE senders SET unsub_url = ?, unsub_result = ?, updated_at = ? WHERE id = ?')
+      .run(url, outcome.result, now, sender.id);
+    if (outcome.result === 'success') {
+      db.prepare("UPDATE senders SET status = 'unsubscribed', updated_at = ? WHERE id = ?")
+        .run(now, sender.id);
+    }
+    db.prepare('INSERT INTO actions (sender_id, action_type, detail, result) VALUES (?, ?, ?, ?)')
+      .run(sender.id, 'unsubscribe', outcome.detail, outcome.result);
+    logActivity({ agent: 'agent7', action: 'unsubscribe', company: sender.domain, result: outcome.result, detail: outcome.detail });
+    res.json({ success: true, ...outcome });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/senders/:id/block', async (req, res) => {
+  const db = getDb();
+  const sender = db.prepare('SELECT * FROM senders WHERE id = ?').get(req.params.id);
+  if (!sender) return res.status(404).json({ error: 'Sender not found' });
+  try {
+    await callGmail('modify_email', {
+      query: `from:${sender.email_address}`,
+      add_labels: ['SPAM'],
+      remove_labels: ['INBOX']
+    });
+    const now = new Date().toISOString();
+    db.prepare("UPDATE senders SET status = 'blocked', updated_at = ? WHERE id = ?")
+      .run(now, sender.id);
+    db.prepare('INSERT INTO actions (sender_id, action_type, detail, result) VALUES (?, ?, ?, ?)')
+      .run(sender.id, 'block', `Marked SPAM: ${sender.email_address}`, 'success');
+    logActivity({ agent: 'agent7', action: 'block', company: sender.domain, result: 'success' });
+    res.json({ success: true, detail: `${sender.email_address} marked as SPAM` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/senders/:id/keep', (req, res) => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  db.prepare("UPDATE senders SET status = 'kept', updated_at = ? WHERE id = ?")
+    .run(now, req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/senders/:id/classify', (req, res) => {
+  const db = getDb();
+  const { label_name } = req.body;
+  if (!label_name) return res.status(400).json({ error: 'label_name required' });
+  const now = new Date().toISOString();
+  db.prepare('UPDATE senders SET label_name = ?, updated_at = ? WHERE id = ?')
+    .run(label_name, now, req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/digest', (req, res) => {
+  const db = getDb();
+  const senders = db.prepare("SELECT status, COUNT(*) as count FROM senders GROUP BY status").all();
+  const actions = db.prepare("SELECT action_type, result, COUNT(*) as count FROM actions GROUP BY action_type, result").all();
+  res.json({ senders, actions, generated: new Date().toISOString() });
+});
+
+process.on('SIGTERM', () => { process.exit(0); });
+process.on('SIGINT', () => { process.exit(0); });
+
+app.listen(PORT, () => console.log(`Agent 7 Gmail Hygiene running on port ${PORT}`));

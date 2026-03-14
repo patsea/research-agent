@@ -1,0 +1,30 @@
+{
+  "company": {
+    "name": "ELNS+H Default",
+    "dimensions": [
+      { "id": "E", "name": "Early growth signal", "weight": 0.20, "prompt": "Has this company recently raised funding, been acquired by PE, shown rapid headcount growth, or announced geographic expansion?" },
+      { "id": "L", "name": "Leadership gap", "weight": 0.25, "prompt": "Is the CPO or COO role vacant, recently departed, or held by a founder with no product background?" },
+      { "id": "N", "name": "No product discipline", "weight": 0.20, "prompt": "Is there evidence of an engineering-led product culture, absence of a product function, or customer complaints about product direction?" },
+      { "id": "S", "name": "Scale pressure", "weight": 0.20, "prompt": "Is there investor timeline pressure, churn risk, or competitive threat requiring a product transformation?" },
+      { "id": "H", "name": "Hiring history signal", "weight": 0.15, "prompt": "Manual input from LinkedIn check - has this company attempted to fill a senior product role in the last 12 months?" }
+    ],
+    "thresholds": { "hot": 0.65, "warm": 0.40 },
+    "manual_dimension": "H"
+  },
+  "firm": {
+    "name": "Exec Search Firm Default",
+    "dimensions": [
+      { "id": "T", "name": "Tech specialisation", "weight": 0.40, "prompt": "Does this firm specialise in technology leadership placement?" },
+      { "id": "M", "name": "Market fit", "weight": 0.25, "prompt": "Is this firm active in relevant European markets?" },
+      { "id": "N", "name": "Network signal", "weight": 0.20, "prompt": "Manual input - is this firm known to you, is there a warm connection?" },
+      { "id": "A", "name": "Activity recency", "weight": 0.15, "prompt": "Has this firm placed a CPO/CTO/VP Product role in the last 12 months?" }
+    ],
+    "thresholds": { "tier1": 0.65, "tier2": 0.40 },
+    "manual_dimension": "N"
+  },
+  "connection_multipliers": {
+    "1st": 1.15,
+    "2nd": 1.08,
+    "none": 1.0
+  }
+}

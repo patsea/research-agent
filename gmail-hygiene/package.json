@@ -1,0 +1,16 @@
+{
+  "name": "gmail-hygiene",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^9.0.0",
+    "dotenv": "^17.3.1",
+    "express": "^4.18.0",
+    "node-fetch": "^3.3.0"
+  }
+}

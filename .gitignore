@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Environment files (contain API keys)
+.env
+.env.local
+.env.production
+
+# SQLite databases (contain personal/research data)
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Research output (personal data)
+research/research/
+*/research/research/
+**/research/interview-prep/
+**/research/firm-research/
+**/research/portfolio-research/
+
+# Signal scanner data files
+signal-scanner/data/forward_queue.jsonl
+signal-scanner/data/launchd.log
+signal-scanner/data/launchd.err
+
+# Agent logs
+email-scan/logs/
+gmail-hygiene/logs/
+*.log
+logs/
+
+# Config files with personal data
+config/user-profile.json
+config/attio-fields.json
+
+# Outreach positioning (personal strategy)
+outreach-drafter/POSITIONING.md
+
+# Backup files
+**/*.bak.*
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# LaunchAgent plists and claude-auto config
+*.plist
+.claude-auto.conf
+
+# Review/findings docs (may contain personal data)
+review-unsubscribe.md
+FINDINGS-*.md

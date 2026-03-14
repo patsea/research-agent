@@ -1,0 +1,26 @@
+{
+  "_comment": "Scoring rubric configuration. The scorer agent seeds these dimensions on first run. Edit scorer/db.js seedRubrics() to load from this file, or modify directly in the Scorer UI after first launch.",
+  "companyRubric": {
+    "name": "ELNS+H Company Rubric",
+    "scoringType": "company",
+    "dimensions": [
+      { "id": "E", "name": "Early growth signal", "weight": 0.20, "prompt": "Is there evidence of recent funding, acquisition, or rapid headcount growth at this company?" },
+      { "id": "L", "name": "Leadership gap", "weight": 0.25, "prompt": "Is there evidence of a missing or recently vacated senior product or operations leadership role?" },
+      { "id": "N", "name": "No product discipline", "weight": 0.20, "prompt": "Is there evidence that the company lacks structured product management or has an engineering-led culture without product rigour?" },
+      { "id": "S", "name": "Scale pressure", "weight": 0.20, "prompt": "Is this company under pressure to scale — from investors, competitors, or market conditions?" },
+      { "id": "H", "name": "Hiring history signal (manual)", "weight": 0.15, "prompt": "Manual input — has this company previously hired senior product or ops leaders from the outside?" }
+    ],
+    "thresholds": { "hot": 0.65, "warm": 0.40 }
+  },
+  "firmRubric": {
+    "name": "TMAN Firm Rubric",
+    "scoringType": "firm",
+    "dimensions": [
+      { "id": "T", "name": "Tech specialisation", "weight": 0.40, "prompt": "Does this firm primarily invest in technology or tech-enabled businesses?" },
+      { "id": "M", "name": "Market fit", "weight": 0.25, "prompt": "Is this firm active in markets relevant to your target geography and sector?" },
+      { "id": "N", "name": "Network signal (manual)", "weight": 0.20, "prompt": "Manual input — is there a warm connection or prior contact with this firm?" },
+      { "id": "A", "name": "Activity recency", "weight": 0.15, "prompt": "Has this firm made investments or portfolio moves in the last 12 months?" }
+    ],
+    "thresholds": { "tier1": 0.65, "tier2": 0.40 }
+  }
+}

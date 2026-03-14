@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 3 — Scorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+    .tabs { display: flex; background: #fff; border-bottom: 2px solid #e0e0e0; padding: 0 20px; }
+    .tab { padding: 12px 20px; cursor: pointer; font-weight: 600; font-size: 0.95rem; border-bottom: 2px solid transparent; margin-bottom: -2px; color: #888; }
+    .tab.active { color: #4a90d9; border-bottom-color: #4a90d9; }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+
+    h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    h2 { font-size: 1rem; margin-bottom: 10px; color: #555; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 3px; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; margin-bottom: 10px; font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #4a90d9; }
+    textarea { resize: vertical; }
+
+    button { padding: 8px 14px; border: none; border-radius: 4px; font-size: 0.85rem; cursor: pointer; font-weight: 600; }
+    .btn-primary { background: #4a90d9; color: #fff; }
+    .btn-primary:hover { background: #357abd; }
+    .btn-primary:disabled { background: #a0c4e8; cursor: not-allowed; }
+    .btn-forward { background: #27ae60; color: #fff; }
+    .btn-forward:hover { background: #219a52; }
+    .btn-dismiss { background: #95a5a6; color: #fff; }
+    .btn-save { background: #e67e22; color: #fff; }
+
+    .section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .row { display: flex; gap: 10px; }
+    .row > div { flex: 1; }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; color: #fff; }
+    .badge-hot, .badge-tier1 { background: #27ae60; }
+    .badge-warm, .badge-tier2 { background: #f39c12; }
+    .badge-cold, .badge-tier3 { background: #95a5a6; }
+    .badge-high { background: #27ae60; }
+    .badge-medium { background: #f39c12; }
+    .badge-low { background: #95a5a6; }
+    .badge-unknown { background: #ddd; color: #666; border: 1px dashed #aaa; }
+
+    .score-card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .score-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .score-name { font-size: 1.2rem; font-weight: 700; }
+    .score-pct { font-size: 1.1rem; font-weight: 600; color: #4a90d9; }
+    .score-meta { font-size: 0.8rem; color: #888; margin-bottom: 8px; }
+    .conn-badge { display: inline-block; padding: 2px 8px; background: #3498db; color: #fff; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+
+    .dim-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.85rem; }
+    .dim-name { flex: 0 0 180px; font-weight: 600; }
+    .dim-weight { flex: 0 0 50px; color: #888; font-size: 0.8rem; }
+    .dim-evidence { flex: 1; color: #666; font-size: 0.82rem; }
+    .dim-manual { font-size: 0.7rem; background: #e8f4fd; color: #2980b9; padding: 1px 6px; border-radius: 4px; }
+
+    .dims-toggle { cursor: pointer; color: #4a90d9; font-size: 0.82rem; margin: 6px 0; }
+    .dims-detail { display: none; }
+    .dims-detail.open { display: block; }
+
+    .card-actions { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+
+    .spinner { display: none; }
+    .spinner.active { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error { color: #e74c3c; font-size: 0.85rem; margin-top: 4px; }
+    .filter-bar { margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn { padding: 3px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 0.78rem; cursor: pointer; }
+    .filter-btn.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+
+    .manual-section { background: #f9f9f9; border: 1px solid #eee; border-radius: 6px; padding: 12px; margin-top: 8px; }
+    .mode-toggle { display: flex; gap: 0; margin-bottom: 12px; }
+    .mode-btn { padding: 6px 14px; border: 1px solid #ddd; background: #fff; cursor: pointer; font-size: 0.85rem; }
+    .mode-btn:first-child { border-radius: 4px 0 0 4px; }
+    .mode-btn:last-child { border-radius: 0 4px 4px 0; }
+    .mode-btn.active { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+
+    .rubric-card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .weight-warn { color: #e74c3c; font-size: 0.8rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('score')">Score</div>
+    <div class="tab" onclick="switchTab('results')">Results</div>
+    <div class="tab" onclick="switchTab('rubrics')">Rubrics</div>
+  </div>
+
+  <!-- SCORE TAB -->
+  <div class="tab-content active" id="tab-score">
+    <div class="section" style="max-width:700px;">
+      <h1>Score</h1>
+      <div class="mode-toggle">
+        <button class="mode-btn active" onclick="setMode('single', this)">Single</button>
+        <button class="mode-btn" onclick="setMode('batch', this)">Batch</button>
+      </div>
+
+      <label>Scoring Type</label>
+      <select id="scoringType" onchange="updateManualFields()">
+        <option value="company">Company (ELNS+H)</option>
+        <option value="firm">Exec Search Firm</option>
+      </select>
+
+      <div id="singleMode">
+        <label>Name (company or firm)</label>
+        <input id="itemName" placeholder="e.g. Verdane">
+        <label>Research context (optional)</label>
+        <textarea id="researchCtx" rows="3" placeholder="Paste Agent 2 output or any notes"></textarea>
+      </div>
+
+      <div id="batchMode" style="display:none;">
+        <label>Names (one per line)</label>
+        <textarea id="batchNames" rows="6" placeholder="Verdane&#10;Creandum&#10;EQT"></textarea>
+      </div>
+
+      <label>Rubric</label>
+      <select id="rubricSelect"></select>
+
+      <div class="manual-section" id="manualSection">
+        <h2>Manual Inputs</h2>
+        <div id="manualCompany">
+          <div class="row">
+            <div><label>H Signal</label><select id="hSignal"><option value="Unknown">Unknown</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div>
+            <div><label>Connection Degree</label><select id="connDegree"><option value="">None</option><option value="1st">1st</option><option value="2nd">2nd</option></select></div>
+          </div>
+          <label>H Signal Evidence</label>
+          <input id="hEvidence" placeholder="e.g. CPO role posted on LinkedIn 3 months ago">
+          <label>Connection Name</label>
+          <input id="connName" placeholder="e.g. John Smith">
+        </div>
+        <div id="manualFirm" style="display:none;">
+          <div class="row">
+            <div><label>Network Signal</label><select id="netSignal"><option value="Unknown">Unknown</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div>
+            <div><label>Connection Degree</label><select id="connDegreeFirm"><option value="">None</option><option value="1st">1st</option><option value="2nd">2nd</option></select></div>
+          </div>
+          <label>Connection Name</label>
+          <input id="connNameFirm" placeholder="e.g. John Smith">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button class="btn-primary" id="scoreBtn" onclick="runScore()">Score this</button>
+        <span class="spinner" id="scoreSpinner">&#x21bb;</span>
+        <div class="error" id="scoreError"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS TAB -->
+  <div class="tab-content" id="tab-results">
+    <h1>Results</h1>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterScores({}, this)">All</button>
+      <button class="filter-btn" onclick="filterScores({status:'pending'}, this)">Pending</button>
+      <button class="filter-btn" onclick="filterScores({status:'forwarded'}, this)">Forwarded</button>
+      <button class="filter-btn" onclick="filterScores({status:'dismissed'}, this)">Dismissed</button>
+      <span style="width:20px"></span>
+      <button class="filter-btn" onclick="filterScores({scoringType:'company'}, this)">Companies</button>
+      <button class="filter-btn" onclick="filterScores({scoringType:'firm'}, this)">Firms</button>
+    </div>
+    <div id="scoresList"></div>
+  </div>
+
+  <!-- RUBRICS TAB -->
+  <div class="tab-content" id="tab-rubrics">
+    <h1>Rubrics</h1>
+    <button class="btn-primary" onclick="showNewRubricForm()" style="margin-bottom:16px;">New Rubric</button>
+    <div id="rubricsList"></div>
+  </div>
+
+  <script>
+    let currentMode = 'single';
+    let scoreFilters = {};
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      const tabs = ['score', 'results', 'rubrics'];
+      document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
+      if (tab === 'results') loadScores();
+      if (tab === 'rubrics') loadRubrics();
+    }
+
+    function setMode(mode, btn) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('singleMode').style.display = mode === 'single' ? 'block' : 'none';
+      document.getElementById('batchMode').style.display = mode === 'batch' ? 'block' : 'none';
+      document.getElementById('manualSection').style.display = mode === 'single' ? 'block' : 'none';
+    }
+
+    function updateManualFields() {
+      const type = document.getElementById('scoringType').value;
+      document.getElementById('manualCompany').style.display = type === 'company' ? 'block' : 'none';
+      document.getElementById('manualFirm').style.display = type === 'firm' ? 'block' : 'none';
+      loadRubricOptions();
+    }
+
+    async function loadRubricOptions() {
+      const type = document.getElementById('scoringType').value;
+      const res = await fetch('/api/rubrics');
+      const list = await res.json();
+      const sel = document.getElementById('rubricSelect');
+      sel.innerHTML = '';
+      for (const r of list.filter(x => x.scoring_type === type)) {
+        const opt = document.createElement('option');
+        opt.value = r.id; opt.textContent = r.name;
+        if (r.is_default) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+
+    async function runScore() {
+      document.getElementById('scoreError').textContent = '';
+      document.getElementById('scoreBtn').disabled = true;
+      document.getElementById('scoreSpinner').classList.add('active');
+
+      try {
+        if (currentMode === 'single') {
+          const name = document.getElementById('itemName').value.trim();
+          if (!name) { document.getElementById('scoreError').textContent = 'Name required'; return; }
+          const type = document.getElementById('scoringType').value;
+          const manualInputs = type === 'company' ? {
+            hSignal: document.getElementById('hSignal').value,
+            hSignalEvidence: document.getElementById('hEvidence').value.trim(),
+            connectionDegree: document.getElementById('connDegree').value,
+            connectionName: document.getElementById('connName').value.trim()
+          } : {
+            networkSignal: document.getElementById('netSignal').value,
+            connectionDegree: document.getElementById('connDegreeFirm').value,
+            connectionName: document.getElementById('connNameFirm').value.trim()
+          };
+
+          const res = await fetch('/api/score', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, scoringType: type, researchContext: document.getElementById('researchCtx').value.trim() || null, rubricId: document.getElementById('rubricSelect').value, manualInputs })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          switchTab('results');
+        } else {
+          const names = document.getElementById('batchNames').value.trim().split('\n').filter(n => n.trim());
+          if (!names.length) { document.getElementById('scoreError').textContent = 'Enter at least one name'; return; }
+          const type = document.getElementById('scoringType').value;
+          const items = names.map(n => ({ name: n.trim(), scoringType: type }));
+          const res = await fetch('/api/score/batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items, rubricId: document.getElementById('rubricSelect').value })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          switchTab('results');
+        }
+      } catch (e) {
+        document.getElementById('scoreError').textContent = e.message;
+      } finally {
+        document.getElementById('scoreBtn').disabled = false;
+        document.getElementById('scoreSpinner').classList.remove('active');
+      }
+    }
+
+    async function loadScores() {
+      let url = '/api/scores';
+      const params = new URLSearchParams();
+      if (scoreFilters.status) params.set('status', scoreFilters.status);
+      if (scoreFilters.scoringType) params.set('scoringType', scoreFilters.scoringType);
+      if (params.toString()) url += '?' + params;
+
+      const res = await fetch(url);
+      const list = await res.json();
+      const el = document.getElementById('scoresList');
+      el.innerHTML = '';
+
+      for (const s of list) {
+        const badgeClass = getBadgeClass(s.overall_badge);
+        const pct = Math.round(s.final_score * 100);
+        const connHtml = s.connection_degree ? `<span class="conn-badge">${s.connection_degree} degree${s.connection_name ? ': ' + s.connection_name : ''}</span>` : '';
+
+        let dimsHtml = '';
+        for (const d of s.dimensions || []) {
+          const sigClass = 'badge badge-' + (d.result?.signal || 'unknown').toLowerCase();
+          dimsHtml += `<div class="dim-row">
+            <span class="dim-name">${d.name} ${d.manual ? '<span class="dim-manual">Manual</span>' : ''}</span>
+            <span class="dim-weight">${Math.round(d.weight * 100)}%</span>
+            <span class="${sigClass}">${d.result?.signal || 'Unknown'}</span>
+            <span class="dim-evidence">${d.result?.evidence || ''}</span>
+          </div>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'score-card';
+        card.innerHTML = `
+          <div class="score-header">
+            <div><span class="score-name">${s.name}</span> ${connHtml}</div>
+            <div><span class="badge ${badgeClass}">${s.overall_badge}</span> <span class="score-pct">${pct}%</span></div>
+          </div>
+          <div class="score-meta">${s.scoring_type} | ${s.recommended_action} | Confidence: ${s.confidence} | Status: ${s.status}</div>
+          <div class="dims-toggle" onclick="this.nextElementSibling.classList.toggle('open')">Show dimensions</div>
+          <div class="dims-detail">${dimsHtml}</div>
+          <div class="card-actions">
+            ${s.status === 'pending' ? `
+              <select id="fwdCampaign-${s.id}" style="width:auto;margin:0;padding:4px;">
+                <option value="portfolio_cpo">Portfolio CPO</option><option value="portfolio_coo">Portfolio COO</option>
+                <option value="pe_vc" selected>PE/VC</option><option value="exec_search">Exec Search</option>
+                <option value="interim_provider">Interim</option>
+              </select>
+              <button class="btn-forward" onclick="forwardScore('${s.id}')">Forward to Agent 4</button>
+              <button class="btn-dismiss" onclick="dismissScore('${s.id}')">Dismiss</button>
+            ` : `<span style="font-size:0.85rem;color:#888;">${s.status}</span>`}
+          </div>`;
+        el.appendChild(card);
+      }
+    }
+
+    function getBadgeClass(badge) {
+      const map = { Hot: 'badge-hot', Warm: 'badge-warm', Cold: 'badge-cold', 'Tier 1': 'badge-tier1', 'Tier 2': 'badge-tier2', 'Tier 3': 'badge-tier3' };
+      return map[badge] || 'badge-cold';
+    }
+
+    function filterScores(filters, btn) {
+      scoreFilters = filters;
+      document.querySelectorAll('#tab-results .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadScores();
+    }
+
+    async function forwardScore(id) {
+      const campaign = document.getElementById('fwdCampaign-' + id)?.value || 'pe_vc';
+      const res = await fetch(`/api/scores/${id}/forward`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignType: campaign })
+      });
+      const data = await res.json();
+      if (data.error) alert(data.error);
+      loadScores();
+    }
+
+    async function dismissScore(id) {
+      await fetch(`/api/scores/${id}/dismiss`, { method: 'POST' });
+      loadScores();
+    }
+
+    async function loadRubrics() {
+      const res = await fetch('/api/rubrics');
+      const list = await res.json();
+      const el = document.getElementById('rubricsList');
+      el.innerHTML = '';
+
+      for (const r of list) {
+        const dims = r.dimensions || [];
+        const totalWeight = dims.reduce((s, d) => s + d.weight, 0);
+        const weightOk = Math.abs(totalWeight - 1.0) < 0.01;
+
+        let dimsTable = '<div style="margin:8px 0;">';
+        dims.forEach((d, i) => {
+          dimsTable += `<div class="dim-row">
+            <span class="dim-name">${d.id}: ${d.name}</span>
+            <span class="dim-weight">${Math.round(d.weight * 100)}%</span>
+            <span class="dim-evidence" style="font-size:0.8rem;">${d.prompt}</span>
+          </div>`;
+        });
+        dimsTable += '</div>';
+
+        const thresholdKeys = Object.keys(r.thresholds || {});
+        let thresholdHtml = thresholdKeys.map(k => `${k}: ${r.thresholds[k]}`).join(', ');
+
+        const card = document.createElement('div');
+        card.className = 'rubric-card';
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>${r.name}</strong> <span style="color:#888;font-size:0.82rem;">(${r.scoring_type})</span>
+              ${r.is_default ? '<span class="badge badge-high" style="font-size:0.65rem;">Default</span>' : ''}</div>
+            <div>${!weightOk ? '<span class="weight-warn">Weights do not sum to 1.0!</span>' : ''}</div>
+          </div>
+          ${dimsTable}
+          <div style="font-size:0.82rem;color:#888;">Thresholds: ${thresholdHtml}</div>`;
+        el.appendChild(card);
+      }
+    }
+
+    function showNewRubricForm() { alert('Use the API to create rubrics: POST /api/rubrics'); }
+
+    loadRubricOptions();
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "agent6-email-scan",
+  "version": "1.0.0",
+  "description": "Agent 6 — Daily email scan for outreach tracking",
+  "type": "module",
+  "scripts": {
+    "scan": "node scan.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "axios": "^1.6.0",
+    "better-sqlite3": "^9.4.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.0"
+  }
+}
