@@ -32,12 +32,12 @@ export async function synthesizeBriefing(daysBack = 7) {
   ).join('\n\n---\n\n');
 
   const profile = _getProfile();
-  const candidateBrief = `${profile.name} — ${profile.roles[0]?.title || 'CPO/COO'}, ${profile.ai_experience}, ${profile.education}, ${profile.location.split(' —')[0]}`;
+  const candidateBrief = `${profile.name} — ${profile.title || 'CPO/COO'}, ${profile.yearsExperience || ''} years experience, ${profile.location || ''}`;
   const prompt = readFileSync(PROMPT_PATH, 'utf8')
     .replace('{content}', contentBlock)
     .replace('{{CANDIDATE_BRIEF}}', candidateBrief)
-    .replace('{{CANDIDATE_SECTORS}}', profile.sectors || 'PE/VC-backed tech companies, AI transformation, product-led growth, executive job search')
-    .replace('{{CANDIDATE_GEOGRAPHIES}}', profile.geographies || 'Europe');
+    .replace('{{CANDIDATE_SECTORS}}', (profile.targetSectors || []).join(', ') || 'PE/VC-backed tech companies, AI transformation')
+    .replace('{{CANDIDATE_GEOGRAPHIES}}', (profile.targetGeographies || []).join(', ') || 'Europe');
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
