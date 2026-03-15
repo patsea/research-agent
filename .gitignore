@@ -55,3 +55,7 @@ outreach-drafter/POSITIONING.md
 # Review/findings docs (may contain personal data)
 review-unsubscribe.md
 FINDINGS-*.md
+
+# Podcast monitor downloads
+podcast-monitor/downloads/
+podcast-monitor/data/
