@@ -99,6 +99,34 @@ app.post('/api/contacts/:id/confirm', (req, res) => {
   res.json({ success: true, queuedForAgent5: true });
 });
 
+// Enrich contact (call enricher for existing contact)
+app.post('/api/contacts/:id/enrich', async (req, res) => {
+  const { id } = req.params;
+  const contact = contacts.get(id);
+  if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+  try {
+    const enriched = await enrichContact({
+      name: contact.name,
+      company: contact.company,
+      linkedinUrl: contact.linkedin_url || null,
+      companyDomain: null
+    });
+
+    if (enriched.email) {
+      const db = getDb();
+      db.prepare('UPDATE contacts SET email = ?, email_verified = ? WHERE id = ?')
+        .run(enriched.email, enriched.emailStatus || 'Unverified', id);
+      db.close();
+    }
+
+    res.json({ success: true, email: enriched.email || null, status: enriched.emailStatus || null });
+  } catch (err) {
+    console.error('[enrich] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Dismiss contact
 app.post('/api/contacts/:id/dismiss', (req, res) => {
   const { id } = req.params;

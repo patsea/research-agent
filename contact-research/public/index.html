@@ -46,6 +46,19 @@ label { display:block; font-size:12px; font-weight:600; color:#374151; margin-bo
 .filter-bar { display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
 .filter-bar select, .filter-bar input { width:auto; }
 .empty { color:#9ca3af; font-size:13px; padding:24px; text-align:center; }
+.batch-toolbar { position:sticky; top:52px; z-index:90; background:#1e293b; color:#fff; padding:10px 16px; border-radius:8px 8px 0 0; display:none; align-items:center; gap:12px; font-size:13px; }
+.batch-toolbar.visible { display:flex; }
+.batch-toolbar .count { font-weight:700; }
+.batch-toolbar .btn { font-size:12px; }
+.batch-toolbar .btn-step { background:#3b82f6; color:#fff; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:500; }
+.batch-toolbar .btn-step:hover { background:#2563eb; }
+.batch-toolbar .btn-step:disabled { opacity:.5; cursor:not-allowed; }
+.batch-toolbar .btn-clear { background:transparent; color:#94a3b8; border:1px solid #475569; padding:4px 10px; border-radius:4px; cursor:pointer; }
+.batch-progress { font-size:12px; color:#94a3b8; margin-left:auto; }
+.badge-identified { background:#dbeafe; color:#1d4ed8; }
+.badge-enriched { background:#fef3c7; color:#d97706; }
+.badge-error { background:#fef2f2; color:#dc2626; }
+input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#3b82f6; }
 </style>
 </head>
 <body>
@@ -66,9 +79,17 @@ label { display:block; font-size:12px; font-weight:600; color:#374151; margin-bo
 
   <!-- TAB: RESEARCH LIBRARY -->
   <div id="tab-library">
-    <div class="section">
+    <div id="batch-toolbar" class="batch-toolbar">
+      <span class="count"><span id="batch-count">0</span> selected</span>
+      <button class="btn btn-step" onclick="runBatchStep('identify')" id="btn-batch-identify">1. Identify contacts</button>
+      <button class="btn btn-step" onclick="runBatchStep('enrich')" id="btn-batch-enrich">2. Enrich emails</button>
+      <button class="btn btn-step" onclick="runBatchStep('confirm')" id="btn-batch-confirm">3. Confirm all</button>
+      <span class="batch-progress" id="batch-progress"></span>
+      <button class="btn btn-clear" onclick="clearSelection()">Clear</button>
+    </div>
+    <div class="section" style="border-radius:0 0 8px 8px">
       <h2>Research Library</h2>
-      <p class="hint">All research completed. Click a row to see details and start contact research.</p>
+      <p class="hint">Select rows for batch contact pipeline. Steps: Identify &rarr; Enrich &rarr; Confirm.</p>
       <div id="library-list"><div class="empty">Loading...</div></div>
     </div>
   </div>
@@ -197,6 +218,8 @@ function showTab(name, el) {
 }
 
 // ===== RESEARCH LIBRARY =====
+let selectedRows = new Map(); // id -> { company, contextType, status }
+
 async function loadLibrary() {
   const el = document.getElementById('library-list');
   el.innerHTML = '<div class="empty">Loading research...</div>';
@@ -205,21 +228,162 @@ async function loadLibrary() {
     const items = await r.json();
     if (!items.length) { el.innerHTML = '<div class="empty">No research done yet. Use the Research Hub to research companies.</div>'; return; }
 
-    el.innerHTML = '<table><thead><tr><th>Company</th><th>Type</th><th>Date</th><th>Score</th><th>Actions</th></tr></thead><tbody>' +
+    // Also fetch contacts to know pipeline status per company
+    let contactsByCompany = {};
+    try {
+      const cr = await fetch('/api/contacts');
+      const allContacts = await cr.json();
+      allContacts.forEach(c => {
+        if (c.company) contactsByCompany[c.company.toLowerCase()] = c;
+      });
+    } catch(e) {}
+
+    el.innerHTML = '<table><thead><tr>' +
+      '<th style="width:36px"><input type="checkbox" id="select-all" onchange="toggleAll(this.checked)"></th>' +
+      '<th>Company</th><th>Type</th><th>Date</th><th>Score</th><th>Contact Status</th>' +
+      '</tr></thead><tbody>' +
       items.map(item => {
         const score = item.score;
         const badgeClass = score ? (score.overall_badge === 'Hot' ? 'badge-hot' : score.overall_badge === 'Warm' ? 'badge-warm' : 'badge-cold') : '';
-        return '<tr>' +
+        const companyKey = (item.company_name || '').toLowerCase();
+        const contact = contactsByCompany[companyKey];
+        const contactStatus = contact ? contact.status : 'pending';
+        const hasEmail = contact && contact.email;
+        const hasName = contact && contact.name;
+        const statusBadge = getContactStatusBadge(contactStatus, hasName, hasEmail);
+        const rowId = item.id || item.company_name;
+        const isChecked = selectedRows.has(rowId);
+
+        return '<tr data-row-id="' + rowId + '" data-company="' + (item.company_name||'').replace(/"/g,'&quot;') + '" data-context="' + (item.context_type||'') + '" data-contact-id="' + (contact ? contact.id : '') + '">' +
+          '<td><input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleRow(\'' + rowId + '\', this.checked, this.closest(\'tr\'))"></td>' +
           '<td><strong>' + (item.company_name || '\u2014') + '</strong></td>' +
           '<td style="color:#6b7280">' + (item.context_type || '\u2014') + '</td>' +
           '<td style="color:#6b7280">' + (item.created_at ? item.created_at.substring(0,10) : '\u2014') + '</td>' +
           '<td>' + (score ? '<span class="badge ' + badgeClass + '">' + score.overall_badge + ' ' + Math.round((score.final_score||0)*100) + '</span>' : '<span style="color:#9ca3af;font-size:12px">not scored</span>') + '</td>' +
-          '<td><button class="btn btn-primary btn-sm" onclick="selectForContact(\'' + (item.company_name||'').replace(/'/g, "\\'") + '\', \'' + (item.context_type||'') + '\')">Find Contact &rarr;</button></td>' +
+          '<td id="status-' + rowId + '">' + statusBadge + '</td>' +
           '</tr>';
       }).join('') + '</tbody></table>';
+    updateToolbar();
   } catch(e) {
     el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>';
   }
+}
+
+function getContactStatusBadge(status, hasName, hasEmail) {
+  if (status === 'confirmed') return '<span class="badge badge-confirmed">confirmed</span>';
+  if (status === 'dismissed') return '<span class="badge" style="background:#f3f4f6;color:#6b7280">dismissed</span>';
+  if (status === 'error') return '<span class="badge badge-error">error</span>';
+  if (hasEmail) return '<span class="badge badge-enriched">enriched</span>';
+  if (hasName) return '<span class="badge badge-identified">identified</span>';
+  return '<span class="badge badge-pending">pending</span>';
+}
+
+function toggleRow(rowId, checked, trEl) {
+  if (checked) {
+    selectedRows.set(rowId, {
+      company: trEl.dataset.company,
+      contextType: trEl.dataset.context,
+      contactId: trEl.dataset.contactId
+    });
+  } else {
+    selectedRows.delete(rowId);
+  }
+  updateToolbar();
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('#library-list tbody tr').forEach(tr => {
+    const rowId = tr.dataset.rowId;
+    const cb = tr.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = checked;
+    if (checked) {
+      selectedRows.set(rowId, {
+        company: tr.dataset.company,
+        contextType: tr.dataset.context,
+        contactId: tr.dataset.contactId
+      });
+    } else {
+      selectedRows.delete(rowId);
+    }
+  });
+  updateToolbar();
+}
+
+function clearSelection() {
+  selectedRows.clear();
+  document.querySelectorAll('#library-list input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.getElementById('select-all').checked = false;
+  updateToolbar();
+}
+
+function updateToolbar() {
+  const toolbar = document.getElementById('batch-toolbar');
+  const countEl = document.getElementById('batch-count');
+  const n = selectedRows.size;
+  countEl.textContent = n;
+  if (n > 0) {
+    toolbar.classList.add('visible');
+  } else {
+    toolbar.classList.remove('visible');
+  }
+  document.getElementById('batch-progress').textContent = '';
+}
+
+async function runBatchStep(step) {
+  const progressEl = document.getElementById('batch-progress');
+  const entries = Array.from(selectedRows.entries());
+  const total = entries.length;
+  if (!total) return;
+
+  // Disable buttons during run
+  document.querySelectorAll('.btn-step').forEach(b => b.disabled = true);
+  let done = 0, errors = 0;
+
+  for (const [rowId, info] of entries) {
+    progressEl.textContent = (done+1) + '/' + total + ' processing...';
+    const statusEl = document.getElementById('status-' + rowId);
+    try {
+      if (step === 'identify') {
+        // Call research pipeline (identify + enrich in one call)
+        const roleMap = { 'pe_vc': 'operating_partner', 'exec_search': 'gp', 'portfolio': 'portfolio_contact' };
+        const role = roleMap[info.contextType] || 'operating_partner';
+        const r = await fetch('/api/research', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ companyName: info.company, campaignType: role })
+        });
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        // Update the contact ID in our selection
+        info.contactId = d.id;
+        // Update the row's data attribute
+        const tr = document.querySelector('tr[data-row-id="' + rowId + '"]');
+        if (tr) tr.dataset.contactId = d.id;
+        if (statusEl) statusEl.innerHTML = getContactStatusBadge('pending', d.name, d.email);
+      } else if (step === 'enrich') {
+        if (!info.contactId) { if (statusEl) statusEl.innerHTML = '<span class="badge badge-error">no contact</span>'; errors++; done++; continue; }
+        const r = await fetch('/api/contacts/' + info.contactId + '/enrich', { method: 'POST' });
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        if (statusEl) statusEl.innerHTML = getContactStatusBadge('pending', true, d.email);
+      } else if (step === 'confirm') {
+        if (!info.contactId) { if (statusEl) statusEl.innerHTML = '<span class="badge badge-error">no contact</span>'; errors++; done++; continue; }
+        await fetch('/api/contacts/' + info.contactId + '/confirm', { method: 'POST' });
+        if (statusEl) statusEl.innerHTML = getContactStatusBadge('confirmed', true, true);
+      }
+    } catch(e) {
+      errors++;
+      if (statusEl) statusEl.innerHTML = '<span class="badge badge-error">error</span>';
+      console.error('Batch ' + step + ' error for ' + info.company + ':', e.message);
+    }
+    done++;
+    // 400ms pause between API calls
+    if (done < total) await new Promise(ok => setTimeout(ok, 400));
+  }
+  progressEl.textContent = done + '/' + total + ' done' + (errors ? ' (' + errors + ' errors)' : '');
+  document.querySelectorAll('.btn-step').forEach(b => b.disabled = false);
+  // Refresh library after a moment
+  setTimeout(() => loadLibrary(), 1000);
 }
 
 function selectForContact(company, contextType) {

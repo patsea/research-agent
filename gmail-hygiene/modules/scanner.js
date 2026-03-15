@@ -1,15 +1,18 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { notifyNewSender } = require('../../shared/slack.cjs');
 import { callGmail, parseSearchResults } from './gmail.js';
 import { classifySender } from './classifier.js';
 import { getDb } from '../db.js';
 
-export async function scanInbox(daysBack = 7) {
+export async function scanInbox(daysBack = 7, account = 'gmail') {
   const db = getDb();
-  const results = { newSenders: 0, knownSenders: 0, errors: [] };
+  const results = { newSenders: 0, knownSenders: 0, errors: [], account };
 
   const raw = await callGmail('search_emails', {
     query: `newer_than:${daysBack}d`,
     max_results: 200
-  });
+  }, account);
 
   let emails = parseSearchResults(raw);
 
@@ -37,8 +40,15 @@ export async function scanInbox(daysBack = 7) {
   for (const [addr, info] of senderMap) {
     const existing = db.prepare('SELECT id FROM senders WHERE email_address = ?').get(addr);
     if (existing) {
-      db.prepare('UPDATE senders SET last_seen = ?, updated_at = ? WHERE email_address = ?')
-        .run(now, now, addr);
+      // Calculate frequency_per_month from first_seen to now and email count in this scan
+      const row = db.prepare('SELECT first_seen FROM senders WHERE email_address = ?').get(addr);
+      let freq = null;
+      if (row?.first_seen) {
+        // Extrapolate emails seen in scan window to monthly rate
+        freq = Math.round((info.subjects.length / (daysBack / 30)) * 10) / 10;
+      }
+      db.prepare('UPDATE senders SET last_seen = ?, frequency_per_month = COALESCE(?, frequency_per_month), updated_at = ? WHERE email_address = ?')
+        .run(now, freq, now, addr);
       results.knownSenders++;
     } else {
       const domain = addr.split('@')[1] || '';
@@ -47,13 +57,15 @@ export async function scanInbox(daysBack = 7) {
         displayName: info.name,
         subjects: info.subjects
       });
+      const freq = Math.round((info.subjects.length / (daysBack / 30)) * 10) / 10;
       db.prepare(`INSERT INTO senders
-        (email_address, display_name, domain, label_name, status, first_seen, last_seen)
-        VALUES (?, ?, ?, ?, 'active', ?, ?)`)
-        .run(addr, info.name, domain, label, now, now);
+        (email_address, display_name, domain, label_name, frequency_per_month, status, first_seen, last_seen)
+        VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`)
+        .run(addr, info.name, domain, label, freq, now, now);
       db.prepare(`INSERT INTO actions (sender_id, action_type, detail, result)
         VALUES ((SELECT id FROM senders WHERE email_address = ?), 'classify', ?, 'success')`)
         .run(addr, `Classified as: ${label}`);
+      notifyNewSender({ email_address: addr, display_name: info.name, domain, label_name: label, frequency_per_month: freq }).catch(() => {});
       results.newSenders++;
     }
   }

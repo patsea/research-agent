@@ -40,6 +40,12 @@ function isExcludedSender(email) {
   return EXCLUSION_DOMAINS.has(local);
 }
 
+function extractName(fromHeader) {
+  if (!fromHeader) return null;
+  const match = fromHeader.match(/^"?([^"<]+)"?\s*</);
+  return match ? match[1].trim() : null;
+}
+
 async function scanOutgoing(stats, options = {}) {
   const { dryRun = false, lookbackHours = 24 } = options;
   console.log('[scan] Scanning outgoing emails...');
@@ -51,20 +57,21 @@ async function scanOutgoing(stats, options = {}) {
     try {
       const full = await readMessage(id);
       const toEmail = extractEmail(full.to || full.To || '');
-      if (!toEmail || isExcludedSender(toEmail)) { processed.mark(id, 'excluded'); continue; }
+      const outSubject = full.subject || null;
+      if (!toEmail || isExcludedSender(toEmail)) { processed.mark(id, 'excluded', { senderEmail: toEmail, subject: outSubject }); continue; }
       const person = await lookupByEmail(toEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio'); continue; }
-      if (PROTECTED.has(person.currentStatus)) { processed.mark(id, 'protected_skip'); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: toEmail, subject: outSubject }); continue; }
+      if (PROTECTED.has(person.currentStatus)) { processed.mark(id, 'protected_skip', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id }); continue; }
 
       stats.classified.outgoing++;
       if (!dryRun) {
         await updateStatus(person.id, 'Outreach sent');
         const sentDate = full.date || full.Date || new Date().toISOString();
         await setNextAction(person.id, addDays(sentDate, 14));
-        await appendNote(person.id, `Outreach sent: ${full.subject || '(no subject)'}`, `Email sent on ${sentDate}. Subject: ${full.subject || '(no subject)'}`);
+        await appendNote(person.id, `Outreach sent: ${outSubject || '(no subject)'}`, `Email sent on ${sentDate}. Subject: ${outSubject || '(no subject)'}`);
         stats.attioUpdates++;
       }
-      processed.mark(id, 'outgoing_tracked');
+      processed.mark(id, 'outgoing_tracked', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1 });
     } catch (e) { console.error('[scan] outgoing error:', e.message); }
   }
 }
@@ -79,14 +86,18 @@ async function scanInbound(stats, options = {}) {
     stats.scanned++;
     try {
       const full = await readMessage(id);
-      const fromEmail = extractEmail(full.from || full.From || '');
-      if (!fromEmail || isExcludedSender(fromEmail)) { processed.mark(id, 'excluded'); continue; }
+      const fromRaw = full.from || full.From || '';
+      const fromEmail = extractEmail(fromRaw);
+      const fromName = extractName(fromRaw);
+      const inSubject = full.subject || null;
+      if (!fromEmail || isExcludedSender(fromEmail)) { processed.mark(id, 'excluded', { senderEmail: fromEmail, senderName: fromName, subject: inSubject }); continue; }
       const person = await lookupByEmail(fromEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio'); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: fromEmail, senderName: fromName, subject: inSubject }); continue; }
 
       const classified = await classifyReply(full.subject || '', full.body || full.snippet || '');
       const replyDate = full.date || full.Date || new Date().toISOString();
       stats.classified[classified.type] = (stats.classified[classified.type] || 0) + 1;
+      let didAttioUpdate = false;
 
       if (!dryRun) {
         switch (classified.type) {
@@ -94,31 +105,41 @@ async function scanInbound(stats, options = {}) {
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'Interested');
             await createTask(person.id, `Follow up with ${person.name}`, addDays(replyDate, 2));
             stats.attioUpdates++;
+            didAttioUpdate = true;
             break;
           case 'request_info':
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'Interested');
             await createTask(person.id, `Review and respond to ${person.name}`, replyDate.split('T')[0] || addDays(replyDate, 0));
             stats.attioUpdates++;
+            didAttioUpdate = true;
             break;
           case 'not_right_timing':
           case 'soft_no':
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'On File');
             stats.attioUpdates++;
+            didAttioUpdate = true;
             break;
           case 'hard_no':
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'Closed');
             stats.attioUpdates++;
+            didAttioUpdate = true;
             break;
           case 'ooo':
             await createTask(person.id, `Re-contact ${person.name} on return`, classified.ooo_return_date || addDays(replyDate, 21));
             stats.attioUpdates++;
+            didAttioUpdate = true;
             break;
           default:
             break;
         }
         await appendNote(person.id, `Reply classified: ${classified.type}`, classified.summary || '(no summary)');
       }
-      processed.mark(id, `inbound_${classified.type}`);
+      processed.mark(id, `inbound_${classified.type}`, {
+        senderEmail: fromEmail, senderName: fromName || person.name, subject: inSubject,
+        classificationType: classified.type, classificationSummary: classified.summary || null,
+        attioRecordId: person.id, attioUpdated: didAttioUpdate ? 1 : 0,
+        oooReturnDate: classified.ooo_return_date || null
+      });
     } catch (e) { console.error('[scan] inbound error:', e.message); }
   }
 }
@@ -135,13 +156,13 @@ async function scanBounces(stats, options = {}) {
       const full = await readMessage(id);
       const subject = full.subject || '';
       const body = full.body || full.snippet || '';
-      if (!isBounce(subject, body)) { processed.mark(id, 'bounce_false_positive'); continue; }
+      if (!isBounce(subject, body)) { processed.mark(id, 'bounce_false_positive', { subject }); continue; }
       const allEmails = (body.match(/[\w.+-]+@[\w.-]+\.\w{2,}/g) || [])
         .filter(e => !e.includes('mailer-daemon') && !e.includes('postmaster'));
       const recipientEmail = allEmails[0];
-      if (!recipientEmail) { processed.mark(id, 'bounce_no_recipient'); continue; }
+      if (!recipientEmail) { processed.mark(id, 'bounce_no_recipient', { subject }); continue; }
       const person = await lookupByEmail(recipientEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'bounce_not_in_attio'); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'bounce_not_in_attio', { senderEmail: recipientEmail, subject }); continue; }
 
       stats.classified.bounce = (stats.classified.bounce || 0) + 1;
       if (!dryRun) {
@@ -149,7 +170,7 @@ async function scanBounces(stats, options = {}) {
         await appendNote(person.id, 'Email bounce detected', `Hard bounce for ${recipientEmail}. Subject: ${subject}`);
         stats.attioUpdates++;
       }
-      processed.mark(id, 'bounce_detected');
+      processed.mark(id, 'bounce_detected', { senderEmail: recipientEmail, senderName: person.name, subject, classificationType: 'bounce', attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1 });
     } catch (e) { console.error('[scan] bounce error:', e.message); }
   }
 }

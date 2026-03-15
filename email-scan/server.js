@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { runLog } from './db.js';
+import { runLog, processed } from './db.js';
 import { runScan } from './modules/scan.js';
 import { closeClient } from './modules/gmail.js';
 import { logActivity } from '../shared/activityLogger.js';
@@ -30,28 +30,47 @@ app.post('/scan', async (req, res) => {
   const { lookbackHours = 24, dryRun = false } = req.body || {};
   req.setTimeout(120000);
   scanInProgress = true;
+  const runId = runLog.start();
+  let summary = null;
   try {
-    const runId = runLog.start();
-    const summary = await runScan({ lookbackHours, dryRun });
-    if (!dryRun) {
-      runLog.update(runId, {
-        emails_scanned: summary.scanned,
-        records_updated: summary.attioUpdates,
-        notes_created: 0,
-        tasks_created: 0,
-        bounces_detected: summary.classified.bounce || 0,
-        flags: dryRun ? 'dry_run' : '',
-        errors: (summary.errors || []).join('; ')
-      });
-    }
+    summary = await runScan({ lookbackHours, dryRun });
     logActivity({ agent: 'email-scan', action: 'email_scan_completed', result: 'success', detail: `scanned=${summary.scanned}, attioUpdates=${summary.attioUpdates}, bounces=${summary.classified?.bounce || 0}` });
     res.json({ success: true, summary });
   } catch (err) {
     console.error('[server] scan error:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
+    // Always mark the run as completed — even on error
+    try {
+      runLog.update(runId, {
+        emails_scanned: summary?.scanned || 0,
+        records_updated: summary?.attioUpdates || 0,
+        notes_created: 0,
+        tasks_created: 0,
+        bounces_detected: summary?.classified?.bounce || 0,
+        flags: dryRun ? 'dry_run' : '',
+        errors: summary?.errors ? (Array.isArray(summary.errors) ? summary.errors.join('; ') : String(summary.errors)) : ''
+      });
+    } catch (e) { console.error('[server] failed to update run_log:', e.message); }
     scanInProgress = false;
   }
+});
+
+// Processed emails — filtered query
+app.get('/api/results', (req, res) => {
+  const { action, classification_type, attio_updated, since, limit } = req.query;
+  const filters = {};
+  if (action) filters.action = action;
+  if (classification_type) filters.classification_type = classification_type;
+  if (attio_updated !== undefined) filters.attio_updated = Number(attio_updated);
+  if (since) filters.since = since;
+  filters.limit = limit ? Number(limit) : 100;
+  res.json(processed.query(filters));
+});
+
+// Stats summary
+app.get('/api/stats', (req, res) => {
+  res.json(processed.stats());
 });
 
 // Clean up MCP client on shutdown

@@ -1,5 +1,6 @@
 const Parser = require('rss-parser');
 const { getDb } = require('./db');
+const { notifyEpisode } = require('../../shared/slack.cjs');
 
 const parser = new Parser({
   timeout: 30000,
@@ -67,6 +68,7 @@ async function pollFeed(feed) {
       const description = item.content || item.contentSnippet || item.summary || null;
 
       const result = insertStmt.run(feed.id, item.title || 'Untitled', sourceUrl, audioUrl, publishedAt, thumbnail, duration, description);
+      notifyEpisode({ title: item.title || 'Untitled', feed_name: feed.name, source_url: sourceUrl, published_at: publishedAt, duration }).catch(() => {});
       insertedIds.push(result.lastInsertRowid);
     }
 

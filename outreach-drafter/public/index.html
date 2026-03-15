@@ -56,6 +56,9 @@ tr:hover td { background:#fafafa; cursor:pointer; }
 .word-count { font-size:12px; color:#6b7280; }
 .word-count.over { color:#dc2626; font-weight:600; }
 .section-regen { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+/* DRAFTS */
+.drafts-screen { display:none; }
+.drafts-screen.active { display:block; }
 /* POSITIONING */
 .positioning-screen { display:none; }
 .positioning-screen.active { display:block; }
@@ -68,6 +71,7 @@ tr:hover td { background:#fafafa; cursor:pointer; }
   <span class="topnav-brand">Outreach Drafter</span>
   <div class="topnav-links">
     <span class="topnav-link active" id="nav-pipeline" onclick="showPipeline()">Pipeline</span>
+    <span class="topnav-link" id="nav-drafts" onclick="showDrafts()">Drafts</span>
     <span class="topnav-link" id="nav-positioning" onclick="showPositioning()">Positioning</span>
   </div>
 </nav>
@@ -147,6 +151,17 @@ tr:hover td { background:#fafafa; cursor:pointer; }
   </div>
 </div>
 
+<!-- DRAFTS SCREEN -->
+<div class="page drafts-screen" id="drafts-screen">
+  <div class="section">
+    <div class="section-header">
+      <h2>All Drafts</h2>
+      <span class="count" id="count-all-drafts">—</span>
+    </div>
+    <div id="list-all-drafts"><div class="empty">Loading drafts...</div></div>
+  </div>
+</div>
+
 <!-- POSITIONING SCREEN -->
 <div class="page positioning-screen" id="positioning-screen">
   <div class="card">
@@ -167,17 +182,32 @@ let _wordCountTarget = 200;
 function showPipeline() {
   document.getElementById('pipeline-screen').classList.remove('hidden');
   document.getElementById('compose-screen').classList.remove('active');
+  document.getElementById('drafts-screen').classList.remove('active');
   document.getElementById('positioning-screen').classList.remove('active');
   document.getElementById('nav-pipeline').classList.add('active');
+  document.getElementById('nav-drafts').classList.remove('active');
   document.getElementById('nav-positioning').classList.remove('active');
   loadPipeline();
+}
+
+function showDrafts() {
+  document.getElementById('pipeline-screen').classList.add('hidden');
+  document.getElementById('compose-screen').classList.remove('active');
+  document.getElementById('drafts-screen').classList.add('active');
+  document.getElementById('positioning-screen').classList.remove('active');
+  document.getElementById('nav-pipeline').classList.remove('active');
+  document.getElementById('nav-drafts').classList.add('active');
+  document.getElementById('nav-positioning').classList.remove('active');
+  loadAllDrafts();
 }
 
 function showPositioning() {
   document.getElementById('pipeline-screen').classList.add('hidden');
   document.getElementById('compose-screen').classList.remove('active');
+  document.getElementById('drafts-screen').classList.remove('active');
   document.getElementById('positioning-screen').classList.add('active');
   document.getElementById('nav-pipeline').classList.remove('active');
+  document.getElementById('nav-drafts').classList.remove('active');
   document.getElementById('nav-positioning').classList.add('active');
   loadPositioning();
 }
@@ -187,6 +217,7 @@ function showCompose(contact, draftId) {
   _currentDraftId = draftId || null;
   document.getElementById('pipeline-screen').classList.add('hidden');
   document.getElementById('compose-screen').classList.add('active');
+  document.getElementById('drafts-screen').classList.remove('active');
   document.getElementById('positioning-screen').classList.remove('active');
 
   // Fill contact details
@@ -424,6 +455,36 @@ function updateWordCount() {
   const el = document.getElementById('word-count-display');
   el.textContent = count + ' / ' + _wordCountTarget + ' words';
   el.className = 'word-count' + (count > _wordCountTarget ? ' over' : '');
+}
+
+// ===== DRAFTS TAB =====
+async function loadAllDrafts() {
+  const el = document.getElementById('list-all-drafts');
+  try {
+    const r = await fetch('/api/drafts');
+    const allDrafts = await r.json();
+    document.getElementById('count-all-drafts').textContent = allDrafts.length;
+    if (!allDrafts.length) { el.innerHTML = '<div class="empty">No drafts yet.</div>'; return; }
+    el.innerHTML = '<table><thead><tr><th>Name</th><th>Company</th><th>Words</th><th>Status</th><th></th></tr></thead><tbody>' +
+      allDrafts.map(d => {
+        const statusClass = d.status === 'approved' ? 'badge-approved' : d.status === 'draft' ? 'badge-draft' : 'badge-new';
+        return '<tr>' +
+          '<td><strong>' + (d.contact_name||'—') + '</strong></td>' +
+          '<td>' + (d.company_name || d.company||'—') + '</td>' +
+          '<td style="color:#6b7280">' + (d.word_count||'—') + '</td>' +
+          '<td><span class="badge ' + statusClass + '">' + (d.status||'—') + '</span></td>' +
+          '<td><button class="btn btn-primary btn-sm" onclick="editDraft(\'' + d.id + '\')">Edit</button></td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  } catch(e) { el.innerHTML = '<div class="empty">Error loading drafts.</div>'; }
+}
+
+function editDraft(id) {
+  // Switch to pipeline tab and open the draft for editing
+  if (typeof openDraft === 'function') {
+    openDraft(id);
+  }
 }
 
 // ===== POSITIONING =====

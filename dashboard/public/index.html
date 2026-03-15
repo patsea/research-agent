@@ -23,7 +23,9 @@
   .sidebar-item.active { background: #f0f2f5 !important; color: #1a1a2e !important; }
   .flow-step { background: #ffffff !important; border: 1px solid #e0e0e0 !important; color: #555 !important; }
   .flow-arrow { color: #ccc !important; }
+  .pipeline-arrow { color: #bbb !important; }
   .pipeline-label { color: #999 !important; }
+  .section-divider { border-top-color: #e0e0e0 !important; }
   .activity-table { background: #ffffff !important; }
   .activity-table th { background: #f8f8fa !important; color: #999 !important; border-bottom: 1px solid #e8e8e8 !important; }
   .activity-table td { color: #333 !important; border-bottom: 1px solid #f0f0f0 !important; }
@@ -103,13 +105,22 @@
   .status-text.running { color: #22c55e; }
   .status-text.stopped { color: #ef4444; }
 
-  /* Pipeline flow */
-  .pipeline-flow { display: flex; align-items: center; gap: 8px; margin-bottom: 24px;
-                   overflow-x: auto; padding-bottom: 4px; }
-  .flow-step { background: #1a1d27; border: 1px solid #2d3148; border-radius: 6px;
-               padding: 6px 12px; font-size: 11px; color: #94a3b8; white-space: nowrap; }
-  .flow-step.active { border-color: #3b4fd8; color: #818cf8; }
-  .flow-arrow { color: #3d4166; font-size: 14px; flex-shrink: 0; }
+  /* Agents section */
+  .agents-section { padding: 0; }
+  .pipeline-row { display: flex; align-items: center; gap: 10px; overflow-x: auto;
+                  padding-bottom: 8px; margin-bottom: 4px; }
+  .pipeline-arrow { color: #ccc; font-size: 20px; flex-shrink: 0; line-height: 1; user-select: none; }
+  .pipeline-card { position: relative; min-width: 148px; max-width: 160px; flex-shrink: 0;
+                   padding: 16px 14px 14px !important; text-align: center; border-left: none !important; }
+  .pipeline-card .agent-name { font-size: 13px; }
+  .pipeline-card .agent-desc { font-size: 11px; margin-bottom: 8px; }
+  .pipeline-card .agent-port { font-size: 10px; margin-bottom: 10px; }
+  .pipeline-card .btn-open { width: 100%; padding: 5px 0; font-size: 11px; }
+  .health-dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px;
+                border-radius: 50%; background: #ef4444; }
+  .health-dot.running { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+  .standalone-row { display: flex; gap: 14px; }
+  .section-divider { border: none; border-top: 1px solid #e0e0e0; margin: 20px 0 16px; }
 
   /* Workspace view */
   #workspace-view { display: none; height: calc(100vh - 53px); }
@@ -217,33 +228,91 @@
     <button class="mode-btn" id="btn-workspace" onclick="setMode('workspace')">Workspace</button>
     <button class="mode-btn" onclick="window.location.href='guide.html'">Guide</button>
     <button class="mode-btn" id="btn-activity" onclick="setMode('activity')">Activity</button>
+    <button class="mode-btn" id="btn-inbox" onclick="setMode('inbox')">Inbox</button>
     <button class="mode-btn" onclick="window.location.href='config.html'">Settings</button>
   </div>
 </div>
 
 <!-- DASHBOARD VIEW -->
 <div id="dashboard-view">
-  <div class="pipeline-flow" id="pipeline-flow">
-    <div class="flow-step">Signal Scanner</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step active">Research Hub</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step active">Scorer</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step active">Contact Research</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step active">Outreach Drafter</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step active">Email Scan</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step">Gmail Hygiene</div>
-    <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step">Podcast Monitor</div>
+  <div class="agents-section">
+    <div class="pipeline-label">Pipeline Agents</div>
+    <div class="pipeline-row" id="pipeline-row">
+      <div class="agent-card pipeline-card" id="pcard-signal-scanner" data-port="3033">
+        <div class="health-dot" id="hdot-3033"></div>
+        <div class="agent-name">Signal Scanner</div>
+        <div class="agent-desc">RSS/web signal extraction</div>
+        <div class="agent-port">:3033</div>
+        <div class="card-actions">
+          <button class="btn-embed" onclick="openScannerResults()">Results</button>
+          <button class="btn-open" onclick="openNewTab(3033,'/')">Open &#8599;</button>
+        </div>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="agent-card pipeline-card" id="pcard-research" data-port="3035">
+        <div class="health-dot" id="hdot-3035"></div>
+        <div class="agent-name">Research Hub</div>
+        <div class="agent-desc">Company/role audit + Perplexity workflow</div>
+        <div class="agent-port">:3035</div>
+        <button class="btn-open" onclick="openNewTab(3035,'/')">Open &#8599;</button>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="agent-card pipeline-card" id="pcard-scorer" data-port="3038">
+        <div class="health-dot" id="hdot-3038"></div>
+        <div class="agent-name">Scorer</div>
+        <div class="agent-desc">ELNS+H scoring</div>
+        <div class="agent-port">:3038</div>
+        <button class="btn-open" onclick="openNewTab(3038,'/')">Open &#8599;</button>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="agent-card pipeline-card" id="pcard-contact-research" data-port="3036">
+        <div class="health-dot" id="hdot-3036"></div>
+        <div class="agent-name">Contact Research</div>
+        <div class="agent-desc">FullEnrich contact finder</div>
+        <div class="agent-port">:3036</div>
+        <button class="btn-open" onclick="openNewTab(3036,'/')">Open &#8599;</button>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="agent-card pipeline-card" id="pcard-outreach" data-port="3037">
+        <div class="health-dot" id="hdot-3037"></div>
+        <div class="agent-name">Outreach Drafter</div>
+        <div class="agent-desc">Draft + save to Gmail</div>
+        <div class="agent-port">:3037</div>
+        <button class="btn-open" onclick="openNewTab(3037,'/')">Open &#8599;</button>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="agent-card pipeline-card" id="pcard-email-scan" data-port="3034">
+        <div class="health-dot" id="hdot-3034"></div>
+        <div class="agent-name">Email Scan</div>
+        <div class="agent-desc">Reply classification, Attio updates</div>
+        <div class="agent-port">:3034</div>
+        <button class="btn-open" onclick="openNewTab(3034,'/')">Open &#8599;</button>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="pipeline-label">Standalone Agents</div>
+    <div class="standalone-row">
+      <div class="agent-card pipeline-card" id="pcard-gmail-hygiene" data-port="3039">
+        <div class="health-dot" id="hdot-3039"></div>
+        <div class="agent-name">Gmail Hygiene</div>
+        <div class="agent-desc">Inbox labels, sender classification, unsubscribe</div>
+        <div class="agent-port">:3039</div>
+        <button class="btn-open" onclick="openNewTab(3039,'/')">Open &#8599;</button>
+      </div>
+      <div class="agent-card pipeline-card" id="pcard-podcast" data-port="3040">
+        <div class="health-dot" id="hdot-3040"></div>
+        <div class="agent-name">Podcast Monitor</div>
+        <div class="agent-desc">RSS/YouTube, Whisper, Claude summaries</div>
+        <div class="agent-port">:3040</div>
+        <button class="btn-open" onclick="openNewTab(3040,'/')">Open &#8599;</button>
+      </div>
+    </div>
   </div>
-  <div class="pipeline-label">Agents — click to open</div>
-  <div class="agent-grid" id="agent-grid">
-    <div style="color:#475569;font-size:13px">Loading agent status...</div>
-  </div>
+
+  <!-- Legacy grid kept hidden for renderDashboard compatibility -->
+  <div class="agent-grid" id="agent-grid" style="display:none"></div>
 </div>
 
 <!-- ACTIVITY PANEL -->
@@ -270,6 +339,68 @@
       <tr><td colspan="7" class="activity-empty">Loading...</td></tr>
     </tbody>
   </table>
+</div>
+
+<!-- INBOX PANEL -->
+<div id="inbox-panel" style="display:none; padding:28px 24px;">
+  <!-- Gmail Hygiene Section -->
+  <div style="margin-bottom:32px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="font-size:16px;font-weight:600;">Gmail Hygiene</h2>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-open" onclick="ghScan(7)">Scan 7 days</button>
+        <button class="btn-open" onclick="ghScan(30)">Scan 30 days</button>
+      </div>
+    </div>
+    <div id="gh-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="gh-total">--</div>
+        <div style="font-size:11px;color:#999;">Total senders</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="gh-review">--</div>
+        <div style="font-size:11px;color:#999;">To review</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="gh-kept">--</div>
+        <div style="font-size:11px;color:#999;">Kept</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="gh-unsub">--</div>
+        <div style="font-size:11px;color:#999;">Unsubscribed</div>
+      </div>
+    </div>
+    <div id="gh-senders" style="font-size:13px;color:#999;">Click a scan button to load senders.</div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- Email Scan Section -->
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="font-size:16px;font-weight:600;">Email Scan</h2>
+      <button class="btn-open" onclick="esScan()">Run scan</button>
+    </div>
+    <div id="es-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="es-processed">--</div>
+        <div style="font-size:11px;color:#999;">Processed</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="es-inbound">--</div>
+        <div style="font-size:11px;color:#999;">Inbound</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="es-bounces">--</div>
+        <div style="font-size:11px;color:#999;">Bounces</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="es-attio">--</div>
+        <div style="font-size:11px;color:#999;">Attio updates</div>
+      </div>
+    </div>
+    <div id="es-results" style="font-size:13px;color:#999;">Click Run scan or wait for auto-load.</div>
+  </div>
 </div>
 
 <!-- WORKSPACE VIEW -->
@@ -442,15 +573,18 @@ function setMode(mode) {
   document.getElementById('dashboard-view').style.display = mode === 'dashboard' ? 'block' : 'none';
   document.getElementById('workspace-view').style.display = mode === 'workspace' ? 'block' : 'none';
   document.getElementById('activity-panel').style.display = mode === 'activity' ? 'block' : 'none';
+  document.getElementById('inbox-panel').style.display = mode === 'inbox' ? 'block' : 'none';
   document.getElementById('btn-dashboard').classList.toggle('active', mode === 'dashboard');
   document.getElementById('btn-workspace').classList.toggle('active', mode === 'workspace');
   document.getElementById('btn-activity').classList.toggle('active', mode === 'activity');
+  document.getElementById('btn-inbox').classList.toggle('active', mode === 'inbox');
   // Auto-load Outreach Drafter (agent5, port 3037) when entering workspace with no agent selected
   if (mode === 'workspace' && !document.querySelector('.sidebar-item.active')) {
     const agent5 = agentData.find(a => a.id === 'agent5');
     if (agent5 && agent5.running) embedAgent('agent5', 3037, '/');
   }
   if (mode === 'activity') loadActivity();
+  if (mode === 'inbox') { loadGmailHygiene(); loadEmailScan(); }
 }
 
 async function loadActivity() {
@@ -642,21 +776,147 @@ function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// --- Pipeline flow: make Signal Scanner step dynamic ---
-function updatePipelineFlow() {
-  const flow = document.getElementById('pipeline-flow');
-  if (!flow) return;
-  const scanner = agentData.find(a => a.id === 'signal-scanner');
-  const steps = flow.querySelectorAll('.flow-step');
-  // First step is Signal Scanner
-  if (steps.length > 0) {
-    steps[0].classList.toggle('active', !!(scanner && scanner.running));
-  }
+// --- Health dot updater: polls /api/status, updates dots by port ---
+function updateHealthDots() {
+  if (!agentData.length) return;
+  agentData.forEach(agent => {
+    const dot = document.getElementById('hdot-' + agent.port);
+    if (dot) {
+      dot.classList.toggle('running', !!agent.running);
+    }
+    // Also update card border
+    const card = dot ? dot.closest('.agent-card') : null;
+    if (card) {
+      card.classList.toggle('running', !!agent.running);
+      card.classList.toggle('stopped', !agent.running);
+      const btn = card.querySelector('.btn-open');
+      if (btn) btn.disabled = !agent.running;
+    }
+  });
 }
+
+// Legacy compat
+function updatePipelineFlow() { updateHealthDots(); }
 
 // Auto-refresh status every 30 seconds
 loadStatus();
 setInterval(loadStatus, 30000);
+
+// --- Inbox: Gmail Hygiene ---
+async function loadGmailHygiene() {
+  try {
+    const res = await fetch('/api/proxy/gmail-hygiene/senders');
+    const senders = await res.json();
+    if (!Array.isArray(senders)) { document.getElementById('gh-senders').textContent = 'No sender data'; return; }
+    const toReview = senders.filter(s => !s.action || s.action === 'pending');
+    const kept = senders.filter(s => s.action === 'keep');
+    const unsub = senders.filter(s => s.action === 'unsubscribe' || s.action === 'blocked');
+    document.getElementById('gh-total').textContent = senders.length;
+    document.getElementById('gh-review').textContent = toReview.length;
+    document.getElementById('gh-kept').textContent = kept.length;
+    document.getElementById('gh-unsub').textContent = unsub.length;
+
+    // Group by label
+    const byLabel = {};
+    senders.forEach(s => {
+      const lbl = s.label || s.category || 'Uncategorised';
+      if (!byLabel[lbl]) byLabel[lbl] = [];
+      byLabel[lbl].push(s);
+    });
+    const container = document.getElementById('gh-senders');
+    container.innerHTML = Object.entries(byLabel).map(([label, items]) => `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">${esc(label)} (${items.length})</div>
+        ${items.map(s => `
+          <div class="agent-card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:6px;cursor:default;">
+            <div>
+              <div style="font-size:13px;font-weight:500;">${esc(s.sender || s.email || s.from || 'Unknown')}</div>
+              <div style="font-size:11px;color:#999;">${s.count ? s.count + ' emails' : ''} ${s.action && s.action !== 'pending' ? '<span class="result-badge ' + (s.action === 'keep' ? 'success' : 'error') + '">' + esc(s.action) + '</span>' : ''}</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              ${!s.action || s.action === 'pending' ? `
+                <button class="btn-forward" style="font-size:11px;padding:4px 10px;" onclick="ghAction('${esc(s.id || s._id || '')}','keep')">Keep</button>
+                <button class="btn-dismiss" style="font-size:11px;padding:4px 10px;" onclick="ghAction('${esc(s.id || s._id || '')}','unsubscribe')">Unsub</button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('gh-senders').innerHTML = '<span style="color:#ef4444;">Gmail Hygiene not reachable</span>';
+  }
+}
+
+async function ghScan(days) {
+  try {
+    showToast('Starting Gmail Hygiene scan (' + days + ' days)...');
+    const res = await fetch('/api/proxy/gmail-hygiene/scan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days })
+    });
+    const data = await res.json();
+    showToast(data.message || 'Scan complete');
+    await loadGmailHygiene();
+  } catch (e) { showToast('Scan failed: ' + e.message, 'error'); }
+}
+
+async function ghAction(id, action) {
+  if (!id) return;
+  try {
+    const res = await fetch(`/api/proxy/gmail-hygiene/senders/${id}/${action}`, { method: 'POST' });
+    if (!res.ok) throw new Error('Status ' + res.status);
+    showToast(action === 'keep' ? 'Sender kept' : 'Unsubscribed');
+    await loadGmailHygiene();
+  } catch (e) { showToast('Action failed: ' + e.message, 'error'); }
+}
+
+// --- Inbox: Email Scan ---
+async function loadEmailScan() {
+  try {
+    const [statsRes, resultsRes] = await Promise.all([
+      fetch('/api/proxy/email-scan/stats'),
+      fetch('/api/proxy/email-scan/results')
+    ]);
+    const stats = await statsRes.json();
+    const results = await resultsRes.json();
+
+    document.getElementById('es-processed').textContent = stats.processed ?? stats.total ?? '--';
+    document.getElementById('es-inbound').textContent = stats.inbound ?? stats.replies ?? '--';
+    document.getElementById('es-bounces').textContent = stats.bounces ?? '--';
+    document.getElementById('es-attio').textContent = stats.attio_updates ?? stats.attioUpdates ?? '--';
+
+    const items = Array.isArray(results) ? results : (results.results || []);
+    const container = document.getElementById('es-results');
+    if (!items.length) { container.textContent = 'No results yet'; return; }
+    container.innerHTML = items.slice(0, 50).map(r => `
+      <div class="agent-card" style="padding:10px 14px;margin-bottom:6px;cursor:default;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:13px;font-weight:500;">${esc(r.from || r.sender || r.email || 'Unknown')}</div>
+            <div style="font-size:11px;color:#999;">${esc(r.subject || '')}</div>
+          </div>
+          <div>
+            ${r.classification ? `<span class="signal-badge type">${esc(r.classification)}</span>` : ''}
+            ${r.attio_updated || r.attioUpdated ? '<span class="signal-badge confidence-high">Attio</span>' : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('es-results').innerHTML = '<span style="color:#ef4444;">Email Scan not reachable</span>';
+  }
+}
+
+async function esScan() {
+  try {
+    showToast('Starting Email Scan...');
+    const res = await fetch('/api/proxy/email-scan/scan', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message || 'Scan complete');
+    await loadEmailScan();
+  } catch (e) { showToast('Scan failed: ' + e.message, 'error'); }
+}
 </script>
 <script id="force-light-mode">
 (function() {

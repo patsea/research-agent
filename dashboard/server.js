@@ -91,6 +91,58 @@ app.patch('/api/proxy/scanner-signal/:id', async (req, res) => {
   }
 });
 
+// ── Gmail Hygiene proxy routes (port 3039) ─────────────────────────
+app.get('/api/proxy/gmail-hygiene/senders', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3039/api/senders', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Gmail Hygiene not reachable', detail: e.message }); }
+});
+
+app.get('/api/proxy/gmail-hygiene/digest', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3039/api/digest', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Gmail Hygiene not reachable', detail: e.message }); }
+});
+
+app.post('/api/proxy/gmail-hygiene/scan', async (req, res) => {
+  try {
+    const response = await axios.post('http://localhost:3039/api/scan', req.body, { timeout: 60000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Gmail Hygiene not reachable', detail: e.message }); }
+});
+
+app.post('/api/proxy/gmail-hygiene/senders/:id/:action', async (req, res) => {
+  try {
+    const { id, action } = req.params;
+    const response = await axios.post(`http://localhost:3039/api/senders/${id}/${action}`, req.body || {}, { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Gmail Hygiene not reachable', detail: e.message }); }
+});
+
+// ── Email Scan proxy routes (port 3034) ────────────────────────────
+app.get('/api/proxy/email-scan/stats', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3034/api/stats', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Email Scan not reachable', detail: e.message }); }
+});
+
+app.get('/api/proxy/email-scan/results', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3034/api/results', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Email Scan not reachable', detail: e.message }); }
+});
+
+app.post('/api/proxy/email-scan/scan', async (req, res) => {
+  try {
+    const response = await axios.post('http://localhost:3034/scan', req.body || {}, { timeout: 120000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Email Scan not reachable', detail: e.message }); }
+});
+
 // ── Config API routes ──────────────────────────────────────────────
 
 // Helper: JSON config read/write

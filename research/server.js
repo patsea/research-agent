@@ -107,6 +107,7 @@ app.get('/', (req, res) => {
   <div class="tab" onclick="switchTab('firm')">PE/VC Firm</div>
   <div class="tab" onclick="switchTab('portfolio')">Portfolio Scan</div>
   <div class="tab" onclick="switchTab('company')">Company Assessment</div>
+  <div class="tab" onclick="switchTab('history')">History</div>
 </div>
 
 <!-- Company/Role Research Tab -->
@@ -283,6 +284,12 @@ app.get('/', (req, res) => {
   </div>
 </div>
 
+<!-- History Tab -->
+<div id="tab-history" class="tab-panel">
+  <h3 style="color:#60a5fa; margin-bottom:1rem;">Research History</h3>
+  <div id="history-list" style="color:#999;">Click to load history...</div>
+</div>
+
 <div id="loading">Running Claude audit... this takes 30-60 seconds.</div>
 
 <div id="results">
@@ -310,6 +317,23 @@ app.get('/', (req, res) => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelector('.tab[onclick*="' + name + '"]').classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'history') loadHistory();
+  }
+
+  async function loadHistory() {
+    const el = document.getElementById('history-list');
+    el.innerHTML = '<p style="color:#60a5fa;">Loading...</p>';
+    try {
+      const res = await fetch('/api/research-history');
+      const rows = await res.json();
+      if (!rows.length) { el.innerHTML = '<p>No audits yet.</p>'; return; }
+      el.innerHTML = rows.map(r => '<div style="border:1px solid #333;padding:12px;margin:8px 0;border-radius:6px">'
+        + '<strong>' + (r.company_name || r.role_title || 'Unknown') + '</strong>'
+        + '<span style="color:#888;font-size:12px;margin-left:8px">' + (r.created_at || '') + '</span>'
+        + (r.score ? '<span style="background:#1a3a1a;color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px">' + (r.score.overall_badge || '') + ' (' + Math.round((r.score.final_score || 0) * 100) + '%)</span>' : '')
+        + '<p style="color:#888;font-size:13px;margin:6px 0 0">' + (r.context_type || '') + ' | ' + (r.status || '') + '</p>'
+        + '</div>').join('');
+    } catch (err) { el.innerHTML = '<p style="color:#f87171;">Error loading history: ' + err.message + '</p>'; }
   }
 
   function showResults(data) {
@@ -494,6 +518,28 @@ app.post('/api/audit', async (req, res) => {
   try {
     const result = await runAudit({ priorResearch, taskContext, explicitQuestions, namedPeople, researchType });
     logActivity({ agent: 'research-hub', action: 'audit_complete', company: taskContext || 'unknown', result: 'success', detail: `type=${researchType || 'manual'}, chars=${priorResearch.length}` });
+
+    // Auto-trigger scorer (non-blocking — fire and forget)
+    setImmediate(async () => {
+      try {
+        const { default: http } = await import('http');
+        const scoreBody = {
+          name: taskContext || namedPeople || 'Unknown',
+          scoringType: researchType === 'firm' ? 'firm' : 'company',
+          researchContext: typeof result === 'string' ? result : JSON.stringify(result),
+          source: 'research-hub-auto'
+        };
+        const postData = JSON.stringify(scoreBody);
+        const req2 = http.request({ hostname: 'localhost', port: 3038, path: '/api/score', method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+        }, () => {});
+        req2.on('error', () => {}); // silent fail if scorer is down
+        req2.write(postData);
+        req2.end();
+        logActivity({ agent: 'research-hub', action: 'auto-score-triggered', company: taskContext || 'unknown', result: 'success', detail: 'Score auto-triggered after audit' });
+      } catch (_) {}
+    });
+
     res.json({ success: true, result });
   } catch (err) {
     logActivity({ agent: 'research-hub', action: 'audit_complete', company: taskContext || 'unknown', result: 'error', detail: err.message });
@@ -561,6 +607,32 @@ app.get('/api/research/:runId/file', (req, res) => {
     res.type('text/markdown').send(md);
   } catch (err) {
     res.status(500).send('Error reading file: ' + err.message);
+  }
+});
+
+// GET /api/research-history — all audits with scores from scorer DB
+app.get('/api/research-history', async (req, res) => {
+  try {
+    const runs = researchRuns.list(50);
+    // Attempt to join scorer DB for scores
+    let scoresByName = {};
+    try {
+      const Database = (await import('better-sqlite3')).default;
+      const scorerDb = new Database(
+        join(__dirname_server, '..', 'scorer', 'data', 'agent3.db'),
+        { readonly: true }
+      );
+      const scoreRows = scorerDb.prepare('SELECT * FROM scores ORDER BY created_at DESC').all();
+      scoreRows.forEach(s => { if (!scoresByName[s.name]) scoresByName[s.name] = s; });
+      scorerDb.close();
+    } catch (_) { /* scorer DB may not exist */ }
+    const result = runs.map(r => ({
+      ...r,
+      score: scoresByName[r.company_name] || scoresByName[r.role_title] || null
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -1,0 +1,14 @@
+{
+  "name": "newsletter-monitor",
+  "version": "1.0.0",
+  "description": "Newsletter monitor agent — scans Gmail for newsletters, summarises with Haiku",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0",
+    "node-fetch": "^2.7.0"
+  }
+}

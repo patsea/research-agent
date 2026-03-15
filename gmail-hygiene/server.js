@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import { scanInbox } from './modules/scanner.js';
 import { attemptUnsubscribe, extractUnsubUrl } from './modules/unsubscriber.js';
-import { callGmail } from './modules/gmail.js';
+import { callGmail, parseSearchResults } from './modules/gmail.js';
 import { getDb } from './db.js';
 import { logActivity } from '../shared/activityLogger.js';
 
@@ -16,16 +16,33 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/scan', async (req, res) => {
-  const { daysBack = 7 } = req.body;
-  try {
-    const result = await scanInbox(daysBack);
-    logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'success',
-      detail: `new=${result.newSenders}, known=${result.knownSenders}` });
-    res.json({ success: true, ...result });
-  } catch (err) {
-    logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'error', detail: err.message });
-    res.status(500).json({ success: false, error: err.message });
+  const { daysBack = 7, account } = req.body;
+  // If a specific account is requested, scan just that one
+  // Otherwise scan both gmail and gmail-aloma
+  const accounts = account ? [account] : ['gmail', 'gmail-aloma'];
+  const allResults = [];
+  const errors = [];
+
+  for (const acct of accounts) {
+    try {
+      const result = await scanInbox(daysBack, acct);
+      allResults.push(result);
+      logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'success',
+        detail: `[${acct}] new=${result.newSenders}, known=${result.knownSenders}` });
+    } catch (err) {
+      errors.push({ account: acct, error: err.message });
+      logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'error', detail: `[${acct}] ${err.message}` });
+    }
   }
+
+  const combined = {
+    success: errors.length === 0,
+    accounts: allResults,
+    newSenders: allResults.reduce((s, r) => s + r.newSenders, 0),
+    knownSenders: allResults.reduce((s, r) => s + r.knownSenders, 0),
+    ...(errors.length > 0 ? { errors } : {})
+  };
+  res.json(combined);
 });
 
 app.get('/api/senders', (req, res) => {
@@ -44,7 +61,19 @@ app.post('/api/senders/:id/unsubscribe', async (req, res) => {
   const sender = db.prepare('SELECT * FROM senders WHERE id = ?').get(req.params.id);
   if (!sender) return res.status(404).json({ error: 'Sender not found' });
   try {
-    const url = sender.unsub_url || (await extractUnsubUrl(sender.email_address))?.url;
+    let url = sender.unsub_url;
+    if (!url) {
+      // Search Gmail for most recent message from this sender to get message ID
+      const searchRaw = await callGmail('search_emails', {
+        query: `from:${sender.email_address}`,
+        max_results: 1
+      });
+      const msgs = parseSearchResults(searchRaw);
+      if (msgs.length > 0) {
+        const unsubInfo = await extractUnsubUrl(msgs[0].id || msgs[0].messageId);
+        url = unsubInfo?.url;
+      }
+    }
     if (!url) {
       return res.json({ success: false, result: 'no_url', detail: 'No unsubscribe URL found' });
     }

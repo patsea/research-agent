@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newsletter Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; line-height: 1.5; }
+    .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+    header { text-align: center; padding: 30px 0 20px; }
+    header h1 { font-size: 28px; font-weight: 600; }
+    header .meta { color: #86868b; font-size: 13px; margin-top: 4px; }
+
+    .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+    .tab { padding: 8px 24px; border-radius: 20px; border: 1px solid #d2d2d7; background: white; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .tab:hover { background: #f0f0f5; }
+    .tab.active { background: #0071e3; color: white; border-color: #0071e3; }
+
+    .run-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px 16px; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .run-bar button { padding: 8px 20px; border-radius: 8px; border: none; background: #0071e3; color: white; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .run-bar button:hover { background: #0077ed; }
+    .run-bar button:disabled { background: #ccc; cursor: not-allowed; }
+    .run-bar .status { font-size: 13px; color: #86868b; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .stat-card .value { font-size: 28px; font-weight: 600; }
+    .stat-card .label { font-size: 12px; color: #86868b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card.received .value { color: #0071e3; }
+    .stat-card.summarised .value { color: #34c759; }
+    .stat-card.read .value { color: #ff9500; }
+    .stat-card.unsub .value { color: #ff3b30; }
+
+    .newsletter-item { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: transform 0.1s; }
+    .newsletter-item:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .newsletter-item .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .newsletter-item .subject { font-size: 16px; font-weight: 600; flex: 1; }
+    .newsletter-item .sender { font-size: 13px; color: #86868b; margin-bottom: 4px; }
+    .newsletter-item .account-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; background: #e8e8ed; color: #636366; }
+    .newsletter-item .summary { font-size: 14px; color: #424245; margin: 12px 0; padding: 12px; background: #f5f5f7; border-radius: 8px; white-space: pre-line; }
+    .newsletter-item .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .newsletter-item .actions button { padding: 6px 14px; border-radius: 6px; border: 1px solid #d2d2d7; background: white; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+    .newsletter-item .actions button:hover { background: #f0f0f5; }
+    .newsletter-item .actions button.read-btn:hover { background: #fff3e0; border-color: #ff9500; }
+    .newsletter-item .actions button.skip-btn:hover { background: #f0f0f5; border-color: #86868b; }
+    .newsletter-item .actions button.unsub-btn:hover { background: #ffe5e5; border-color: #ff3b30; color: #ff3b30; }
+    .newsletter-item .actions button.active { font-weight: 600; }
+    .newsletter-item .actions button.read-btn.active { background: #fff3e0; border-color: #ff9500; color: #ff9500; }
+    .newsletter-item .actions button.skip-btn.active { background: #e8e8ed; border-color: #86868b; color: #636366; }
+    .newsletter-item .actions button.unsub-btn.active { background: #ffe5e5; border-color: #ff3b30; color: #ff3b30; }
+
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-left: 8px; }
+    .status-badge.new { background: #e3f2fd; color: #0071e3; }
+    .status-badge.read { background: #fff3e0; color: #ff9500; }
+    .status-badge.skip { background: #e8e8ed; color: #636366; }
+    .status-badge.unsubscribed { background: #ffe5e5; color: #ff3b30; }
+
+    .history-item { background: white; border-radius: 12px; padding: 16px 20px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center; }
+    .history-item .day { font-size: 15px; font-weight: 600; }
+    .history-item .badges { display: flex; gap: 8px; }
+    .history-item .badge { padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+    .history-item .badge.total { background: #e3f2fd; color: #0071e3; }
+    .history-item .badge.read { background: #fff3e0; color: #ff9500; }
+    .history-item .badge.unsub { background: #ffe5e5; color: #ff3b30; }
+
+    .empty { text-align: center; padding: 60px 20px; color: #86868b; }
+    .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .newsletter-item .header { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Newsletter Monitor</h1>
+      <div class="meta">Scans Gmail for newsletters, summarises with AI</div>
+    </header>
+
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('today')">Today</div>
+      <div class="tab" onclick="showTab('history')">History</div>
+    </div>
+
+    <div id="today-tab" class="tab-content active">
+      <div class="run-bar">
+        <button id="run-btn" onclick="runNow()">Scan Now</button>
+        <span class="status" id="run-status">Ready</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card received">
+          <div class="value" id="stat-received">-</div>
+          <div class="label">Received</div>
+        </div>
+        <div class="stat-card summarised">
+          <div class="value" id="stat-summarised">-</div>
+          <div class="label">Summarised</div>
+        </div>
+        <div class="stat-card read">
+          <div class="value" id="stat-read">-</div>
+          <div class="label">Read</div>
+        </div>
+        <div class="stat-card unsub">
+          <div class="value" id="stat-unsub">-</div>
+          <div class="label">Unsubscribed</div>
+        </div>
+      </div>
+
+      <div id="newsletter-list"></div>
+    </div>
+
+    <div id="history-tab" class="tab-content">
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const esc = (s) => {
+      if (!s) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    };
+
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.tab:nth-child(${name === 'today' ? 1 : 2})`).classList.add('active');
+      document.getElementById(`${name}-tab`).classList.add('active');
+      if (name === 'today') loadToday();
+      else loadHistory();
+    }
+
+    async function loadToday() {
+      try {
+        const res = await fetch('/api/newsletters');
+        const items = await res.json();
+        updateStats(items);
+        renderItems(items);
+      } catch (err) {
+        document.getElementById('newsletter-list').innerHTML = `<div class="empty"><div class="icon">!</div><div>Error loading newsletters: ${esc(err.message)}</div></div>`;
+      }
+    }
+
+    function updateStats(items) {
+      document.getElementById('stat-received').textContent = items.length;
+      document.getElementById('stat-summarised').textContent = items.filter(i => i.summary).length;
+      document.getElementById('stat-read').textContent = items.filter(i => i.status === 'read').length;
+      document.getElementById('stat-unsub').textContent = items.filter(i => i.status === 'unsubscribed').length;
+    }
+
+    function renderItems(items) {
+      const el = document.getElementById('newsletter-list');
+      if (!items.length) {
+        el.innerHTML = '<div class="empty"><div class="icon">&#9993;</div><div>No newsletters found today.<br>Click "Scan Now" to check your inbox.</div></div>';
+        return;
+      }
+      el.innerHTML = items.map(item => `
+        <div class="newsletter-item" id="nl-${item.id}">
+          <div class="header">
+            <div>
+              <div class="subject">${esc(item.subject)} <span class="status-badge ${item.status}">${item.status}</span></div>
+              <div class="sender">${esc(item.sender_name)} &lt;${esc(item.sender_email)}&gt;</div>
+              <span class="account-badge">${esc(item.account)}</span>
+            </div>
+          </div>
+          ${item.summary ? `<div class="summary">${esc(item.summary)}</div>` : ''}
+          <div class="actions">
+            <button class="read-btn ${item.status === 'read' ? 'active' : ''}" onclick="setStatus(${item.id}, 'read')">Mark Read</button>
+            <button class="skip-btn ${item.status === 'skip' ? 'active' : ''}" onclick="setStatus(${item.id}, 'skip')">Skip</button>
+            <button class="unsub-btn ${item.status === 'unsubscribed' ? 'active' : ''}" onclick="setStatus(${item.id}, 'unsubscribed')">Unsubscribe</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function setStatus(id, status) {
+      try {
+        await fetch(`/api/newsletters/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        loadToday();
+      } catch (err) {
+        console.error('Status update failed:', err);
+      }
+    }
+
+    async function runNow() {
+      const btn = document.getElementById('run-btn');
+      const statusEl = document.getElementById('run-status');
+      btn.disabled = true;
+      statusEl.textContent = 'Scanning...';
+      try {
+        await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ daysBack: 1 })
+        });
+        statusEl.textContent = 'Scan triggered. Refreshing in 10s...';
+        setTimeout(() => {
+          loadToday();
+          statusEl.textContent = 'Ready';
+          btn.disabled = false;
+        }, 10000);
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        btn.disabled = false;
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        const days = await res.json();
+        const el = document.getElementById('history-list');
+        if (!days.length) {
+          el.innerHTML = '<div class="empty"><div class="icon">&#128197;</div><div>No history yet.</div></div>';
+          return;
+        }
+        el.innerHTML = days.map(day => `
+          <div class="history-item">
+            <div class="day">${esc(day.day)}</div>
+            <div class="badges">
+              <span class="badge total">${day.count} received</span>
+              ${day.read_count > 0 ? `<span class="badge read">${day.read_count} read</span>` : ''}
+              ${day.unsub_count > 0 ? `<span class="badge unsub">${day.unsub_count} unsub</span>` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('history-list').innerHTML = `<div class="empty"><div class="icon">!</div><div>Error: ${esc(err.message)}</div></div>`;
+      }
+    }
+
+    // Initial load
+    loadToday();
+  </script>
+</body>
+</html>

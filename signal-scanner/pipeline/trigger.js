@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { sources, signals, exclusions, dedup, runLog } = require('../db');
+const { notifySignal } = require('../../shared/slack.cjs');
 const { extract } = require('./extract');
 const rss = require('../methods/rss');
 const webpage = require('../methods/webpage');
@@ -46,6 +47,7 @@ async function runPipeline(opts = {}) {
         if (excl.includes((sig.sector||'').toLowerCase())) { stats.signals_suppressed++; continue; }
         if (dedup.seen(sig.company_name, sig.signal_type)) { stats.signals_suppressed++; continue; }
         signals.insert({ ...sig, source_name: source.name, method: fetched.method, run_id: runId });
+        notifySignal({ ...sig, source_name: source.name }).catch(() => {});
         if (sig.company_name) dedup.mark(sig.company_name, sig.signal_type);
         stats.signals_written++;
       }
