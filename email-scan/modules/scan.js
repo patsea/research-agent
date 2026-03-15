@@ -1,4 +1,4 @@
-import { searchMessages, readMessage } from './gmail.js';
+import { searchMessages, readMessage, ACTIVE_ACCOUNTS } from './gmail.js';
 import { classifyReply } from './classify.js';
 import { processed, runLog } from '../db.js';
 import { lookupByEmail, updateStatus, setNextAction, appendNote, createTask } from './attio.js';
@@ -46,22 +46,22 @@ function extractName(fromHeader) {
   return match ? match[1].trim() : null;
 }
 
-async function scanOutgoing(stats, options = {}) {
+async function scanOutgoing(stats, options = {}, account = 'gmail') {
   const { dryRun = false, lookbackHours = 24 } = options;
-  console.log('[scan] Scanning outgoing emails...');
-  const messages = await searchMessages(`from:me in:sent after:${lookbackDate(lookbackHours)}`);
+  console.log(`[scan:${account}] Scanning outgoing emails...`);
+  const messages = await searchMessages(`from:me in:sent after:${lookbackDate(lookbackHours)}`, account);
   for (const msg of messages) {
     const id = msg.id || msg.messageId;
     if (!id || processed.seen(id)) continue;
     stats.scanned++;
     try {
-      const full = await readMessage(id);
+      const full = await readMessage(id, account);
       const toEmail = extractEmail(full.to || full.To || '');
       const outSubject = full.subject || null;
-      if (!toEmail || isExcludedSender(toEmail)) { processed.mark(id, 'excluded', { senderEmail: toEmail, subject: outSubject }); continue; }
+      if (!toEmail || isExcludedSender(toEmail)) { processed.mark(id, 'excluded', { senderEmail: toEmail, subject: outSubject, account }); continue; }
       const person = await lookupByEmail(toEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: toEmail, subject: outSubject }); continue; }
-      if (PROTECTED.has(person.currentStatus)) { processed.mark(id, 'protected_skip', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id }); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: toEmail, subject: outSubject, account }); continue; }
+      if (PROTECTED.has(person.currentStatus)) { processed.mark(id, 'protected_skip', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id, account }); continue; }
 
       stats.classified.outgoing++;
       if (!dryRun) {
@@ -71,28 +71,28 @@ async function scanOutgoing(stats, options = {}) {
         await appendNote(person.id, `Outreach sent: ${outSubject || '(no subject)'}`, `Email sent on ${sentDate}. Subject: ${outSubject || '(no subject)'}`);
         stats.attioUpdates++;
       }
-      processed.mark(id, 'outgoing_tracked', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1 });
-    } catch (e) { console.error('[scan] outgoing error:', e.message); }
+      processed.mark(id, 'outgoing_tracked', { senderEmail: toEmail, senderName: person.name, subject: outSubject, attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1, account });
+    } catch (e) { console.error(`[scan:${account}] outgoing error:`, e.message); }
   }
 }
 
-async function scanInbound(stats, options = {}) {
+async function scanInbound(stats, options = {}, account = 'gmail') {
   const { dryRun = false, lookbackHours = 24 } = options;
-  console.log('[scan] Scanning inbound replies...');
-  const messages = await searchMessages(`after:${lookbackDate(lookbackHours)} -from:me -in:drafts -in:spam -in:trash`);
+  console.log(`[scan:${account}] Scanning inbound replies...`);
+  const messages = await searchMessages(`after:${lookbackDate(lookbackHours)} -from:me -in:drafts -in:spam -in:trash`, account);
   for (const msg of messages) {
     const id = msg.id || msg.messageId;
     if (!id || processed.seen(id)) continue;
     stats.scanned++;
     try {
-      const full = await readMessage(id);
+      const full = await readMessage(id, account);
       const fromRaw = full.from || full.From || '';
       const fromEmail = extractEmail(fromRaw);
       const fromName = extractName(fromRaw);
       const inSubject = full.subject || null;
-      if (!fromEmail || isExcludedSender(fromEmail)) { processed.mark(id, 'excluded', { senderEmail: fromEmail, senderName: fromName, subject: inSubject }); continue; }
+      if (!fromEmail || isExcludedSender(fromEmail)) { processed.mark(id, 'excluded', { senderEmail: fromEmail, senderName: fromName, subject: inSubject, account }); continue; }
       const person = await lookupByEmail(fromEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: fromEmail, senderName: fromName, subject: inSubject }); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'not_in_attio', { senderEmail: fromEmail, senderName: fromName, subject: inSubject, account }); continue; }
 
       const classified = await classifyReply(full.subject || '', full.body || full.snippet || '');
       const replyDate = full.date || full.Date || new Date().toISOString();
@@ -138,31 +138,31 @@ async function scanInbound(stats, options = {}) {
         senderEmail: fromEmail, senderName: fromName || person.name, subject: inSubject,
         classificationType: classified.type, classificationSummary: classified.summary || null,
         attioRecordId: person.id, attioUpdated: didAttioUpdate ? 1 : 0,
-        oooReturnDate: classified.ooo_return_date || null
+        oooReturnDate: classified.ooo_return_date || null, account
       });
-    } catch (e) { console.error('[scan] inbound error:', e.message); }
+    } catch (e) { console.error(`[scan:${account}] inbound error:`, e.message); }
   }
 }
 
-async function scanBounces(stats, options = {}) {
+async function scanBounces(stats, options = {}, account = 'gmail') {
   const { dryRun = false, lookbackHours = 24 } = options;
-  console.log('[scan] Scanning for bounces...');
-  const messages = await searchMessages(`(from:mailer-daemon@* OR from:postmaster@* OR subject:"delivery failed" OR subject:"undeliverable") after:${lookbackDate(lookbackHours)}`);
+  console.log(`[scan:${account}] Scanning for bounces...`);
+  const messages = await searchMessages(`(from:mailer-daemon@* OR from:postmaster@* OR subject:"delivery failed" OR subject:"undeliverable") after:${lookbackDate(lookbackHours)}`, account);
   for (const msg of messages) {
     const id = msg.id || msg.messageId;
     if (!id || processed.seen(id)) continue;
     stats.scanned++;
     try {
-      const full = await readMessage(id);
+      const full = await readMessage(id, account);
       const subject = full.subject || '';
       const body = full.body || full.snippet || '';
-      if (!isBounce(subject, body)) { processed.mark(id, 'bounce_false_positive', { subject }); continue; }
+      if (!isBounce(subject, body)) { processed.mark(id, 'bounce_false_positive', { subject, account }); continue; }
       const allEmails = (body.match(/[\w.+-]+@[\w.-]+\.\w{2,}/g) || [])
         .filter(e => !e.includes('mailer-daemon') && !e.includes('postmaster'));
       const recipientEmail = allEmails[0];
-      if (!recipientEmail) { processed.mark(id, 'bounce_no_recipient', { subject }); continue; }
+      if (!recipientEmail) { processed.mark(id, 'bounce_no_recipient', { subject, account }); continue; }
       const person = await lookupByEmail(recipientEmail);
-      if (!person) { stats.unknownSenders++; processed.mark(id, 'bounce_not_in_attio', { senderEmail: recipientEmail, subject }); continue; }
+      if (!person) { stats.unknownSenders++; processed.mark(id, 'bounce_not_in_attio', { senderEmail: recipientEmail, subject, account }); continue; }
 
       stats.classified.bounce = (stats.classified.bounce || 0) + 1;
       if (!dryRun) {
@@ -170,32 +170,39 @@ async function scanBounces(stats, options = {}) {
         await appendNote(person.id, 'Email bounce detected', `Hard bounce for ${recipientEmail}. Subject: ${subject}`);
         stats.attioUpdates++;
       }
-      processed.mark(id, 'bounce_detected', { senderEmail: recipientEmail, senderName: person.name, subject, classificationType: 'bounce', attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1 });
-    } catch (e) { console.error('[scan] bounce error:', e.message); }
+      processed.mark(id, 'bounce_detected', { senderEmail: recipientEmail, senderName: person.name, subject, classificationType: 'bounce', attioRecordId: person.id, attioUpdated: dryRun ? 0 : 1, account });
+    } catch (e) { console.error(`[scan:${account}] bounce error:`, e.message); }
   }
 }
 
 export async function runScan(options = {}) {
   const { lookbackHours = 24, dryRun = false } = options;
-  const stats = { scanned: 0, classified: {}, attioUpdates: 0, unknownSenders: 0, dryRun };
+  const stats = { scanned: 0, classified: {}, attioUpdates: 0, unknownSenders: 0, dryRun, accounts: [...ACTIVE_ACCOUNTS] };
   const errors = [];
 
-  console.log(`[scan] Starting scan — lookback: ${lookbackHours}h, dryRun: ${dryRun}`);
+  console.log(`[scan] Starting scan — lookback: ${lookbackHours}h, dryRun: ${dryRun}, accounts: ${ACTIVE_ACCOUNTS.join(', ')}`);
 
-  try {
-    await scanOutgoing(stats, options);
-  } catch (e) { errors.push(`outgoing: ${e.message}`); console.error('[scan] outgoing fatal:', e.message); }
+  // Run all accounts in parallel, merge results into shared stats
+  const accountScans = ACTIVE_ACCOUNTS.map(async (account) => {
+    const accountErrors = [];
 
-  try {
-    await scanInbound(stats, options);
-  } catch (e) { errors.push(`inbound: ${e.message}`); console.error('[scan] inbound fatal:', e.message); }
+    try {
+      await scanOutgoing(stats, options, account);
+    } catch (e) { accountErrors.push(`${account}/outgoing: ${e.message}`); console.error(`[scan:${account}] outgoing fatal:`, e.message); }
 
-  try {
-    await scanBounces(stats, options);
-  } catch (e) { errors.push(`bounces: ${e.message}`); console.error('[scan] bounces fatal:', e.message); }
+    try {
+      await scanInbound(stats, options, account);
+    } catch (e) { accountErrors.push(`${account}/inbound: ${e.message}`); console.error(`[scan:${account}] inbound fatal:`, e.message); }
 
-  // Don't close MCP client here — let server.js keep the singleton alive.
-  // Standalone scan.js calls closeClient() explicitly before process.exit().
+    try {
+      await scanBounces(stats, options, account);
+    } catch (e) { accountErrors.push(`${account}/bounces: ${e.message}`); console.error(`[scan:${account}] bounces fatal:`, e.message); }
+
+    return accountErrors;
+  });
+
+  const allErrors = await Promise.all(accountScans);
+  for (const errs of allErrors) errors.push(...errs);
 
   if (errors.length) stats.errors = errors;
 

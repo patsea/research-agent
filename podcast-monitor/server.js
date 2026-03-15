@@ -6,6 +6,7 @@ const { pollFeed, pollAllFeeds } = require('./modules/poller');
 const { transcribe, fetchMetadata } = require('./modules/transcriber');
 const { resolveChannelId } = require('./modules/youtube');
 const { summarise } = require('./modules/summariser');
+const { fetchChannelVideos, fetchVideoDates } = require('./modules/youtube-backfill');
 
 const app = express();
 const PORT = 3040;
@@ -413,6 +414,95 @@ app.post('/api/feeds/youtube', async (req, res) => {
     console.error('[youtube] Error:', err.message);
     res.status(400).json({ error: err.message });
   }
+});
+
+// POST /api/feeds/:id/backfill-youtube — one-shot backfill all videos from YouTube channel
+app.post('/api/feeds/:id/backfill-youtube', async (req, res) => {
+  const db = getDb();
+  const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
+  if (!feed) return res.status(404).json({ error: 'Feed not found' });
+
+  if (!feed.url || !feed.url.includes('youtube.com/feeds/videos.xml')) {
+    return res.status(400).json({ error: 'Not a YouTube RSS feed' });
+  }
+
+  try {
+    const videos = fetchChannelVideos(feed.url);
+
+    // Optional limit: only insert the N most recent videos (yt-dlp returns most-recent-first)
+    const limit = req.body.limit ? parseInt(req.body.limit, 10) : null;
+    const videosToInsert = (limit && limit > 0) ? videos.slice(0, limit) : videos;
+
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO episodes (feed_id, title, source_url, published_at, description, thumbnail, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'new')
+    `);
+
+    let inserted = 0;
+    for (const v of videosToInsert) {
+      const result = insert.run(feed.id, v.title, v.source_url, v.published_at, v.description, v.thumbnail_url);
+      if (result.changes > 0) inserted++;
+    }
+
+    const skipped = videosToInsert.length - inserted;
+    console.log(`[youtube-backfill] Feed ${feed.id} (${feed.name}): found=${videos.length}, limit=${limit || 'none'}, inserted=${inserted}, skipped=${skipped}`);
+    logAct('youtube_backfill', `${feed.name}: ${inserted} new / ${skipped} existing (limit=${limit || 'none'})`);
+    res.json({ ok: true, found: videos.length, limited_to: limit || videos.length, inserted, skipped });
+  } catch (err) {
+    console.error('[youtube-backfill] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/feeds/:id/backfill-dates — populate NULL published_at using yt-dlp per-video date
+app.post('/api/feeds/:id/backfill-dates', async (req, res) => {
+  const db = getDb();
+  const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
+  if (!feed) return res.status(404).json({ error: 'Feed not found' });
+
+  // Find episodes with NULL published_at for this feed
+  const episodes = db.prepare(
+    'SELECT id, source_url FROM episodes WHERE feed_id = ? AND published_at IS NULL'
+  ).all(feed.id);
+
+  if (episodes.length === 0) {
+    return res.json({ ok: true, found: 0, updated: 0, still_null: 0 });
+  }
+
+  // Extract video IDs from source_url (pattern: ?v=VIDEO_ID)
+  const videoIdMap = new Map(); // videoId → episode id(s)
+  const videoIds = [];
+  for (const ep of episodes) {
+    const match = ep.source_url && ep.source_url.match(/[?&]v=([A-Za-z0-9_-]+)/);
+    if (match) {
+      const vid = match[1];
+      videoIds.push(vid);
+      if (!videoIdMap.has(vid)) videoIdMap.set(vid, []);
+      videoIdMap.get(vid).push(ep.id);
+    }
+  }
+
+  // Fetch dates via yt-dlp
+  const dateMap = fetchVideoDates(videoIds);
+
+  // Update episodes
+  const update = db.prepare('UPDATE episodes SET published_at = ? WHERE id = ?');
+  let updated = 0;
+  for (const [videoId, isoDate] of dateMap) {
+    const epIds = videoIdMap.get(videoId) || [];
+    for (const epId of epIds) {
+      update.run(isoDate, epId);
+      updated++;
+    }
+  }
+
+  const stillNull = db.prepare(
+    'SELECT COUNT(*) as cnt FROM episodes WHERE feed_id = ? AND published_at IS NULL'
+  ).get(feed.id).cnt;
+
+  console.log(`[backfill-dates] Feed ${feed.id}: found=${episodes.length}, updated=${updated}, still_null=${stillNull}`);
+  logAct('backfill_dates', `${feed.name}: ${updated}/${episodes.length} dates populated`);
+  res.json({ ok: true, found: episodes.length, updated, still_null: stillNull });
 });
 
 // Catch-all: serve index.html (MUST be after all API routes)

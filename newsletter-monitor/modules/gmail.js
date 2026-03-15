@@ -11,7 +11,8 @@ async function fetchNewsletters(daysBack = 1) {
 
   const accounts = [
     { name: 'gmail', mcp_url: 'https://gmail.mcp.claude.com/mcp', label: 'patrick.williamson@gmail.com' },
-    { name: 'gmail-aloma', mcp_url: 'https://gmail-aloma.mcp.claude.com/mcp', label: 'patrick@aloma.io' }
+    { name: 'gmail-aloma', mcp_url: 'https://gmail-aloma.mcp.claude.com/mcp', label: 'patrick@aloma.io' },
+    { name: 'gmail-growthworks', mcp_url: 'https://gmail-growthworks.mcp.claude.com/mcp', label: 'patrick@growthworks.com' }
   ];
 
   const allNewsletters = [];

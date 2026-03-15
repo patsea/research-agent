@@ -6,12 +6,10 @@
 URLS=(
   "http://localhost:3030"
   "http://localhost:3033"
-  "http://localhost:3034"
   "http://localhost:3035"
   "http://localhost:3036"
   "http://localhost:3037"
   "http://localhost:3038"
-  "http://localhost:3039"
   "http://localhost:3040"
   "http://localhost:3041"
 )

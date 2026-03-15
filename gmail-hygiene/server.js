@@ -18,7 +18,8 @@ app.get('/api/health', (req, res) => {
 app.post('/api/scan', async (req, res) => {
   const { daysBack = 7, account } = req.body;
   // If a specific account is requested, scan just that one
-  // Otherwise scan both gmail and gmail-aloma
+  // Otherwise scan all active accounts
+  // NOTE: 'gmail-growthworks' excluded until OAuth credentials.json is created
   const accounts = account ? [account] : ['gmail', 'gmail-aloma'];
   const allResults = [];
   const errors = [];

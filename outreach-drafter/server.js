@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import axios from 'axios';
 import 'dotenv/config';
 import { generateDraft, regenerateSection } from './modules/drafter.js';
-import { saveDraft, closeClient } from './modules/gmail-draft.js';
+import { saveDraft, closeClient, listActiveAccounts } from './modules/gmail-draft.js';
 import { drafts, templates, agent5Queue } from './db.js';
 import { logActivity } from '../shared/activityLogger.js';
 
@@ -21,7 +21,7 @@ app.use(express.static(join(__dirname, 'public')));
 // Health check
 app.get('/api/health', (req, res) => {
   const positioningLoaded = existsSync(POSITIONING_PATH);
-  res.json({ status: 'ok', positioningLoaded });
+  res.json({ status: 'ok', positioningLoaded, gmailAccounts: listActiveAccounts() });
 });
 
 // Positioning document
@@ -83,7 +83,8 @@ app.post('/api/draft', async (req, res) => {
       wordCount: result.wordCount,
       campaignType: contact.campaignType || 'pe_vc',
       templateName: templateName || 'default',
-      researchContext: research ? JSON.stringify(research) : null
+      researchContext: research ? JSON.stringify(research) : null,
+      gmailAccount: contact.gmail_account || 'gmail'
     };
 
     drafts.insert(draft);
@@ -139,10 +140,12 @@ app.post('/api/draft/:id/approve', async (req, res) => {
   if (!draft) return res.status(404).json({ error: 'Draft not found' });
 
   try {
+    const account = req.body?.account || draft.gmail_account || 'gmail';
     const gmailResult = await saveDraft({
       to: draft.contact_email,
       subject: draft.subject,
-      body: draft.body
+      body: draft.body,
+      account
     });
 
     drafts.updateStatus(id, 'approved');

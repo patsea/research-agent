@@ -21,6 +21,14 @@ const ACCOUNT_CONFIGS = {
       GMAIL_OAUTH_PATH: process.env.GMAIL_ALOMA_OAUTH_PATH || `${process.env.HOME}/.gmail-mcp-aloma/gcp-oauth.keys.json`,
       GMAIL_CREDENTIALS_PATH: process.env.GMAIL_ALOMA_CREDENTIALS_PATH || `${process.env.HOME}/.gmail-mcp-aloma/credentials.json`
     }
+  },
+  'gmail-growthworks': {
+    command: process.env.GMAIL_GROWTHWORKS_MCP_COMMAND || 'npx',
+    args: (process.env.GMAIL_GROWTHWORKS_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(','),
+    env: {
+      GMAIL_OAUTH_PATH: process.env.GMAIL_GROWTHWORKS_OAUTH_PATH || `${process.env.HOME}/.gmail-mcp-growthworks/gcp-oauth.keys.json`,
+      GMAIL_CREDENTIALS_PATH: process.env.GMAIL_GROWTHWORKS_CREDENTIALS_PATH || `${process.env.HOME}/.gmail-mcp-growthworks/credentials.json`
+    }
   }
 };
 

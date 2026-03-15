@@ -45,7 +45,7 @@ async function runPipeline(db, daysBack = 1) {
     return { ok: true, fetched, summarised, skipped, errors };
   } catch (err) {
     log(`Pipeline error: ${err.message}`);
-    db.prepare(`INSERT INTO run_log (run_id, fetched, summarised, skipped, errors, created_at) VALUES (?, 0, 0, 0, 1, datetime('now'))`).run(runId, 0, 0, 0, 1);
+    db.prepare(`INSERT INTO run_log (run_id, fetched, summarised, skipped, errors, created_at) VALUES (?, 0, 0, 0, 1, datetime('now'))`).run(runId);
     return { ok: false, error: err.message };
   }
 }

@@ -2,21 +2,58 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import 'dotenv/config';
 
-let client = null;
+// Support multiple Gmail MCP clients (one per account)
+const clients = new Map();
 
-async function getClient() {
-  if (client) return client;
+// Account configurations — env vars point to per-account OAuth credentials
+const ACCOUNT_CONFIGS = {
+  gmail: {
+    command: process.env.GMAIL_MCP_COMMAND || 'npx',
+    args: (process.env.GMAIL_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(','),
+    env: {
+      GMAIL_OAUTH_PATH: process.env.GMAIL_OAUTH_PATH || `${process.env.HOME}/.gmail-mcp/gcp-oauth.keys.json`,
+      GMAIL_CREDENTIALS_PATH: process.env.GMAIL_CREDENTIALS_PATH || `${process.env.HOME}/.gmail-mcp/credentials.json`
+    }
+  },
+  'gmail-aloma': {
+    command: process.env.GMAIL_ALOMA_MCP_COMMAND || 'npx',
+    args: (process.env.GMAIL_ALOMA_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(','),
+    env: {
+      GMAIL_OAUTH_PATH: process.env.GMAIL_ALOMA_OAUTH_PATH || `${process.env.HOME}/.gmail-mcp-aloma/gcp-oauth.keys.json`,
+      GMAIL_CREDENTIALS_PATH: process.env.GMAIL_ALOMA_CREDENTIALS_PATH || `${process.env.HOME}/.gmail-mcp-aloma/credentials.json`
+    }
+  },
+  'gmail-growthworks': {
+    command: process.env.GMAIL_GROWTHWORKS_MCP_COMMAND || 'npx',
+    args: (process.env.GMAIL_GROWTHWORKS_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(','),
+    env: {
+      GMAIL_OAUTH_PATH: process.env.GMAIL_GROWTHWORKS_OAUTH_PATH || `${process.env.HOME}/.gmail-mcp-growthworks/gcp-oauth.keys.json`,
+      GMAIL_CREDENTIALS_PATH: process.env.GMAIL_GROWTHWORKS_CREDENTIALS_PATH || `${process.env.HOME}/.gmail-mcp-growthworks/credentials.json`
+    }
+  }
+};
+
+// Active accounts — growthworks excluded until credentials.json confirmed
+export const ACTIVE_ACCOUNTS = ['gmail', 'gmail-aloma'];
+
+async function getClient(account = 'gmail') {
+  if (clients.has(account)) return clients.get(account);
+
+  const config = ACCOUNT_CONFIGS[account];
+  if (!config) throw new Error(`Unknown Gmail account: ${account}`);
+
   try {
-    const command = process.env.GMAIL_MCP_COMMAND || 'npx';
-    const args = (process.env.GMAIL_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(',');
-    const transport = new StdioClientTransport({ command, args });
-    const c = new Client({ name: 'email-scan', version: '1.0.0' });
+    const transport = new StdioClientTransport({
+      command: config.command,
+      args: config.args,
+      env: { ...process.env, ...config.env }
+    });
+    const c = new Client({ name: `email-scan-${account}`, version: '1.0.0' });
     await c.connect(transport);
-    client = c;
-    return client;
+    clients.set(account, c);
+    return c;
   } catch (err) {
-    client = null;
-    console.error('[gmail] MCP client init failed:', err.message);
+    console.error(`[gmail:${account}] MCP client init failed:`, err.message);
     throw err;
   }
 }
@@ -49,16 +86,6 @@ function parseSearchResults(text) {
       });
     }
   }
-  return messages;
-}
-
-export async function searchMessages(query) {
-  const c = await getClient();
-  console.log(`[gmail] search query: ${query}`);
-  const result = await c.callTool({ name: 'search_emails', arguments: { query, maxResults: 50 } });
-  const text = result.content?.[0]?.text || '[]';
-  const messages = parseSearchResults(text);
-  console.log(`[gmail] parsed ${messages.length} results from response (${text.length} bytes)`);
   return messages;
 }
 
@@ -100,16 +127,37 @@ function parseEmailContent(text) {
   return result;
 }
 
-export async function readMessage(id) {
-  const c = await getClient();
+export async function searchMessages(query, account = 'gmail') {
+  const c = await getClient(account);
+  console.log(`[gmail:${account}] search query: ${query}`);
+  const result = await c.callTool({ name: 'search_emails', arguments: { query, maxResults: 50 } });
+  const text = result.content?.[0]?.text || '[]';
+  const messages = parseSearchResults(text);
+  console.log(`[gmail:${account}] parsed ${messages.length} results from response (${text.length} bytes)`);
+  return messages;
+}
+
+export async function readMessage(id, account = 'gmail') {
+  const c = await getClient(account);
   const result = await c.callTool({ name: 'read_email', arguments: { messageId: id } });
   const text = result.content?.[0]?.text || '{}';
   const parsed = parseEmailContent(text);
-  console.log(`[gmail] read message ${id}: subject="${parsed.subject || '?'}", from="${parsed.from || '?'}"`);
+  console.log(`[gmail:${account}] read message ${id}: subject="${parsed.subject || '?'}", from="${parsed.from || '?'}"`);
   return parsed;
 }
 
-export async function closeClient() {
-  if (client) { try { await client.close(); } catch {} }
-  client = null;
+export async function closeClient(account) {
+  if (account) {
+    const c = clients.get(account);
+    if (c) {
+      try { await c.close(); } catch {}
+      clients.delete(account);
+    }
+  } else {
+    // Close all
+    for (const [k, c] of clients) {
+      try { await c.close(); } catch {}
+    }
+    clients.clear();
+  }
 }

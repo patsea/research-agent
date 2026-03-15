@@ -76,7 +76,7 @@ app.get('/api/stats', (req, res) => {
 // Clean up MCP client on shutdown
 for (const sig of ['SIGTERM', 'SIGINT']) {
   process.on(sig, async () => {
-    console.log(`[server] ${sig} received, closing MCP client...`);
+    console.log(`[server] ${sig} received, closing MCP clients...`);
     try { await closeClient(); } catch {}
     process.exit(0);
   });
