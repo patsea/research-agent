@@ -227,6 +227,7 @@ Port 3036: 200  (Contact Research)
 Port 3037: 200  (Outreach Drafter)
 Port 3038: 200  (Scorer)
 Port 3039: 200  (Gmail Hygiene)
+Port 3040: 200  (Podcast Monitor)
 ```
 
 To stop all agents:

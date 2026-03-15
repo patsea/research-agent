@@ -1,0 +1,371 @@
+try { require('dotenv').config(); } catch (_) {}
+const express = require('express');
+const path = require('path');
+const { getDb } = require('./modules/db');
+const { pollFeed, pollAllFeeds } = require('./modules/poller');
+const { transcribe, fetchMetadata } = require('./modules/transcriber');
+const { resolveChannelId } = require('./modules/youtube');
+const { summarise } = require('./modules/summariser');
+
+const app = express();
+const PORT = 3040;
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Activity logger (ESM — dynamic import, fire-and-forget)
+let logActivity = null;
+(async () => {
+  try {
+    const mod = await import('../shared/activityLogger.js');
+    logActivity = mod.logActivity;
+  } catch (_) {
+    console.log('[server] shared activityLogger not available — activity logging disabled');
+  }
+})();
+
+function logAct(action, detail) {
+  if (logActivity) {
+    try { logActivity({ agent: 'podcast-monitor', action, detail }); } catch (_) {}
+  }
+}
+
+// --- Health ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'podcast-monitor', port: PORT });
+});
+
+// --- Feeds ---
+app.get('/api/feeds', (req, res) => {
+  const feeds = getDb().prepare('SELECT * FROM feeds ORDER BY created_at DESC').all();
+  res.json(feeds);
+});
+
+app.post('/api/feeds', async (req, res) => {
+  const { url, name } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  try {
+    new URL(url);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+
+  try {
+    const result = getDb().prepare("INSERT INTO feeds (name, url, added_at, backfill) VALUES (?, ?, datetime('now'), ?)").run(name || url, url, req.body.backfill || 0);
+    const feed = getDb().prepare('SELECT * FROM feeds WHERE id = ?').get(result.lastInsertRowid);
+
+    // Poll immediately
+    const ids = await pollFeed(feed);
+    logAct('feed_added', `${feed.name}: ${ids.length} episodes`);
+    res.json({ feed, episodesAdded: ids.length });
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Feed URL already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/feeds/:id', (req, res) => {
+  getDb().prepare('DELETE FROM feeds WHERE id = ?').run(req.params.id);
+  res.json({ deleted: true });
+});
+
+// --- Episodes ---
+app.get('/api/episodes', (req, res) => {
+  const { status, limit = 100 } = req.query;
+  let sql = 'SELECT e.*, f.name as feed_name FROM episodes e LEFT JOIN feeds f ON e.feed_id = f.id';
+  const params = [];
+
+  if (status) {
+    sql += ' WHERE e.status = ?';
+    params.push(status);
+  }
+  sql += ' ORDER BY e.created_at DESC LIMIT ?';
+  params.push(Number(limit));
+
+  const episodes = getDb().prepare(sql).all(...params);
+  res.json(episodes);
+});
+
+app.post('/api/episodes/url', (req, res) => {
+  const { url, title } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  // Fetch metadata via yt-dlp (synchronous, no audio download)
+  const meta = fetchMetadata(url);
+
+  try {
+    const db = getDb();
+    const result = db.prepare(`
+      INSERT INTO episodes (feed_id, title, source_url, audio_url, published_at, duration, thumbnail, status)
+      VALUES (NULL, ?, ?, NULL, ?, ?, ?, 'new')
+    `).run(
+      (meta && meta.title) || title || url,
+      url,
+      (meta && meta.published_at) || null,
+      (meta && meta.duration)     || null,
+      (meta && meta.thumbnail)    || null
+    );
+    const episode = db.prepare('SELECT * FROM episodes WHERE id = ?').get(result.lastInsertRowid);
+    logAct('url_added', url);
+    res.json(episode);
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'URL already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/episodes/:id/dismiss', (req, res) => {
+  // Delete transcript file if it exists
+  const ep = getDb().prepare('SELECT transcript_path FROM episodes WHERE id = ?').get(req.params.id);
+  if (ep && ep.transcript_path && require('fs').existsSync(ep.transcript_path)) {
+    require('fs').unlinkSync(ep.transcript_path);
+    console.log('[dismiss] Deleted transcript:', ep.transcript_path);
+  }
+  getDb().prepare('UPDATE episodes SET status = \'dismissed\' WHERE id = ?').run(req.params.id);
+  res.json({ dismissed: true });
+});
+
+app.post('/api/episodes/:id/summarise', (req, res) => {
+  const id = Number(req.params.id);
+  const episode = getDb().prepare('SELECT * FROM episodes WHERE id = ?').get(id);
+  if (!episode) return res.status(404).json({ error: 'Episode not found' });
+
+  getDb().prepare('UPDATE episodes SET status = \'processing\' WHERE id = ?').run(id);
+  res.status(202).json({ status: 'processing', episodeId: id });
+
+  // Run transcription + summarisation async
+  (async () => {
+    try {
+      console.log(`[server] Starting transcription for episode ${id}: ${episode.title}`);
+      transcribe(id);
+      console.log(`[server] Transcription complete, starting summarisation for episode ${id}`);
+      await summarise(id);
+      console.log(`[server] Summarisation complete for episode ${id}`);
+    } catch (err) {
+      console.error(`[server] Pipeline error for episode ${id}:`, err.message);
+      getDb().prepare('UPDATE episodes SET status = \'new\' WHERE id = ?').run(id);
+    }
+  })();
+});
+
+// --- Summaries ---
+function parseSummary(s) {
+  if (!s) return s;
+  if (Array.isArray(s)) return s.map(item => ({
+    ...item,
+    topic_tags: item.topic_tags ? JSON.parse(item.topic_tags) : []
+  }));
+  return { ...s, topic_tags: s.topic_tags ? JSON.parse(s.topic_tags) : [] };
+}
+
+app.get('/api/summaries', (req, res) => {
+  const summaries = getDb().prepare(`
+    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at
+    FROM summaries s
+    JOIN episodes e ON s.episode_id = e.id
+    WHERE s.summary_text IS NOT NULL
+    ORDER BY s.created_at DESC
+  `).all();
+  res.json(parseSummary(summaries));
+});
+
+app.get('/api/summaries/:id', (req, res) => {
+  const summary = getDb().prepare(`
+    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at, e.audio_url
+    FROM summaries s
+    JOIN episodes e ON s.episode_id = e.id
+    WHERE s.id = ?
+  `).get(req.params.id);
+  if (!summary) return res.status(404).json({ error: 'Summary not found' });
+  res.json(parseSummary(summary));
+});
+
+// POST /api/summaries/:id/section — on-demand deep summary for a specific topic tag
+app.post('/api/summaries/:id/section', async (req, res) => {
+  const { topic_index } = req.body;
+  if (topic_index === undefined) return res.status(400).json({ error: 'topic_index required' });
+
+  const db = getDb();
+  const summary = db.prepare('SELECT * FROM summaries WHERE id = ?').get(req.params.id);
+  if (!summary) return res.status(404).json({ error: 'Summary not found' });
+
+  let topicTags;
+  try { topicTags = JSON.parse(summary.topic_tags || '[]'); } catch { topicTags = []; }
+
+  const tag = topicTags[topic_index];
+  if (!tag) return res.status(404).json({ error: 'Tag index out of range' });
+
+  if (!summary.transcript_path || !require('fs').existsSync(summary.transcript_path)) {
+    return res.status(404).json({ error: 'Transcript file not found on disk' });
+  }
+
+  try {
+    const whisperData = JSON.parse(require('fs').readFileSync(summary.transcript_path, 'utf8'));
+
+    const toSecs = (ts) => {
+      const parts = ts.split(':').map(Number);
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    };
+    const startSecs = toSecs(tag.timestamp_start);
+    const endSecs = toSecs(tag.timestamp_end);
+
+    // Extract relevant segments (with 30s buffer either side)
+    const segments = (whisperData.segments || []).filter(seg =>
+      seg.start >= (startSecs - 30) && seg.end <= (endSecs + 30)
+    );
+
+    if (segments.length === 0) {
+      return res.status(404).json({ error: 'No transcript segments found for this timestamp range' });
+    }
+
+    const chunkText = segments.map(seg => seg.text.trim()).join(' ');
+
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    const fetchMod = (await import('node-fetch')).default;
+    const response = await fetchMod('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        system: 'You are summarising a specific section of a podcast for a senior executive. Be precise, factual, and specific. Capture the key arguments, data points, and conclusions from this section.',
+        messages: [{
+          role: 'user',
+          content: `Topic: ${tag.topic}\nTimestamp range: ${tag.timestamp_start} – ${tag.timestamp_end}\n\nTranscript section:\n${chunkText}\n\nWrite a detailed 2-3 paragraph summary of this specific section. Include specific claims, numbers, names, and arguments made. Do not pad or generalise.`
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(500).json({ error: 'Claude API error', detail: err });
+    }
+
+    const data = await response.json();
+    const deepSummary = data.content[0].text.trim();
+
+    res.json({
+      topic: tag.topic,
+      timestamp_start: tag.timestamp_start,
+      timestamp_end: tag.timestamp_end,
+      teaser: tag.teaser,
+      deep_summary: deepSummary
+    });
+
+  } catch (err) {
+    console.error('[section-summary] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Tags ---
+app.get('/api/tags', (req, res) => {
+  const tags = getDb().prepare('SELECT * FROM interest_tags ORDER BY created_at').all();
+  res.json(tags);
+});
+
+app.post('/api/tags', (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'text required' });
+
+  try {
+    const result = getDb().prepare('INSERT INTO interest_tags (text) VALUES (?)').run(text.trim());
+    const tag = getDb().prepare('SELECT * FROM interest_tags WHERE id = ?').get(result.lastInsertRowid);
+    res.json(tag);
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Tag already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/tags/:id', (req, res) => {
+  getDb().prepare('DELETE FROM interest_tags WHERE id = ?').run(req.params.id);
+  res.json({ deleted: true });
+});
+
+// --- Poll all feeds ---
+app.post('/api/feeds/poll', async (req, res) => {
+  const ids = await pollAllFeeds();
+  logAct('poll_all', `${ids.length} new episodes`);
+  res.json({ newEpisodes: ids.length });
+});
+
+// PATCH /api/feeds/:id/meta — update metadata display toggles
+app.patch('/api/feeds/:id/meta', (req, res) => {
+  const { show_title, show_published, show_duration, show_description } = req.body;
+  const db = getDb();
+  db.prepare(`
+    UPDATE feeds SET
+      show_title = COALESCE(?, show_title),
+      show_published = COALESCE(?, show_published),
+      show_duration = COALESCE(?, show_duration),
+      show_description = COALESCE(?, show_description)
+    WHERE id = ?
+  `).run(
+    show_title != null ? (show_title ? 1 : 0) : null,
+    show_published != null ? (show_published ? 1 : 0) : null,
+    show_duration != null ? (show_duration ? 1 : 0) : null,
+    show_description != null ? (show_description ? 1 : 0) : null,
+    req.params.id
+  );
+  const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
+  res.json(feed);
+});
+
+// Catch-all: serve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// POST /api/feeds/youtube — add a YouTube channel by handle, URL, or channel ID
+app.post('/api/feeds/youtube', async (req, res) => {
+  const { input, name, backfill } = req.body;
+  if (!input) return res.status(400).json({ error: 'input required (handle, URL, or channel ID)' });
+
+  try {
+    const { channelId, channelName, rssUrl } = await resolveChannelId(input);
+    const feedName = name || channelName || input;
+
+    const db = getDb();
+    // Check for duplicate
+    const existing = db.prepare('SELECT id FROM feeds WHERE url = ?').get(rssUrl);
+    if (existing) return res.status(409).json({ error: 'Channel already subscribed', feedId: existing.id });
+
+    const result = db.prepare(
+      "INSERT INTO feeds (name, url, added_at, backfill) VALUES (?, ?, datetime('now'), ?)"
+    ).run(feedName, rssUrl, backfill || 0);
+
+    const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(result.lastInsertRowid);
+
+    // Poll immediately
+    try {
+      const newIds = await pollFeed(feed);
+      console.log('[youtube] Polled', feed.name, '—', newIds.length, 'episodes');
+    } catch (pollErr) {
+      console.error('[youtube] Poll error:', pollErr.message);
+    }
+
+    const updatedFeed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(result.lastInsertRowid);
+    res.json({ feed: updatedFeed, channelId, rssUrl });
+
+  } catch (err) {
+    console.error('[youtube] Error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`\n  Podcast Monitor running at http://localhost:${PORT}`);
+  console.log(`  Pipeline: POST /api/episodes/:id/summarise\n`);
+});

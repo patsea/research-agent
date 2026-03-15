@@ -23,6 +23,8 @@ const AGENTS = [
   { id: 'agent4', name: 'Contact Research', port: 3036, path: '/',         description: 'FullEnrich single-lookup contact finder' },
   { id: 'agent5', name: 'Outreach Drafter', port: 3037, path: '/',         description: 'Draft and save to Gmail — split-screen with research context' },
   { id: 'agent6', name: 'Email Scan',       port: 3034, path: '/api/health', description: 'Daily Gmail scan — classifies replies, updates Attio' },
+  { id: 'gmail-hygiene', name: 'Gmail Hygiene', port: 3039, path: '/api/health', description: 'Auto-labels emails, unsubscribe, spam blocking' },
+  { id: 'podcast-monitor', name: 'Podcast Monitor', port: 3040, path: '/api/health', description: 'RSS polling, transcription, AI summarisation with interest-tag filtering' },
 ];
 
 app.get('/api/status', async (req, res) => {

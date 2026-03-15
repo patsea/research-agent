@@ -81,7 +81,7 @@ if (rubricCount.c === 0) {
     'firm',
     JSON.stringify([
       { id: 'T', name: 'Tech specialisation', weight: 0.40, prompt: 'Does this firm specialise in technology leadership placement? Look for: named tech practice, CPO/CTO/VP Product placements, tech-focused website, team bios with engineering or product backgrounds.' },
-      { id: 'M', name: 'Market fit', weight: 0.25, prompt: 'Is this firm active in markets relevant to the candidate\\'s target geographies?' },
+      { id: 'M', name: 'Market fit', weight: 0.25, prompt: 'Is this firm active in markets relevant to the candidate\'s target geographies?' },
       { id: 'N', name: 'Network signal', weight: 0.20, prompt: 'Manual input — is this firm known to the candidate, is there a warm connection, or has there been prior positive contact?' },
       { id: 'A', name: 'Activity recency', weight: 0.15, prompt: 'Has this firm placed a CPO, CTO, or VP Product role, or announced a relevant mandate, in the last 12 months?' }
     ]),
