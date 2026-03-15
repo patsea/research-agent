@@ -1,4 +1,4 @@
-import { callGmail } from './gmail.js';
+import { callGmail, parseSearchResults } from './gmail.js';
 import { classifySender } from './classifier.js';
 import { getDb } from '../db.js';
 
@@ -11,13 +11,22 @@ export async function scanInbox(daysBack = 7) {
     max_results: 200
   });
 
-  let emails;
-  try { emails = JSON.parse(raw); } catch { emails = []; }
+  let emails = parseSearchResults(raw);
 
   const senderMap = new Map();
   for (const email of emails) {
-    const addr = email.from?.email || email.sender || '';
-    const name = email.from?.name || '';
+    // from may be object {email,name} (JSON) or string "Name <email>" (plain-text parsed)
+    let addr = '';
+    let name = '';
+    if (typeof email.from === 'object' && email.from?.email) {
+      addr = email.from.email;
+      name = email.from.name || '';
+    } else if (typeof email.from === 'string') {
+      const m = email.from.match(/<([^>]+)>/);
+      addr = m ? m[1] : email.from;
+      name = m ? email.from.replace(/<[^>]+>/, '').trim() : '';
+    }
+    addr = addr || email.sender || '';
     const subj = email.subject || '';
     if (!addr) continue;
     if (!senderMap.has(addr)) senderMap.set(addr, { name, subjects: [] });

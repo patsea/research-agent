@@ -44,6 +44,21 @@ Example files (tracked, no personal data):
 
 ---
 
+## Investigation findings — mandatory
+
+Every investigation that produces confirmed facts MUST create a `FINDINGS-*-YYYYMMDD.md` file in `docs/findings/`. This is non-negotiable.
+
+- Write findings immediately after the investigation completes — not deferred, not optional.
+- Start with a `## Summary` section: max 5 bullets, each a standalone confirmed fact.
+- Follow with `## Detail` section: full investigation output, exact values, commands used.
+- Include what was ruled out, not just what was found.
+- End with recommended next actions.
+- The findings file path is: `/Users/pwilliamson/Dropbox/ALOMA/claude-code/docs/findings/`
+
+Without findings files, the next session re-investigates what is already known.
+
+---
+
 ## Known issues (not bugs — deferred work)
 
 - Env var inconsistency: `CLAUDE_API_KEY` (signal-scanner, research, email-scan) vs `ANTHROPIC_API_KEY` (scorer, contact-research, outreach-drafter) — same key, not yet standardised

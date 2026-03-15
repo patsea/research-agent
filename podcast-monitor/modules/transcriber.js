@@ -4,8 +4,8 @@ const fs = require('fs');
 const { getDb } = require('./db');
 
 const YTDLP = '/opt/homebrew/bin/yt-dlp';
-const WHISPER = '/Users/pwilliamson/Library/Python/3.9/bin/whisper';
-const DOWNLOADS = '/Users/pwilliamson/Dropbox/ALOMA/claude-code/job-search-agent/podcast-monitor/downloads';
+const WHISPER = process.env.WHISPER_PATH || 'whisper';
+const DOWNLOADS = path.join(__dirname, '..', 'downloads');
 
 function transcribe(episodeId) {
   const db = getDb();
