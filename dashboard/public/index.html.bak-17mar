@@ -392,30 +392,6 @@ function openNewTab(port, path) {
   window.open(`http://localhost:${port}${path}`, '_blank');
 }
 
-function loadAgentInWorkspace(port, name) {
-  const iframe = document.getElementById('agent-iframe');
-  const placeholder = document.getElementById('iframe-placeholder');
-  if (!iframe) return;
-  // Try loading the agent root — if it fails or stays blank, show health status inline
-  iframe.onerror = null;
-  iframe.src = 'http://localhost:' + port + '/';
-  iframe.style.display = 'block';
-  if (placeholder) placeholder.style.display = 'none';
-  // Fallback: if iframe stays blank after 2s, show health check data
-  clearTimeout(iframe._fallbackTimer);
-  iframe._fallbackTimer = setTimeout(async () => {
-    try {
-      const res = await fetch('http://localhost:' + port + '/api/health');
-      const data = await res.json();
-      iframe.srcdoc = '<body style="font-family:sans-serif;padding:24px"><h2>' + name + '</h2>' +
-        '<p style="color:#4caf50">Healthy</p><pre>' + JSON.stringify(data, null, 2) + '</pre></body>';
-    } catch(e) {
-      iframe.srcdoc = '<body style="font-family:sans-serif;padding:24px"><h2>' + name + '</h2>' +
-        '<p style="color:#f44336">Unreachable on port ' + port + '</p></body>';
-    }
-  }, 2000);
-}
-
 function embedAgent(id, port, path) {
   setMode('workspace');
   document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
@@ -428,13 +404,16 @@ function embedAgent(id, port, path) {
     document.getElementById('iframe-placeholder').innerHTML = `
       <h2>${agent ? agent.name : 'Agent'} is not running</h2>
       <p>Start it in terminal:</p>
-      <div class="start-hint">cd ~/Dropbox/ALOMA/claude-code/job-search-agent/${id} && node server.js</div>
+      <div class="start-hint">cd ~/Dropbox/ALOMA/claude-code/track-8/${id} && node server.js</div>
     `;
     document.getElementById('agent-iframe').style.display = 'none';
     return;
   }
 
-  loadAgentInWorkspace(port, agent.name);
+  document.getElementById('iframe-placeholder').style.display = 'none';
+  const iframe = document.getElementById('agent-iframe');
+  iframe.style.display = 'block';
+  iframe.src = `http://localhost:${port}${path}`;
 }
 
 function setMode(mode) {

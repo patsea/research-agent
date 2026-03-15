@@ -120,47 +120,14 @@ app.post('/api/episodes/url', (req, res) => {
 });
 
 app.patch('/api/episodes/:id/dismiss', (req, res) => {
-  const db = getDb();
-  // Archive the summary instead of deleting it
-  db.prepare('UPDATE summaries SET archived = 1 WHERE episode_id = ?').run(req.params.id);
   // Delete transcript file if it exists
-  const ep = db.prepare('SELECT transcript_path FROM episodes WHERE id = ?').get(req.params.id);
+  const ep = getDb().prepare('SELECT transcript_path FROM episodes WHERE id = ?').get(req.params.id);
   if (ep && ep.transcript_path && require('fs').existsSync(ep.transcript_path)) {
     require('fs').unlinkSync(ep.transcript_path);
     console.log('[dismiss] Deleted transcript:', ep.transcript_path);
   }
-  db.prepare('UPDATE episodes SET status = \'dismissed\' WHERE id = ?').run(req.params.id);
-  res.json({ dismissed: true, archived: true });
-});
-
-// POST /api/episodes/:id/fetch-metadata — pre-fetch YouTube thumbnail + channel name
-app.post('/api/episodes/:id/fetch-metadata', async (req, res) => {
-  const db = getDb();
-  const ep = db.prepare('SELECT * FROM episodes WHERE id = ?').get(req.params.id);
-  if (!ep) return res.status(404).json({ error: 'Episode not found' });
-
-  // Check if this is a YouTube episode (source_url contains youtube.com or youtu.be)
-  const isYouTube = ep.source_url && (ep.source_url.includes('youtube.com') || ep.source_url.includes('youtu.be'));
-  if (!isYouTube) {
-    return res.json({ skipped: true, reason: 'Not a YouTube episode' });
-  }
-
-  try {
-    const { execSync } = require('child_process');
-    const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
-    const raw = execSync(`${ytdlp} --dump-json --no-download "${ep.source_url}"`, { timeout: 30000 }).toString();
-    const meta = JSON.parse(raw);
-    const thumbnail = (meta.thumbnails && meta.thumbnails.length > 0)
-      ? meta.thumbnails[meta.thumbnails.length - 1].url
-      : meta.thumbnail || null;
-    const channel_name = meta.uploader || meta.channel || meta.uploader_id || null;
-    db.prepare('UPDATE episodes SET thumbnail = ?, channel_name = ? WHERE id = ?')
-      .run(thumbnail, channel_name, ep.id);
-    logAct('metadata-fetched', `Fetched metadata for: ${ep.title}`);
-    res.json({ ok: true, thumbnail, channel_name });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  getDb().prepare('UPDATE episodes SET status = \'dismissed\' WHERE id = ?').run(req.params.id);
+  res.json({ dismissed: true });
 });
 
 app.post('/api/episodes/:id/summarise', (req, res) => {
@@ -198,12 +165,10 @@ function parseSummary(s) {
 
 app.get('/api/summaries', (req, res) => {
   const summaries = getDb().prepare(`
-    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at, e.channel_name,
-           f.name as feed_name
+    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at
     FROM summaries s
     JOIN episodes e ON s.episode_id = e.id
-    LEFT JOIN feeds f ON e.feed_id = f.id
-    WHERE s.summary_text IS NOT NULL AND (s.archived IS NULL OR s.archived = 0)
+    WHERE s.summary_text IS NOT NULL
     ORDER BY s.created_at DESC
   `).all();
   res.json(parseSummary(summaries));
@@ -211,11 +176,9 @@ app.get('/api/summaries', (req, res) => {
 
 app.get('/api/summaries/:id', (req, res) => {
   const summary = getDb().prepare(`
-    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at, e.audio_url, e.channel_name,
-           f.name as feed_name
+    SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at, e.audio_url
     FROM summaries s
     JOIN episodes e ON s.episode_id = e.id
-    LEFT JOIN feeds f ON e.feed_id = f.id
     WHERE s.id = ?
   `).get(req.params.id);
   if (!summary) return res.status(404).json({ error: 'Summary not found' });
@@ -378,6 +341,11 @@ app.get('/api/summaries/:id/suggested-tags', (req, res) => {
   res.json({ suggested: [...new Set(suggested)] });
 });
 
+// Catch-all: serve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // POST /api/feeds/youtube — add a YouTube channel by handle, URL, or channel ID
 app.post('/api/feeds/youtube', async (req, res) => {
   const { input, name, backfill } = req.body;
@@ -413,11 +381,6 @@ app.post('/api/feeds/youtube', async (req, res) => {
     console.error('[youtube] Error:', err.message);
     res.status(400).json({ error: err.message });
   }
-});
-
-// Catch-all: serve index.html (MUST be after all API routes)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {

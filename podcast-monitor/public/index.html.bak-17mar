@@ -362,7 +362,7 @@ async function loadSummaries() {
     return `<div class="summary-row">
       <div class="summary-header" onclick="toggleSummary(${s.id})">
         <div class="summary-title">${esc(s.title)}</div>
-        <div class="summary-meta">${s.feed_name || s.channel_name ? esc(s.channel_name || s.feed_name) + ' &middot; ' : ''}${fmtDate(s.published_at)} &middot; ${s.word_count || '?'} words${topicTags.length ? ' &middot; ' + topicTags.length + ' topics' : ''}</div>
+        <div class="summary-meta">${fmtDate(s.published_at)} &middot; ${s.word_count || '?'} words${topicTags.length ? ' &middot; ' + topicTags.length + ' topics' : ''}</div>
         <span style="font-size:18px;color:#888">${isExpanded ? '&#9660;' : '&#9654;'}</span>
       </div>
       ${isExpanded ? `<div class="summary-detail">
