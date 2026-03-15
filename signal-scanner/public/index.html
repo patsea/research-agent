@@ -68,7 +68,31 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 @keyframes sp{to{transform:rotate(360deg)}}
 .toast{position:fixed;bottom:24px;right:24px;background:#1f2235;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.3);animation:ti .2s ease}
 @keyframes ti{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.card.collapsed .summary,.card.collapsed .hl,.card.collapsed .cfoot{display:none}
+.card .card-hdr{cursor:pointer}
+.card.collapsed{padding:10px 16px}
+.err-cell{cursor:pointer}.err-cell.expanded{white-space:normal!important;max-width:none!important;overflow:visible!important;text-overflow:unset!important}
 .hidden{display:none!important}
+.research-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center}
+.research-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:720px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 16px 48px rgba(0,0,0,.4)}
+.research-modal h2{font-size:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.research-modal h2 .close-btn{background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer;padding:0 4px}
+.research-modal h2 .close-btn:hover{color:var(--text)}
+.research-steps{display:flex;flex-direction:column;gap:16px}
+.research-step{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.research-step h3{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.research-step h3 .step-num{background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.research-step p{font-size:12px;color:var(--dim);margin-bottom:8px}
+.prompt-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;line-height:1.5;color:var(--text);max-height:180px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;margin-bottom:8px}
+.paste-area{width:100%;min-height:120px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text);font-family:inherit;resize:vertical}
+.paste-area:focus{outline:none;border-color:var(--accent)}
+.audit-result{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:12px;line-height:1.6;color:var(--text);max-height:300px;overflow-y:auto;white-space:pre-wrap}
+.rm-actions{display:flex;gap:8px;margin-top:6px}
+.company-context{margin:8px 0;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.6}
+.ctx-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.ctx-item{display:flex;gap:6px}.ctx-label{color:var(--dim);font-weight:600;min-width:80px;flex-shrink:0}.ctx-value{color:var(--text)}
+.ctx-loading{color:var(--dim);font-size:12px;padding:8px 0}
+.ctx-container{min-height:0}
 </style>
 <style id="light-mode-universal">
 /* ── Universal Light Mode Override ── */
@@ -187,11 +211,13 @@ body { background: #f5f5f5 !important; color: #333 !important; }
     <div style="padding:24px"><table class="logtbl"><thead><tr><th>Started</th><th>Completed</th><th>Sources</th><th>Extracted</th><th>Suppressed</th><th>Written</th><th>Errors</th></tr></thead><tbody id="log-body"></tbody></table></div>
   </div>
 </div></div>
+<div id="research-modal-container"></div>
 <div id="toasts"></div>
 <script>
 const SECTORS=['B2B SaaS','Enterprise Software','Marketplace','Fintech','HR Tech','Logistics','E-commerce','Media','Travel & Hospitality','Healthcare','Education','Retail','Real Estate','Other'];
 const TYPE_LABELS={funding_round:'Funding Round',pe_acquisition:'PE/VC Acquisition',leadership_change:'Leadership Change',layoffs_reorg:'Layoffs / Reorg',product_pivot:'Product Pivot',other:'Other'};
 let openPop=null;
+let signalsMap={};
 
 function show(v){['signals','config','log'].forEach(n=>{document.getElementById('view-'+n).classList.toggle('hidden',n!==v);document.getElementById('nav-'+n).classList.toggle('active',n===v);});if(v==='signals')loadSignals();if(v==='config')loadConfig();if(v==='log')loadLog();}
 
@@ -200,6 +226,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 async function loadSignals(){
   const p=new URLSearchParams();['status','type','sector','source','geo'].forEach(f=>{const v=document.getElementById('f-'+f).value;if(v)p.set(f==='type'?'signal_type':f==='source'?'source_name':f==='geo'?'geography':f,v);});
   const [sigs,meta,status]=await Promise.all([fetch('/api/signals?'+p).then(r=>r.json()),fetch('/api/signals/meta').then(r=>r.json()),fetch('/api/admin/status').then(r=>r.json())]);
+  signalsMap={};sigs.forEach(s=>{signalsMap[s.id]=s;});
   document.getElementById('sig-count').textContent=sigs.length+' signal'+(sigs.length!==1?'s':'');
   document.getElementById('sig-list').innerHTML=sigs.length?sigs.map(cardHTML).join(''):'<div class="empty"><h3>No signals</h3><p>Add sources and run the pipeline.</p></div>';
   ['type','sector','source','geo'].forEach(f=>{const sel=document.getElementById('f-'+f);const cur=sel.value;const key=f==='type'?'signal_types':f==='source'?'sources':f==='geo'?'geographies':'sectors';sel.innerHTML=`<option value="">All ${f==='type'?'types':f+'s'}</option>`+(meta[key]||[]).map(i=>`<option value="${esc(i)}"${i===cur?' selected':''}>${esc(i)}</option>`).join('');});
@@ -208,8 +235,8 @@ async function loadSignals(){
 
 function cardHTML(s){
   const d=s.signal_date?new Date(s.signal_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
-  return `<div class="card${s.status==='dismissed'?' dismissed':''}${s.status==='forwarded'?' forwarded':''}" id="card-${s.id}">
-    <div class="card-hdr"><div class="badges">
+  return `<div class="card collapsed${s.status==='dismissed'?' dismissed':''}${s.status==='forwarded'?' forwarded':''}" id="card-${s.id}">
+    <div class="card-hdr" onclick="toggleCard(event,'${s.id}')"><div class="badges">
       <span class="badge bt-${s.signal_type}">${esc(TYPE_LABELS[s.signal_type]||s.signal_type)}</span>
       <span class="badge bc-${s.confidence}">${s.confidence}</span>
       <span class="sect-badge" id="sb-${s.id}" onclick="togglePop(event,'${s.id}','${esc(s.sector)}')">${esc(s.sector)}<div class="sdrop hidden" id="pop-${s.id}">${SECTORS.map(sec=>`<div class="sopt" onclick="corSector(event,'${s.id}','${esc(sec)}')">${esc(sec)}</div>`).join('')}</div></span>
@@ -217,20 +244,37 @@ function cardHTML(s){
     </div><span class="cdate">${d}</span></div>
     ${s.company_name?`<div class="co">${esc(s.company_name)}</div>`:''}
     <div class="summary">${esc(s.ai_summary)}</div>
+    <div id="ctx-${s.id}" class="ctx-container"></div>
     <div class="hl">${esc(s.headline)}</div>
     <div class="cfoot"><div class="cmeta"><span>${esc(s.source_name||'')}</span>${s.geography?`<span>📍 ${esc(s.geography)}</span>`:''} ${s.source_url?`<a href="${esc(s.source_url)}" target="_blank" rel="noopener">View source →</a>`:''}</div>
     <div class="cacts">
-      ${s.status!=='forwarded'&&s.status!=='dismissed'?`<button class="btn btn-fwd bsm" onclick="fwdSig('${s.id}')">Forward to Agent 2</button>`:''}
+      ${s.status!=='forwarded'&&s.status!=='dismissed'?`<button class="btn btn-fwd bsm" onclick="event.stopPropagation();openResearchModal('${s.id}','${esc(s.company_name)}','${esc(s.ai_summary)}')">Send to Research</button>`:''}
       ${s.status!=='dismissed'?`<button class="btn btn-dis bsm" onclick="disSig('${s.id}')">Dismiss</button>`:`<button class="btn bsm" onclick="resSig('${s.id}')">Restore</button>`}
     </div></div></div>`;
 }
 
+function toggleCard(e,id){if(e.target.closest('.sect-badge'))return;const card=document.getElementById('card-'+id);if(!card)return;const wasCollapsed=card.classList.contains('collapsed');card.classList.toggle('collapsed');if(wasCollapsed){const signal=signalsMap[id];if(signal&&signal.status==='new'){fetch('/api/signals/'+signal.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'reviewed'})}).then(()=>{signal.status='reviewed';}).catch(()=>{});}const ctxEl=document.getElementById('ctx-'+id);if(ctxEl&&!ctxEl.dataset.loaded){fetchCompanyContext(id,ctxEl);}}}
+
+async function fetchCompanyContext(signalId,containerEl){
+  containerEl.dataset.loaded='1';
+  containerEl.innerHTML='<div class="ctx-loading"><span class="spin"></span> Loading company context...</div>';
+  try{
+    const r=await fetch('/api/signals/'+signalId+'/context');
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Failed');
+    const lines=data.context.split('\n').filter(l=>l.includes(':'));
+    const items=lines.map(l=>{const idx=l.indexOf(':');if(idx<0)return'';const label=l.slice(0,idx).trim();const val=l.slice(idx+1).trim();return`<div class="ctx-item"><span class="ctx-label">${esc(label)}</span><span class="ctx-value">${esc(val)}</span></div>`;}).join('');
+    containerEl.innerHTML=`<div class="company-context"><div class="ctx-grid">${items}</div></div>`;
+  }catch(e){
+    containerEl.innerHTML=`<div class="ctx-loading" style="color:var(--red)">Context error: ${esc(e.message)}</div>`;
+  }
+}
 function togglePop(e,id){e.stopPropagation();const p=document.getElementById('pop-'+id);if(openPop&&openPop!==p)openPop.classList.add('hidden');p.classList.toggle('hidden');openPop=p.classList.contains('hidden')?null:p;}
 async function corSector(e,id,sector){e.stopPropagation();if(openPop){openPop.classList.add('hidden');openPop=null;}await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});loadSignals();}
 document.addEventListener('click',()=>{if(openPop){openPop.classList.add('hidden');openPop=null;}});
 async function disSig(id){await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'dismissed'})});loadSignals();}
 async function resSig(id){await fetch('/api/signals/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'new'})});loadSignals();}
-async function fwdSig(id){await fetch('/api/signals/'+id+'/forward',{method:'POST'});toast('Forwarded to Agent 2 queue');loadSignals();}
+async function fwdSig(id){await fetch('/api/signals/'+id+'/forward',{method:'POST'});toast('Sent to Research queue');loadSignals();}
 
 async function triggerRun(){
   const btn=document.getElementById('run-btn');btn.disabled=true;btn.innerHTML='<span class="spin"></span> Running...';
@@ -249,8 +293,95 @@ async function delSrc(id){if(!confirm('Remove source?'))return;await fetch('/api
 async function addExcl(){const v=document.getElementById('new-excl').value.trim();if(!v)return;await fetch('/api/sources/exclusions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector:v})});document.getElementById('new-excl').value='';loadConfig();}
 async function remExcl(s){await fetch('/api/sources/exclusions/'+encodeURIComponent(s),{method:'DELETE'});loadConfig();}
 
-async function loadLog(){const logs=await fetch('/api/admin/log').then(r=>r.json());document.getElementById('log-body').innerHTML=logs.length?logs.map(r=>`<tr><td>${new Date(r.started_at).toLocaleString('en-GB')}</td><td>${r.completed_at?new Date(r.completed_at).toLocaleString('en-GB'):'—'}</td><td>${r.sources_succeeded}/${r.sources_attempted}</td><td>${r.signals_extracted}</td><td>${r.signals_suppressed}</td><td>${r.signals_written}</td><td style="color:var(--red);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.errors||'0'}</td></tr>`).join(''):'<tr><td colspan="7" style="color:var(--dim)">No runs yet</td></tr>';}
+async function loadLog(){const logs=await fetch('/api/admin/log').then(r=>r.json());document.getElementById('log-body').innerHTML=logs.length?logs.map(r=>`<tr><td>${new Date(r.started_at).toLocaleString('en-GB')}</td><td>${r.completed_at?new Date(r.completed_at).toLocaleString('en-GB'):'—'}</td><td>${r.sources_succeeded}/${r.sources_attempted}</td><td>${r.signals_extracted}</td><td>${r.signals_suppressed}</td><td>${r.signals_written}</td><td class="err-cell" onclick="this.classList.toggle('expanded')" style="color:var(--red);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Click to expand">${r.errors||'0'}</td></tr>`).join(''):'<tr><td colspan="7" style="color:var(--dim)">No runs yet</td></tr>';}
 
 function toast(msg){const e=document.createElement('div');e.className='toast';e.textContent=msg;document.getElementById('toasts').appendChild(e);setTimeout(()=>e.remove(),3000);}
+
+// --- Research Workflow Modal ---
+let currentResearchSignalId=null;
+let currentResearchPrompt='';
+
+async function openResearchModal(signalId, company, signalText){
+  currentResearchSignalId=signalId;
+  try{
+    const r=await fetch('/api/signals/'+signalId+'/generate-prompt');
+    const data=await r.json();
+    currentResearchPrompt=data.prompt;
+  }catch(e){
+    currentResearchPrompt='Error generating prompt: '+e.message;
+  }
+  document.getElementById('research-modal-container').innerHTML=`
+    <div class="research-modal-overlay" onclick="if(event.target===this)closeResearchModal()">
+      <div class="research-modal">
+        <h2>${esc(company)} — Research Workflow <button class="close-btn" onclick="closeResearchModal()">&times;</button></h2>
+        <div class="research-steps">
+          <div class="research-step">
+            <h3><span class="step-num">1</span> Copy Prompt</h3>
+            <p>Copy this structured prompt and paste it into Perplexity.</p>
+            <div class="prompt-box" id="rm-prompt">${esc(currentResearchPrompt)}</div>
+            <div class="rm-actions"><button class="btn-pri" onclick="copyResearchPrompt()">Copy to Clipboard</button></div>
+          </div>
+          <div class="research-step">
+            <h3><span class="step-num">2</span> Run Perplexity</h3>
+            <p>Open <a href="https://www.perplexity.ai" target="_blank" rel="noopener" style="color:var(--accent)">perplexity.ai</a>, paste the prompt, and run the search.</p>
+          </div>
+          <div class="research-step">
+            <h3><span class="step-num">3</span> Paste Result</h3>
+            <p>Copy the full Perplexity output and paste it below.</p>
+            <textarea class="paste-area" id="rm-perplexity" placeholder="Paste Perplexity output here..."></textarea>
+            <div class="rm-actions" style="margin-top:8px"><button class="btn-pri" id="rm-audit-btn" onclick="submitAudit()">Run Claude Audit</button></div>
+          </div>
+          <div class="research-step">
+            <h3><span class="step-num">4</span> Audit Result</h3>
+            <p>Claude will audit the research for accuracy and completeness.</p>
+            <div class="audit-result" id="rm-audit" style="display:none"></div>
+            <div class="rm-actions" style="margin-top:8px">
+              <button class="btn btn-fwd" id="rm-fwd-btn" onclick="forwardToResearch()" style="display:none">Send to Research Hub</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeResearchModal(){
+  document.getElementById('research-modal-container').innerHTML='';
+  currentResearchSignalId=null;
+  currentResearchPrompt='';
+  loadSignals();
+}
+
+function copyResearchPrompt(){
+  navigator.clipboard.writeText(currentResearchPrompt).then(()=>toast('Prompt copied to clipboard')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=currentResearchPrompt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('Prompt copied');
+  });
+}
+
+async function submitAudit(){
+  const output=document.getElementById('rm-perplexity').value.trim();
+  if(!output){toast('Paste Perplexity output first');return;}
+  const btn=document.getElementById('rm-audit-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Auditing...';
+  try{
+    const r=await fetch('/api/signals/'+currentResearchSignalId+'/audit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({perplexityOutput:output})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Audit failed');
+    document.getElementById('rm-audit').style.display='block';
+    document.getElementById('rm-audit').textContent=data.audit;
+    document.getElementById('rm-fwd-btn').style.display='inline-block';
+    toast('Audit complete');
+  }catch(e){
+    toast('Audit error: '+e.message);
+  }finally{
+    btn.disabled=false;btn.textContent='Run Claude Audit';
+  }
+}
+
+async function forwardToResearch(){
+  await fetch('/api/signals/'+currentResearchSignalId+'/forward',{method:'POST'});
+  toast('Sent to Research Hub');
+  closeResearchModal();
+}
+
 loadSignals();
 </script></body></html>

@@ -10,7 +10,7 @@ async function getClient() {
     const command = process.env.GRANOLA_MCP_COMMAND || 'node';
     const args = (process.env.GRANOLA_MCP_ARGS || '').split(',').filter(Boolean);
     const transport = new StdioClientTransport({ command, args });
-    const c = new Client({ name: 'agent2-research', version: '1.0.0' });
+    const c = new Client({ name: 'research-hub', version: '1.0.0' });
     await c.connect(transport);
     client = c;
     return client;

@@ -15,8 +15,8 @@ async function pollFeed(feed) {
 
     const checkStmt = db.prepare('SELECT id FROM episodes WHERE source_url = ?');
     const insertStmt = db.prepare(`
-      INSERT INTO episodes (feed_id, title, source_url, audio_url, published_at, thumbnail, duration, description, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')
+      INSERT INTO episodes (feed_id, title, source_url, audio_url, published_at, thumbnail, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'new')
     `);
 
     // Backfill: if set, take only the most recent N episodes ignoring watermark
@@ -50,23 +50,7 @@ async function pollFeed(feed) {
       const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : null;
       const thumbnail = item.itunes?.image || rss.image?.url || null;
 
-      // Extract duration (may be seconds number or HH:MM:SS string)
-      let duration = null;
-      const rawDuration = item.itunes && item.itunes.duration;
-      if (rawDuration) {
-        if (typeof rawDuration === 'number') {
-          duration = rawDuration;
-        } else if (typeof rawDuration === 'string') {
-          const parts = rawDuration.split(':').map(Number);
-          if (parts.length === 3) duration = parts[0] * 3600 + parts[1] * 60 + parts[2];
-          else if (parts.length === 2) duration = parts[0] * 60 + parts[1];
-          else if (parts.length === 1 && !isNaN(parts[0])) duration = parts[0];
-        }
-      }
-
-      const description = item.content || item.contentSnippet || item.summary || null;
-
-      const result = insertStmt.run(feed.id, item.title || 'Untitled', sourceUrl, audioUrl, publishedAt, thumbnail, duration, description);
+      const result = insertStmt.run(feed.id, item.title || 'Untitled', sourceUrl, audioUrl, publishedAt, thumbnail);
       insertedIds.push(result.lastInsertRowid);
     }
 

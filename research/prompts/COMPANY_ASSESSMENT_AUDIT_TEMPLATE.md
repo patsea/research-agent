@@ -108,17 +108,17 @@ For each relevant person:
 
 ## TASK CONTEXT
 Company assessment audit for executive CPO job search candidate.
-Today is {TODAY}.
-The assessment is for: {COMPANY_NAME} ({GEOGRAPHY}, {SECTOR}).
+Today is {{TODAY}}.
+The assessment is for: {{COMPANY_NAME}} ({{COMPANY_GEOGRAPHY}}, {{COMPANY_SECTOR}}).
 
 ## PRIOR RESEARCH
-{STAGE_1_OUTPUT}
+{{PRIOR_RESEARCH}}
 
 ## SUPPLIED MATERIALS
 See prior research above for all Stage 1 materials.
 
 ## NAMED PEOPLE
-{INTERVIEWER_LIST}
+{{NAMED_PEOPLE}}
 
 ## EXPLICIT QUESTIONS TO RESOLVE
 - Is this company a credible CPO opportunity for a transformation-oriented executive?

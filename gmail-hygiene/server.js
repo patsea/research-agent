@@ -12,18 +12,18 @@ app.use(express.json());
 const PORT = process.env.PORT || 3039;
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'agent7-gmail-hygiene', port: PORT });
+  res.json({ status: 'ok', service: 'gmail-hygiene-gmail-hygiene', port: PORT });
 });
 
 app.post('/api/scan', async (req, res) => {
   const { daysBack = 7 } = req.body;
   try {
     const result = await scanInbox(daysBack);
-    logActivity({ agent: 'agent7', action: 'scan_complete', result: 'success',
+    logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'success',
       detail: `new=${result.newSenders}, known=${result.knownSenders}` });
     res.json({ success: true, ...result });
   } catch (err) {
-    logActivity({ agent: 'agent7', action: 'scan_complete', result: 'error', detail: err.message });
+    logActivity({ agent: 'gmail-hygiene', action: 'scan_complete', result: 'error', detail: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -58,7 +58,7 @@ app.post('/api/senders/:id/unsubscribe', async (req, res) => {
     }
     db.prepare('INSERT INTO actions (sender_id, action_type, detail, result) VALUES (?, ?, ?, ?)')
       .run(sender.id, 'unsubscribe', outcome.detail, outcome.result);
-    logActivity({ agent: 'agent7', action: 'unsubscribe', company: sender.domain, result: outcome.result, detail: outcome.detail });
+    logActivity({ agent: 'gmail-hygiene', action: 'unsubscribe', company: sender.domain, result: outcome.result, detail: outcome.detail });
     res.json({ success: true, ...outcome });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -80,7 +80,7 @@ app.post('/api/senders/:id/block', async (req, res) => {
       .run(now, sender.id);
     db.prepare('INSERT INTO actions (sender_id, action_type, detail, result) VALUES (?, ?, ?, ?)')
       .run(sender.id, 'block', `Marked SPAM: ${sender.email_address}`, 'success');
-    logActivity({ agent: 'agent7', action: 'block', company: sender.domain, result: 'success' });
+    logActivity({ agent: 'gmail-hygiene', action: 'block', company: sender.domain, result: 'success' });
     res.json({ success: true, detail: `${sender.email_address} marked as SPAM` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -115,4 +115,4 @@ app.get('/api/digest', (req, res) => {
 process.on('SIGTERM', () => { process.exit(0); });
 process.on('SIGINT', () => { process.exit(0); });
 
-app.listen(PORT, () => console.log(`Agent 7 Gmail Hygiene running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Gmail Hygiene running on port ${PORT}`));

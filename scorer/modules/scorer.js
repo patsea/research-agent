@@ -34,22 +34,32 @@ ${autoDimensions.map(d => `  "${d.id}": { "signal": "High|Medium|Low", "evidence
 }
 No preamble, no explanation, no markdown fences.`;
 
+  // Model selection: use Haiku if research context provided (no web search needed)
+  // Use Sonnet+web_search only when scoring blind (no research context)
+  const hasResearch = researchContext && researchContext.length > 100;
+  const model = hasResearch
+    ? (process.env.HAIKU_MODEL || 'claude-haiku-4-5-20251001')
+    : (process.env.SONNET_MODEL || 'claude-sonnet-4-6');
+
   let llmResults = {};
   try {
+    const requestBody = {
+      model,
+      max_tokens: hasResearch ? 1500 : 4000,
+      messages: [{ role: 'user', content: prompt }]
+    };
+    if (!hasResearch) {
+      requestBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+      requestBody.tool_choice = { type: 'any' };
+    }
     const r = await axios.post('https://api.anthropic.com/v1/messages',
-      {
-        model: process.env.SONNET_MODEL || 'claude-sonnet-4-6',
-        max_tokens: 4000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        tool_choice: { type: 'any' },
-        messages: [{ role: 'user', content: prompt }]
-      },
+      requestBody,
       {
         headers: {
           'x-api-key': process.env.ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01'
         },
-        timeout: 120000
+        timeout: hasResearch ? 30000 : 120000
       }
     );
 

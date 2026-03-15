@@ -7,12 +7,10 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; color: #1f2937; }
-  .topnav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:100; }
-  .topnav-brand { font-size:16px; font-weight:700; color:#111827; }
-  .topnav-links { display:flex; gap:4px; }
-  .topnav-link { padding:6px 14px; border-radius:6px; font-size:14px; font-weight:500; color:#6b7280; text-decoration:none; }
-  .topnav-link:hover { background:#f3f4f6; color:#111827; }
-  .topnav-link.active { background:#111827; color:#fff; }
+  .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+  .topbar a { color: #4f46e5; text-decoration: none; font-size: 14px; }
+  .topbar a:hover { text-decoration: underline; }
+  .topbar h1 { font-size: 20px; font-weight: 600; }
   .tabs { display: flex; gap: 0; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 24px; }
   .tab { padding: 12px 20px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.15s; }
   .tab:hover { color: #4f46e5; }
@@ -51,25 +49,14 @@
   .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
   .status-row input { flex: 1; }
   .status-row input.color-input { width: 50px; flex: none; padding: 2px; }
-  .status-row label.sv-protected { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #6b7280; white-space: nowrap; }
-  .field-map-table { width: 100%; border-collapse: collapse; }
-  .field-map-table th { text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
-  .field-map-table td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
-  .field-map-table select { width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; }
 </style>
 </head>
 <body>
 
-<nav class="topnav">
-  <div class="topnav-brand">Job Search Agents</div>
-  <div class="topnav-links">
-    <a href="/" class="topnav-link">Dashboard</a>
-    <a href="/?tab=workspace" class="topnav-link">Workspace</a>
-    <a href="/guide.html" class="topnav-link">Guide</a>
-    <a href="/?tab=activity" class="topnav-link">Activity</a>
-    <a href="/config.html" class="topnav-link active">Settings</a>
-  </div>
-</nav>
+<div class="topbar">
+  <a href="index.html">&larr; Dashboard</a>
+  <h1>Settings</h1>
+</div>
 
 <div class="tabs">
   <div class="tab active" data-tab="profile">User Profile</div>
@@ -124,25 +111,26 @@
   <!-- Attio Fields Panel -->
   <div class="panel" id="panel-attio">
     <div class="card">
-      <h3>Workspace</h3>
+      <h3>Field Slugs</h3>
       <div class="field-grid">
+        <div class="field"><label>Status Field Slug</label><input type="text" id="af-status-slug" placeholder="e.g. status"></div>
+        <div class="field"><label>Next Action Field Slug</label><input type="text" id="af-action-slug" placeholder="e.g. next_action"></div>
+      </div>
+      <div class="field-grid" style="margin-top:16px">
         <div class="field"><label>Workspace Member ID</label><input type="text" id="af-member-id" placeholder="Your Attio workspace member ID"></div>
-        <div class="field"><label>Workspace ID</label><input type="text" id="af-workspace-id" placeholder="Your Attio workspace ID"></div>
       </div>
     </div>
     <div class="card">
-      <h3>Field Mapping</h3>
-      <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Map system fields to Attio attribute slugs. <button class="btn btn-outline btn-sm" onclick="loadAttioAttributes()" style="margin-left:8px">Load from Attio</button></p>
-      <table class="field-map-table" id="field-map-table">
-        <thead><tr><th>System Field</th><th>Attio Attribute</th></tr></thead>
-        <tbody id="field-map-body"></tbody>
-      </table>
-    </div>
-    <div class="card">
       <h3>Status Values</h3>
-      <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Define the status values, colours, and which are protected from agent changes.</p>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Define the status values and their display colours.</p>
       <div id="status-values-list"></div>
       <button class="btn btn-outline btn-sm" onclick="addStatusValue()">+ Add Status</button>
+    </div>
+    <div class="card">
+      <h3>Protected Statuses</h3>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:8px">Statuses that should not be automatically changed by agents.</p>
+      <div class="tags" id="tags-protected"></div>
+      <div class="tag-input"><input type="text" id="input-protected" placeholder="Add a protected status..."><button onclick="addTag('protected')">Add</button></div>
     </div>
     <div class="save-bar"><button class="btn" onclick="saveAttio()">Save Attio Fields</button></div>
   </div>
@@ -153,20 +141,13 @@
       <h3>Company Scoring Rubric</h3>
       <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Define the dimensions used to score target companies. Weights must sum to 1.0.</p>
       <div id="company-dims"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-outline btn-sm" onclick="addDim('company')">+ Add Dimension</button>
-        <button class="btn btn-outline btn-sm" onclick="suggestRubric('company')" style="background:#faf5ff;border-color:#7c3aed;color:#7c3aed">&#10024; AI Suggest</button>
-      </div>
+      <button class="btn btn-outline btn-sm" onclick="addDim('company')" style="margin-top:8px">+ Add Dimension</button>
     </div>
     <div class="card">
       <h3>Firm Scoring Rubric</h3>
       <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Define the dimensions used to score executive search firms. Weights must sum to 1.0.</p>
       <div id="firm-dims"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-outline btn-sm" onclick="addDim('firm')">+ Add Dimension</button>
-        <button class="btn btn-outline btn-sm" onclick="suggestRubric('firm')" style="background:#faf5ff;border-color:#7c3aed;color:#7c3aed">&#10024; AI Suggest</button>
-      </div>
-      <div id="rubric-suggest-status" style="margin-top:8px;font-size:13px;color:#6b7280"></div>
+      <button class="btn btn-outline btn-sm" onclick="addDim('firm')" style="margin-top:8px">+ Add Dimension</button>
     </div>
     <div class="card">
       <h3>Score Thresholds</h3>
@@ -217,7 +198,7 @@
   });
 
   // --- Tags ---
-  const tagData = { roles: [], sectors: [], geographies: [] };
+  const tagData = { roles: [], sectors: [], geographies: [], protected: [] };
 
   function renderTags(key) {
     const el = document.getElementById('tags-' + key);
@@ -236,7 +217,7 @@
   function removeTag(key, i) { tagData[key].splice(i, 1); renderTags(key); }
 
   // Enter key for tag inputs
-  ['roles','sectors','geographies'].forEach(k => {
+  ['roles','sectors','geographies','protected'].forEach(k => {
     document.getElementById('input-' + k).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addTag(k); } });
   });
 
@@ -261,7 +242,7 @@
   function removeProofPoint(i) { proofPoints.splice(i, 1); renderProofPoints(); }
   function esc(s) { return (s || '').replace(/"/g, '&quot;'); }
 
-  // --- Status Values (with protected checkbox) ---
+  // --- Status Values ---
   let statusValues = [];
 
   function renderStatusValues() {
@@ -271,55 +252,12 @@
         <input type="text" value="${esc(s.label)}" placeholder="Label" onchange="statusValues[${i}].label=this.value">
         <input type="text" value="${esc(s.slug)}" placeholder="Slug" onchange="statusValues[${i}].slug=this.value">
         <input type="color" class="color-input" value="${s.color || '#4f46e5'}" onchange="statusValues[${i}].color=this.value">
-        <label class="sv-protected"><input type="checkbox" ${s.protected ? 'checked' : ''} onchange="statusValues[${i}].protected=this.checked"> Protected</label>
         <button class="btn btn-danger btn-sm" onclick="removeStatus(${i})">Remove</button>
       </div>`).join('');
   }
 
-  function addStatusValue() { statusValues.push({ label: '', slug: '', color: '#4f46e5', protected: false }); renderStatusValues(); }
+  function addStatusValue() { statusValues.push({ label: '', slug: '', color: '#4f46e5' }); renderStatusValues(); }
   function removeStatus(i) { statusValues.splice(i, 1); renderStatusValues(); }
-
-  // --- Attio Field Mapping ---
-  let allAttioAttributes = [];
-  const SYSTEM_FIELDS = [
-    { key: 'statusFieldSlug', label: 'Opportunity Status' },
-    { key: 'nextActionFieldSlug', label: 'Next Action Date' },
-    { key: 'recruiterTypeSlug', label: 'Recruiter Type' },
-    { key: 'talentRoleSlug', label: 'Talent Role' }
-  ];
-
-  function renderFieldMap(config) {
-    const tbody = document.getElementById('field-map-body');
-    tbody.innerHTML = SYSTEM_FIELDS.map(f => {
-      const current = config[f.key] || '';
-      const options = allAttioAttributes.map(a =>
-        `<option value="${esc(a.slug)}" ${a.slug === current ? 'selected' : ''}>${esc(a.title || a.slug)} (${a.type || '?'})</option>`
-      ).join('');
-      return `<tr>
-        <td style="font-size:13px;font-weight:500">${f.label}</td>
-        <td><select id="fm-${f.key}"><option value="">-- select --</option>${options}</select></td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function loadAttioAttributes() {
-    try {
-      const res = await fetch('/api/attio/attributes');
-      if (!res.ok) { showToast('Failed to load Attio attributes'); return; }
-      const d = await res.json();
-      allAttioAttributes = d.attributes || [];
-      showToast(`Loaded ${allAttioAttributes.length} Attio attributes`);
-      // Re-render field map with current config values
-      const currentConfig = {};
-      SYSTEM_FIELDS.forEach(f => {
-        const sel = document.getElementById('fm-' + f.key);
-        if (sel) currentConfig[f.key] = sel.value;
-      });
-      renderFieldMap(currentConfig);
-    } catch (e) {
-      showToast('Error loading Attio attributes: ' + e.message);
-    }
-  }
 
   // --- Toast ---
   function showToast(msg) {
@@ -373,34 +311,23 @@
       const res = await fetch('/api/config/attio-fields');
       if (!res.ok) return;
       const d = await res.json();
+      document.getElementById('af-status-slug').value = d.statusFieldSlug || '';
+      document.getElementById('af-action-slug').value = d.nextActionFieldSlug || '';
       document.getElementById('af-member-id').value = d.workspaceMemberId || '';
-      const wsIdEl = document.getElementById('af-workspace-id');
-      if (wsIdEl) wsIdEl.value = d.workspaceId || '';
-      // Render field map with saved config
-      renderFieldMap(d);
-      // Convert old protectedStatuses array to per-status protected flag
-      const protectedSet = new Set(d.protectedStatuses || []);
-      statusValues = (d.statusValues || []).map(s => ({
-        ...s,
-        protected: s.protected || protectedSet.has(s.label) || protectedSet.has(s.slug)
-      }));
-      renderStatusValues();
+      statusValues = d.statusValues || []; renderStatusValues();
+      tagData.protected = d.protectedStatuses || []; renderTags('protected');
     } catch (e) { console.error('Failed to load attio fields', e); }
   }
 
   async function saveAttio() {
     const body = {
+      statusFieldSlug: document.getElementById('af-status-slug').value,
+      nextActionFieldSlug: document.getElementById('af-action-slug').value,
       workspaceMemberId: document.getElementById('af-member-id').value,
-      workspaceId: (document.getElementById('af-workspace-id') || {}).value || '',
       statusValues,
-      protectedStatuses: statusValues.filter(s => s.protected).map(s => s.label)
+      protectedStatuses: tagData.protected
     };
-    // Collect field mappings
-    SYSTEM_FIELDS.forEach(f => {
-      const sel = document.getElementById('fm-' + f.key);
-      if (sel) body[f.key] = sel.value;
-    });
-    const res = await fetch('/api/config/attio-fields', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch('/api/config/attio-fields', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     showToast(res.ok ? 'Attio fields saved' : 'Save failed');
   }
 
@@ -439,16 +366,16 @@
       const res = await fetch('/api/config/scoring-rubric');
       if (!res.ok) return;
       const d = await res.json();
-      rubricData.company = d.companyRubric || { dimensions: [] };
-      rubricData.firm = d.firmRubric || { dimensions: [] };
+      rubricData.company = d.company || { dimensions: [] };
+      rubricData.firm = d.firm || { dimensions: [] };
       if (!rubricData.company.dimensions) rubricData.company.dimensions = [];
       if (!rubricData.firm.dimensions) rubricData.firm.dimensions = [];
       renderDims('company');
       renderDims('firm');
-      document.getElementById('thresh-hot').value = (d.companyRubric && d.companyRubric.thresholds && d.companyRubric.thresholds.hot) || '';
-      document.getElementById('thresh-warm').value = (d.companyRubric && d.companyRubric.thresholds && d.companyRubric.thresholds.warm) || '';
-      document.getElementById('thresh-tier1').value = (d.firmRubric && d.firmRubric.thresholds && d.firmRubric.thresholds.tier1) || '';
-      document.getElementById('thresh-tier2').value = (d.firmRubric && d.firmRubric.thresholds && d.firmRubric.thresholds.tier2) || '';
+      document.getElementById('thresh-hot').value = (d.company && d.company.thresholds && d.company.thresholds.hot) || '';
+      document.getElementById('thresh-warm').value = (d.company && d.company.thresholds && d.company.thresholds.warm) || '';
+      document.getElementById('thresh-tier1').value = (d.firm && d.firm.thresholds && d.firm.thresholds.tier1) || '';
+      document.getElementById('thresh-tier2').value = (d.firm && d.firm.thresholds && d.firm.thresholds.tier2) || '';
     } catch (e) { console.error('Failed to load rubric', e); }
   }
 
@@ -486,52 +413,6 @@
     const content = document.getElementById('pos-content').value;
     const res = await fetch('/api/config/positioning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) });
     showToast(res.ok ? 'Positioning saved' : 'Save failed');
-  }
-
-  // --- AI Suggest Rubric ---
-  async function suggestRubric(type) {
-    const statusEl = document.getElementById('rubric-suggest-status');
-    statusEl.textContent = `Generating ${type} rubric suggestions via AI...`;
-    statusEl.style.color = '#7c3aed';
-    try {
-      const res = await fetch('/api/config/scoring-rubric/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rubricType: type })
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        statusEl.textContent = `Error: ${err.error || 'Unknown error'}`;
-        statusEl.style.color = '#ef4444';
-        return;
-      }
-      const suggested = await res.json();
-      window._rubricConfig = suggested;
-      const dims = suggested.dimensions || [];
-      statusEl.textContent = `Suggested ${dims.length} dimensions for ${type} rubric. Review and save.`;
-      statusEl.style.color = '#059669';
-      // Merge into rubricData
-      rubricData[type].dimensions = dims.map(d => ({
-        id: d.id || '',
-        name: d.name || '',
-        weight: d.weight || 0,
-        prompt: d.scoringPrompt || d.description || ''
-      }));
-      if (suggested.thresholds) {
-        rubricData[type].thresholds = suggested.thresholds;
-        if (type === 'company') {
-          document.getElementById('thresh-hot').value = suggested.thresholds.hot || '';
-          document.getElementById('thresh-warm').value = suggested.thresholds.warm || '';
-        } else {
-          document.getElementById('thresh-tier1').value = suggested.thresholds.tier1 || '';
-          document.getElementById('thresh-tier2').value = suggested.thresholds.tier2 || '';
-        }
-      }
-      renderDims(type);
-    } catch (e) {
-      statusEl.textContent = `Error: ${e.message}`;
-      statusEl.style.color = '#ef4444';
-    }
   }
 
   // --- Init ---

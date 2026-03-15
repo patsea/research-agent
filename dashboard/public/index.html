@@ -69,7 +69,10 @@
   #dashboard-view { padding: 28px 24px; }
   .pipeline-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
                     color: #64748b; margin-bottom: 16px; }
-  .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .agent-grid { }
+  .agent-grid-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .agent-group { margin-bottom: 32px; }
+  .agent-group-label { font-size: 11px; text-transform: uppercase; color: #999; letter-spacing: 0.08em; margin-bottom: 12px; font-weight: 600; }
 
   .agent-card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px;
                 padding: 18px 20px; cursor: pointer; transition: border-color 0.15s, transform 0.1s; }
@@ -203,10 +206,6 @@
   .btn-dismiss:hover { color: #fff; border-color: #6b7280 !important; }
   .btn-research { background: #3b4fd8; color: #fff; }
   .btn-research:hover { background: #4c5fd8; }
-  .btn-results { padding: 6px 14px; background: #22c55e22; color: #4ade80;
-    border: 1px solid #22c55e44; border-radius: 6px; font-size: 12px; cursor: pointer; }
-  .btn-results:hover { background: #22c55e33; }
-  .btn-results:disabled { background: #2d3148; color: #475569; border-color: #2d3148; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -236,6 +235,10 @@
     <div class="flow-step active">Outreach Drafter</div>
     <div class="flow-arrow">&rarr;</div>
     <div class="flow-step active">Email Scan</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Gmail Hygiene</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Podcast Monitor</div>
   </div>
   <div class="pipeline-label">Agents — click to open</div>
   <div class="agent-grid" id="agent-grid">
@@ -249,11 +252,11 @@
     <select id="activity-agent-filter" onchange="loadActivity()">
       <option value="">All agents</option>
       <option value="signal-scanner">Signal Scanner</option>
-      <option value="agent2">Agent 2 — Research</option>
-      <option value="agent3">Agent 3 — Scorer</option>
-      <option value="agent4">Agent 4 — Contact</option>
-      <option value="agent5">Agent 5 — Drafter</option>
-      <option value="agent6">Agent 6 — Email Scan</option>
+      <option value="agent2">Research Hub</option>
+      <option value="agent3">Scorer</option>
+      <option value="agent4">Contact Research</option>
+      <option value="agent5">Outreach Drafter</option>
+      <option value="agent6">Email Scan</option>
       <option value="system">System</option>
     </select>
     <input type="text" id="activity-contact-filter" placeholder="Filter by contact name..." onkeydown="if(event.key==='Enter')loadActivity()">
@@ -311,11 +314,9 @@ async function loadStatus() {
   }
 }
 
-function renderDashboard() {
-  const grid = document.getElementById('agent-grid');
-  grid.innerHTML = agentData.map(agent => {
-    const isScanner = agent.id === 'signal-scanner';
-    return `
+function renderAgentCard(agent) {
+  const isScanner = agent.id === 'signal-scanner';
+  return `
     <div class="agent-card ${agent.running ? 'running' : 'stopped'}">
       <div class="card-header">
         <div class="agent-name">${agent.name}</div>
@@ -329,7 +330,7 @@ function renderDashboard() {
             onclick="openScannerResults()">
             Results
           </button>
-          <button class="btn-embed" ${!agent.running ? 'disabled' : ''}
+          <button class="btn-open" ${!agent.running ? 'disabled' : ''}
             onclick="openNewTab(${agent.port}, '${agent.path}')">
             Open &#8599;
           </button>
@@ -338,14 +339,40 @@ function renderDashboard() {
             onclick="openNewTab(${agent.port}, '${agent.path}')">
             Open &#8599;
           </button>
-          
         `}
       </div>
       <div class="status-text ${agent.running ? 'running' : 'stopped'}">
         ${agent.running ? '&#9679; Running' : '&#9675; Not running'}
       </div>
     </div>`;
-  }).join('');
+}
+
+function renderDashboard() {
+  const grid = document.getElementById('agent-grid');
+  const pipeline = agentData.filter(a => a.group === 'pipeline');
+  const standalone = agentData.filter(a => a.group === 'standalone');
+  const ungrouped = agentData.filter(a => !a.group);
+
+  let html = '';
+  if (pipeline.length) {
+    html += `<div class="agent-group">
+      <div class="agent-group-label">Pipeline Agents</div>
+      <div class="agent-grid-inner">${pipeline.map(renderAgentCard).join('')}</div>
+    </div>`;
+  }
+  if (standalone.length) {
+    html += `<div class="agent-group">
+      <div class="agent-group-label">Standalone Agents</div>
+      <div class="agent-grid-inner">${standalone.map(renderAgentCard).join('')}</div>
+    </div>`;
+  }
+  if (ungrouped.length) {
+    html += `<div class="agent-group">
+      <div class="agent-grid-inner">${ungrouped.map(renderAgentCard).join('')}</div>
+    </div>`;
+  }
+
+  grid.innerHTML = html;
   updatePipelineFlow();
 }
 

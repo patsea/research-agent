@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent 2 — Interview Prep Research</title>
+<title>Research Hub — Interview Prep Research</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 2rem; max-width: 900px; margin: 0 auto; }
@@ -100,7 +100,7 @@ app.get('/', (req, res) => {
 </style>
 </head>
 <body>
-<h1>Agent 2 — Research Hub</h1>
+<h1>Research Hub</h1>
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('interview')">Company/Role</div>
@@ -493,10 +493,10 @@ app.post('/api/audit', async (req, res) => {
   }
   try {
     const result = await runAudit({ priorResearch, taskContext, explicitQuestions, namedPeople, researchType });
-    logActivity({ agent: 'agent2', action: 'audit_complete', company: taskContext || 'unknown', result: 'success', detail: `type=${researchType || 'manual'}, chars=${priorResearch.length}` });
+    logActivity({ agent: 'research-hub', action: 'audit_complete', company: taskContext || 'unknown', result: 'success', detail: `type=${researchType || 'manual'}, chars=${priorResearch.length}` });
     res.json({ success: true, result });
   } catch (err) {
-    logActivity({ agent: 'agent2', action: 'audit_complete', company: taskContext || 'unknown', result: 'error', detail: err.message });
+    logActivity({ agent: 'research-hub', action: 'audit_complete', company: taskContext || 'unknown', result: 'error', detail: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -590,11 +590,11 @@ app.post('/api/sigint/sources', (req, res) => {
 app.post('/api/sigint/fetch', async (req, res) => {
   try {
     const result = await fetchAllSources();
-    logActivity({ agent: 'agent2', action: 'sigint_fetch', result: 'success',
+    logActivity({ agent: 'research-hub', action: 'sigint_fetch', result: 'success',
       detail: `fetched=${result.fetched}, new=${result.new}, errors=${result.errors.length}` });
     res.json({ success: true, ...result });
   } catch (err) {
-    logActivity({ agent: 'agent2', action: 'sigint_fetch', result: 'error', detail: err.message });
+    logActivity({ agent: 'research-hub', action: 'sigint_fetch', result: 'error', detail: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -603,12 +603,12 @@ app.post('/api/sigint/synthesize', async (req, res) => {
   const { daysBack = 7 } = req.body;
   try {
     const result = await synthesizeBriefing(daysBack);
-    logActivity({ agent: 'agent2', action: 'sigint_synthesize',
+    logActivity({ agent: 'research-hub', action: 'sigint_synthesize',
       result: result.success ? 'success' : 'error',
       detail: result.success ? `words=${result.wordCount}, week=${result.weekStart}` : result.error });
     res.json(result);
   } catch (err) {
-    logActivity({ agent: 'agent2', action: 'sigint_synthesize', result: 'error', detail: err.message });
+    logActivity({ agent: 'research-hub', action: 'sigint_synthesize', result: 'error', detail: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -632,16 +632,16 @@ app.post('/api/sigint/pipeline', async (req, res) => {
   try {
     const fetchResult = await fetchAllSources();
     const synthResult = await synthesizeBriefing(daysBack);
-    logActivity({ agent: 'agent2', action: 'sigint_pipeline', result: 'success',
+    logActivity({ agent: 'research-hub', action: 'sigint_pipeline', result: 'success',
       detail: `new_items=${fetchResult.new}, words=${synthResult.wordCount || 0}` });
     res.json({ success: true, fetch: fetchResult, synth: synthResult });
   } catch (err) {
-    logActivity({ agent: 'agent2', action: 'sigint_pipeline', result: 'error', detail: err.message });
+    logActivity({ agent: 'research-hub', action: 'sigint_pipeline', result: 'error', detail: err.message });
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Agent 2 Research Hub at http://localhost:${PORT}`);
+  console.log(`Research Hub at http://localhost:${PORT}`);
   console.log('Manual trigger only — open browser to run research');
 });

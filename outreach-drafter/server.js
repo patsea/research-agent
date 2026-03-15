@@ -87,7 +87,7 @@ app.post('/api/draft', async (req, res) => {
     };
 
     drafts.insert(draft);
-    logActivity({ agent: 'agent5', action: 'draft_generated', contact: contact.name, company: contact.company, result: 'success', detail: `${result.wordCount} words, template=${templateName || 'default'}` });
+    logActivity({ agent: 'outreach-drafter', action: 'draft_generated', contact: contact.name, company: contact.company, result: 'success', detail: `${result.wordCount} words, template=${templateName || 'default'}` });
     console.log(`[draft] Generated: ${draft.id} (${result.wordCount} words)`);
 
     res.json({
@@ -147,16 +147,16 @@ app.post('/api/draft/:id/approve', async (req, res) => {
 
     drafts.updateStatus(id, 'approved');
     agent5Queue.add(id, gmailResult.draftId || null);
-    logActivity({ agent: 'agent5', action: 'draft_approved', contact: draft.contact_name, company: draft.company, result: gmailResult.success ? 'gmail_saved' : 'approved_no_gmail', detail: `gmailDraftId=${gmailResult.draftId || 'none'}` });
+    logActivity({ agent: 'outreach-drafter', action: 'draft_approved', contact: draft.contact_name, company: draft.company, result: gmailResult.success ? 'gmail_saved' : 'approved_no_gmail', detail: `gmailDraftId=${gmailResult.draftId || 'none'}` });
 
-    // Notify Agent 4 (best effort)
+    // Notify Contact Research (best effort)
     if (draft.contact_id) {
       try {
-        await axios.post(`${process.env.AGENT4_URL}/api/contacts/${draft.contact_id}/status`, {
+        await axios.post(`${process.env.AGENT4_URL}/api/contacts/${draft.contact_id}/confirm`, {
           status: 'Outreach drafted'
         }, { timeout: 5000 });
       } catch (err) {
-        console.log(`[approve] Agent 4 notification failed (non-critical): ${err.message}`);
+        console.log(`[approve] Contact Research notification failed (non-critical): ${err.message}`);
       }
     }
 
@@ -190,6 +190,49 @@ app.get('/api/drafts', (req, res) => {
 process.on('SIGTERM', async () => { await closeClient(); process.exit(0); });
 process.on('SIGINT', async () => { await closeClient(); process.exit(0); });
 
+// GET /api/contacts-to-draft — confirmed contacts from contact-research with no draft yet
+app.get('/api/contacts-to-draft', async (req, res) => {
+  try {
+    const agent4Url = process.env.AGENT4_URL || 'http://localhost:3036';
+    const r = await axios.get(agent4Url + '/api/contacts?status=confirmed', { timeout: 5000 });
+    const contacts = r.data || [];
+
+    // Filter out contacts that already have a non-dismissed draft
+    const existingDrafts = drafts.list(null);
+    const draftedIds = new Set(existingDrafts.filter(d => d.status !== 'dismissed').map(d => d.contact_id));
+
+    const toDraft = contacts.filter(c => !draftedIds.has(c.id));
+    res.json(toDraft);
+  } catch(e) {
+    // If contact-research is down, return empty array gracefully
+    res.json([]);
+  }
+});
+
+// GET /api/research-context/:company — fetch research output for a company from research hub
+app.get('/api/research-context/:company', async (req, res) => {
+  try {
+    const agent2Url = process.env.AGENT2_URL || 'http://localhost:3035';
+    // Try research library endpoint
+    const r = await axios.get(agent2Url + '/api/research-library', { timeout: 5000 });
+    const items = r.data || [];
+    const company = decodeURIComponent(req.params.company).toLowerCase();
+    const match = items.find(i => (i.company_name || '').toLowerCase().includes(company));
+    if (match && match.output_path) {
+      // Try to read the markdown output file
+      const filePath = match.output_path.startsWith('/') ? match.output_path :
+        join(__dirname, '..', match.output_path);
+      if (existsSync(filePath)) {
+        const content = readFileSync(filePath, 'utf8');
+        return res.json({ found: true, content: content.substring(0, 3000), company: match.company_name, date: match.created_at });
+      }
+    }
+    res.json({ found: false });
+  } catch(e) {
+    res.json({ found: false, error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Agent 5 — Outreach Drafter running on http://localhost:${PORT}`);
+  console.log(`Outreach Drafter running on http://localhost:${PORT}`);
 });

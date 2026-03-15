@@ -290,6 +290,9 @@
     <a href="#positioning">Positioning</a>
     <a href="#rules">Rules</a>
     <a href="#tips">Tips</a>
+    <div class="section-label">Standalone</div>
+    <a href="#gmail-hygiene">Gmail Hygiene</a>
+    <a href="#podcast-monitor">Podcast Monitor</a>
   </nav>
 
   <main>
@@ -358,6 +361,32 @@
           <div class="port">localhost:3034</div>
           <div class="desc">Scans your Gmail inbox for replies, OOO messages, bounces, and new opportunities. Creates Attio tasks for follow-ups. Can also detect inbound signals from contacts who have opened or replied to outreach.</div>
         </div>
+      </div>
+    </section>
+
+    <section id="gmail-hygiene">
+      <h2>Gmail Hygiene <span style="font-size:11px;font-weight:500;color:#64748b;margin-left:8px;padding:2px 8px;background:#f8f8fa;border:1px solid #e8e8e8;border-radius:4px;">Port 3039</span></h2>
+      <p>Scans your inbox, classifies senders, and manages unsubscribes and spam. API-only — no UI.</p>
+      <h3>What it does</h3>
+      <ul>
+        <li>Scan the last N days of your inbox</li>
+        <li>Classify senders by type (newsletter, marketing, transactional, personal)</li>
+        <li>Identify unsubscribe candidates based on frequency and engagement</li>
+        <li>Never auto-blocks — you confirm every unsubscribe and block action</li>
+      </ul>
+      <h3>Key endpoints</h3>
+      <ul class="rule-list">
+        <li><span class="label"><code>POST /api/scan</code></span>Scan inbox for the last N days (body: <code>{"days": 30}</code>)</li>
+        <li><span class="label"><code>GET /api/senders</code></span>List all classified senders</li>
+        <li><span class="label"><code>POST /api/senders/:id/unsubscribe</code></span>Unsubscribe from a sender</li>
+        <li><span class="label"><code>POST /api/senders/:id/block</code></span>Block a sender</li>
+        <li><span class="label"><code>GET /api/health</code></span>Health check</li>
+      </ul>
+      <h3>First-time setup</h3>
+      <p>Run a 30-day scan to build the sender database:</p>
+      <p><code>curl -X POST http://localhost:3039/api/scan -H "Content-Type: application/json" -d '{"days": 30}'</code></p>
+      <div class="callout">
+        <strong>Cold start timeout:</strong> The first <code>npx</code> invocation may take 30-60 seconds to install dependencies. Subsequent calls are fast. If the scan times out, just retry.
       </div>
     </section>
 
@@ -497,6 +526,54 @@
         <li>If an agent shows a red dot in the dashboard sidebar, check its log: <code>cat /tmp/track8-agent[N].log</code></li>
         <li>All agents restart cleanly with: <code>claude-auto launch</code> from the terminal. This is always the fastest way to get back to a known good state.</li>
       </ul>
+    </section>
+
+    <section id="podcast-monitor">
+      <h2>Podcast Monitor <span style="font-size:11px;font-weight:500;color:#64748b;margin-left:8px;padding:2px 8px;background:#f8f8fa;border:1px solid #e8e8e8;border-radius:4px;">Port 3040</span></h2>
+      <p>RSS and YouTube polling, Whisper transcription, and Claude summaries with topic tags.</p>
+      <h3>Workflow</h3>
+      <ol class="step-list">
+        <li>
+          <div class="content">
+            <div class="title">Queue</div>
+            <div class="detail">New episodes are polled from RSS and YouTube feeds and added to the queue automatically.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Summarise</div>
+            <div class="detail">Each episode is transcribed via Whisper and summarised by Claude into key takeaways.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Topic tags</div>
+            <div class="detail">Claude assigns topic tags to each summary for navigation and filtering.</div>
+          </div>
+        </li>
+        <li>
+          <div class="content">
+            <div class="title">Timestamp links</div>
+            <div class="detail">Deep summary sections are linked to timestamps in the original audio for quick reference.</div>
+          </div>
+        </li>
+      </ol>
+      <h3>Tags</h3>
+      <p>Tags are navigation aids, not categories. They help you find relevant segments across episodes — not classify the episode as a whole.</p>
+      <h3>Key endpoints</h3>
+      <ul class="rule-list">
+        <li><span class="label"><code>GET /api/episodes</code></span>List all episodes with summaries</li>
+        <li><span class="label"><code>POST /api/episodes/:id/summarise</code></span>Trigger summarisation for a specific episode</li>
+        <li><span class="label"><code>POST /api/summaries/:id/section</code></span>Generate a deep summary section with timestamps</li>
+        <li><span class="label"><code>POST /api/feeds</code></span>Add an RSS feed</li>
+        <li><span class="label"><code>POST /api/feeds/youtube</code></span>Add a YouTube channel feed</li>
+        <li><span class="label"><code>GET /api/tags</code></span>List all topic tags</li>
+      </ul>
+      <h3>Settings</h3>
+      <p>Polling frequency, feed list, and transcription model are configured via the Settings page or directly in the podcast-monitor <code>.env</code> file.</p>
+      <div class="callout">
+        <strong>Deep summaries need transcripts:</strong> The <code>/api/summaries/:id/section</code> endpoint requires a completed transcript. Run summarisation first, then request deep sections with timestamps.
+      </div>
     </section>
 
   </main>

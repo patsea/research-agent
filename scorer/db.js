@@ -119,6 +119,7 @@ export const scores = {
     return score.id;
   },
   get(id) { const r = db.prepare('SELECT * FROM scores WHERE id=?').get(id); return r ? { ...r, dimensions: JSON.parse(r.dimensions) } : null; },
+  getByName(name, scoringType) { const r = db.prepare('SELECT * FROM scores WHERE name=? AND scoring_type=? ORDER BY created_at DESC LIMIT 1').get(name, scoringType); return r ? { ...r, dimensions: JSON.parse(r.dimensions) } : null; },
   list(filters = {}) {
     let q = 'SELECT * FROM scores WHERE 1=1';
     const params = [];

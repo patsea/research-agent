@@ -128,7 +128,7 @@ export async function runCompanyAssessment(input) {
   const stage1Output = await deepResearch(stage1Prompt, 8000);
 
   await logActivity({
-    agent: 'agent2',
+    agent: 'research-hub',
     action: 'company_assessment_stage1_completed',
     company: companyName,
     result: 'success',
@@ -143,7 +143,7 @@ export async function runCompanyAssessment(input) {
     });
 
     await logActivity({
-      agent: 'agent2',
+      agent: 'research-hub',
       action: 'company_assessment_stage2_completed',
       company: companyName,
       result: 'success',

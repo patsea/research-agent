@@ -45,16 +45,28 @@ app.post('/api/score', async (req, res) => {
   const rubric = rubricId ? rubrics.get(rubricId) : rubrics.getDefault(type);
   if (!rubric) return res.status(400).json({ error: 'No rubric found for this scoring type' });
 
+  // Deduplication: check if already scored recently
+  const { force } = req.body;
+  if (!force) {
+    const existing = scores.getByName(name, type);
+    if (existing) {
+      const ageHours = (Date.now() - new Date(existing.created_at || 0).getTime()) / 3600000;
+      if (ageHours < 24) {
+        return res.json({ ...existing, _cached: true, _message: `Returned cached score (scored ${Math.round(ageHours)}h ago). Pass force:true to re-score.` });
+      }
+    }
+  }
+
   try {
     console.log(`[score] Scoring ${name} (${type})`);
     const result = await scoreItem({ name, scoringType: type, researchContext, rubric, manualInputs: manualInputs || {} });
     scores.insert(result);
     console.log(`[score] ${name}: ${result.overallBadge} (${Math.round(result.finalScore * 100)}%)`);
     res.json(result);
-    logActivity({ agent: 'agent3', action: 'score_complete', company: name, result: 'success', detail: `badge=${result.overallBadge}, score=${Math.round(result.finalScore * 100)}%, type=${type}` });
+    logActivity({ agent: 'scorer', action: 'score_complete', company: name, result: 'success', detail: `badge=${result.overallBadge}, score=${Math.round(result.finalScore * 100)}%, type=${type}` });
   } catch (err) {
     console.error('[score] Error:', err.message);
-    logActivity({ agent: 'agent3', action: 'score_complete', company: name, result: 'error', detail: err.message });
+    logActivity({ agent: 'scorer', action: 'score_complete', company: name, result: 'error', detail: err.message });
     res.status(500).json({ error: err.message });
   }
 });
@@ -76,10 +88,10 @@ app.post('/api/score/batch', async (req, res) => {
       const result = await scoreItem({ name: item.name, scoringType: type, researchContext: item.researchContext, rubric, manualInputs: {} });
       scores.insert(result);
       results.push(result);
-      logActivity({ agent: 'agent3', action: 'batch_score', company: item.name, result: 'success', detail: `badge=${result.overallBadge}, score=${Math.round(result.finalScore * 100)}%` });
+      logActivity({ agent: 'scorer', action: 'batch_score', company: item.name, result: 'success', detail: `badge=${result.overallBadge}, score=${Math.round(result.finalScore * 100)}%` });
     } catch (err) {
       results.push({ name: item.name, error: err.message });
-      logActivity({ agent: 'agent3', action: 'batch_score', company: item.name, result: 'error', detail: err.message });
+      logActivity({ agent: 'scorer', action: 'batch_score', company: item.name, result: 'error', detail: err.message });
     }
   }
   res.json(results);
@@ -152,29 +164,31 @@ app.patch('/api/scores/:id/manual', async (req, res) => {
   res.json(scores.get(id));
 });
 
-// Forward to Agent 4
+// Forward to Contact Research
 app.post('/api/scores/:id/forward', async (req, res) => {
   const { id } = req.params;
   const { campaignType } = req.body;
   const score = scores.get(id);
   if (!score) return res.status(404).json({ error: 'Score not found' });
 
-  const scoreContext = `${score.overall_badge} (${Math.round(score.final_score * 100)}%) — ${score.recommended_action}`;
+  const dimSummary = (score.dimensions || []).map(d => `${d.id}:${d.result?.signal || '?'}`).join(', ');
+  const scoreContext = `${score.overall_badge} (${Math.round(score.final_score * 100)}%) — ${score.recommended_action} [${dimSummary}]`;
 
   try {
     await axios.post(`${process.env.AGENT4_URL}/api/research`, {
       companyName: score.name,
       campaignType: campaignType || 'pe_vc',
-      context: scoreContext
+      context: scoreContext,
+      dimensions: score.dimensions
     }, { timeout: 120000 });
 
     scores.updateStatus(id, 'forwarded');
     agent4Queue.add(id, score.name, campaignType, scoreContext);
-    logActivity({ agent: 'agent3', action: 'forwarded_to_agent4', company: score.name, result: 'success', detail: `badge=${score.overall_badge}, campaign=${campaignType || 'pe_vc'}` });
+    logActivity({ agent: 'scorer', action: 'forwarded_to_contact_research', company: score.name, result: 'success', detail: `badge=${score.overall_badge}, campaign=${campaignType || 'pe_vc'}` });
     res.json({ success: true, forwardedToAgent4: true });
   } catch (err) {
     console.error('[forward] Agent 4 error:', err.message);
-    logActivity({ agent: 'agent3', action: 'forwarded_to_agent4', company: score.name, result: 'error', detail: err.message });
+    logActivity({ agent: 'scorer', action: 'forwarded_to_contact_research', company: score.name, result: 'error', detail: err.message });
     res.json({ success: false, error: 'Agent 4 not available — start it on port 3036' });
   }
 });
@@ -200,5 +214,5 @@ process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
 app.listen(PORT, () => {
-  console.log(`Agent 3 — Scorer running on http://localhost:${PORT}`);
+  console.log(`Scorer running on http://localhost:${PORT}`);
 });

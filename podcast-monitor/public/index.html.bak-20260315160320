@@ -96,14 +96,6 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
 .deep-summary-content{margin-top:10px;padding:10px;background:#fff;border-radius:4px;border:1px solid #e8e8e8;font-size:13px;line-height:1.6;color:#222}
 .deep-summary-content p{margin:0 0 10px}
 .desc-text{font-size:13px;color:#555;line-height:1.5;white-space:pre-wrap;word-break:break-word}
-
-/* Suggested tags */
-.suggested-tags{background:#fffde7;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;margin-top:12px}
-.suggested-tags-label{font-size:12px;font-weight:600;color:#f9a825;margin-bottom:6px}
-.suggested-tag{display:inline-flex;align-items:center;gap:4px;background:#fff8e1;border:1px solid #ffe082;border-radius:4px;padding:3px 8px;margin:3px 4px 3px 0;font-size:12px;color:#333}
-.suggested-tag button{background:#4caf50;color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:11px;cursor:pointer}
-.suggested-tag button:hover{background:#388e3c}
-.suggested-tag button:disabled{opacity:.4;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -370,7 +362,6 @@ async function loadSummaries() {
         <div class="summary-text">${esc(s.summary_text)}</div>
         <h4 style="font-size:13px;font-weight:600;color:#888;margin:16px 0 8px">TOPICS</h4>
         ${renderTopicTags(s.id, topicTags, s.source_url)}
-        <div id="suggested-tags-${s.id}"></div>
         <div style="margin-top:10px"><a href="${esc(s.source_url)}" target="_blank" style="color:#4a90d9;font-size:12px">Open source &rarr;</a></div>
       </div>` : ''}
     </div>`;
@@ -379,12 +370,7 @@ async function loadSummaries() {
 
 function toggleSummary(id) {
   expandedSummary = expandedSummary === id ? null : id;
-  loadSummaries().then(() => {
-    if (expandedSummary !== null) {
-      const container = document.getElementById('suggested-tags-' + expandedSummary);
-      if (container) renderSuggestedTags(expandedSummary, container);
-    }
-  });
+  loadSummaries();
 }
 
 // --- Feeds ---
@@ -496,40 +482,6 @@ async function addTag() {
 async function deleteTag(id) {
   await fetch(`/api/tags/${id}`, { method: 'DELETE' });
   loadTags();
-}
-
-// --- Suggested Tags ---
-async function fetchSuggestedTags(summaryId) {
-  const r = await fetch('/api/summaries/' + summaryId + '/suggested-tags');
-  const d = await r.json();
-  return d.suggested || [];
-}
-
-async function addInterestTag(text, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
-  try {
-    await fetch('/api/tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    btn.textContent = 'Added';
-    btn.parentElement.style.opacity = '0.5';
-  } catch (e) {
-    btn.textContent = 'Error';
-    btn.disabled = false;
-  }
-}
-
-async function renderSuggestedTags(summaryId, container) {
-  const tags = await fetchSuggestedTags(summaryId);
-  if (!tags.length) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'suggested-tags';
-  wrap.innerHTML = '<div class="suggested-tags-label">SUGGESTED INTEREST TAGS</div>' +
-    tags.map(t => `<span class="suggested-tag">${esc(t)} <button onclick="addInterestTag('${t.replace(/'/g,"\\'")}', this)">Add</button></span>`).join('');
-  container.appendChild(wrap);
 }
 
 // --- Helpers ---

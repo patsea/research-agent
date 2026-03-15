@@ -44,7 +44,7 @@ function transcribe(episodeId) {
     console.log(`[transcriber] Transcribing: ${mp3File}`);
     try {
       execSync(
-        `${WHISPER} "${mp3Path}" --model base --language en --output_format json --output_dir "${DOWNLOADS}"`,
+        `${WHISPER} "${mp3Path}" --model ${process.env.WHISPER_MODEL || 'small'} --language en --output_format json --output_dir "${DOWNLOADS}"`,
         { timeout: 600000, stdio: ['pipe', 'pipe', 'pipe'] }
       );
     } catch (err) {

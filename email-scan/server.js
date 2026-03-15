@@ -5,7 +5,7 @@ import { runScan } from './modules/scan.js';
 import { closeClient } from './modules/gmail.js';
 import { logActivity } from '../shared/activityLogger.js';
 
-// Agent 6 email scan — status server + manual scan trigger.
+// Email Scan — status server + manual scan trigger.
 // The daily scan runs independently via: node scan.js
 // Start this server to check scan status or trigger a scan manually.
 
@@ -16,7 +16,7 @@ let scanInProgress = false;
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'agent6-email-scan', port: 3034 });
+  res.json({ status: 'ok', service: 'email-scan', port: 3034 });
 });
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
@@ -44,7 +44,7 @@ app.post('/scan', async (req, res) => {
         errors: (summary.errors || []).join('; ')
       });
     }
-    logActivity({ agent: 'agent6', action: 'email_scan_completed', result: 'success', detail: `scanned=${summary.scanned}, attioUpdates=${summary.attioUpdates}, bounces=${summary.classified?.bounce || 0}` });
+    logActivity({ agent: 'email-scan', action: 'email_scan_completed', result: 'success', detail: `scanned=${summary.scanned}, attioUpdates=${summary.attioUpdates}, bounces=${summary.classified?.bounce || 0}` });
     res.json({ success: true, summary });
   } catch (err) {
     console.error('[server] scan error:', err);
@@ -64,7 +64,7 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 }
 
 app.listen(PORT, () => {
-  console.log(`\n  Agent 6 email scan status at http://localhost:${PORT}`);
+  console.log(`\n  Email Scan status at http://localhost:${PORT}`);
   console.log(`  Daily scan runs independently — check launchd or run manually:`);
   console.log(`  node scan.js\n`);
 });

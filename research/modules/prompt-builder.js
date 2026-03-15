@@ -20,7 +20,15 @@ export function buildSystemPrompt(rawPrompt, profile) {
     '{{CANDIDATE_TARGET_GEOGRAPHIES}}': (profile.targetGeographies || []).join(', '),
     '{{CANDIDATE_PROOF_POINT_ORDER_RULE}}': profile.proof_point_order_rule || '',
     '{{CANDIDATE_BACKGROUND}}': profile.positioning || '',
+    '{{CANDIDATE_BRIEF}}': [profile.name, profile.title, profile.positioning].filter(Boolean).join(' — '),
     '{{PROOF_POINT_ORDER_RULE}}': profile.proof_point_order_rule || '',
+    // Company Assessment placeholders
+    '{{TODAY}}': new Date().toISOString().split('T')[0],
+    '{{COMPANY_NAME}}': profile.currentCompany || '',
+    '{{COMPANY_GEOGRAPHY}}': (profile.targetGeographies || []).join(', '),
+    '{{COMPANY_SECTOR}}': (profile.targetSectors || []).join(', '),
+    '{{PRIOR_RESEARCH}}': '',
+    '{{NAMED_PEOPLE}}': '',
   };
 
   let result = rawPrompt;

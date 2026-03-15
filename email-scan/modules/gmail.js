@@ -10,7 +10,7 @@ async function getClient() {
     const command = process.env.GMAIL_MCP_COMMAND || 'npx';
     const args = (process.env.GMAIL_MCP_ARGS || '-y,@gongrzhe/server-gmail-autoauth-mcp').split(',');
     const transport = new StdioClientTransport({ command, args });
-    const c = new Client({ name: 'agent6-email-scan', version: '1.0.0' });
+    const c = new Client({ name: 'email-scan', version: '1.0.0' });
     await c.connect(transport);
     client = c;
     return client;
