@@ -636,6 +636,36 @@ app.get('/api/digest/podcast', async (req, res) => {
   }
 });
 
+// PATCH /api/feeds/:id/toggles — update all 9 per-feed metadata display toggles
+app.patch('/api/feeds/:id/toggles', (req, res) => {
+  const db = getDb();
+  const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
+  if (!feed) return res.status(404).json({ error: 'Feed not found' });
+
+  const toggleFields = [
+    'show_title', 'show_published', 'show_duration', 'show_description',
+    'show_thumbnail', 'show_channel_name', 'show_audio_url', 'show_source_url',
+    'show_relevance_score'
+  ];
+
+  const updates = [];
+  const values = [];
+  for (const field of toggleFields) {
+    if (req.body[field] != null) {
+      updates.push(`${field} = ?`);
+      values.push(req.body[field] ? 1 : 0);
+    }
+  }
+
+  if (updates.length > 0) {
+    values.push(req.params.id);
+    db.prepare(`UPDATE feeds SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  }
+
+  const updated = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
+  res.json(updated);
+});
+
 // Catch-all: serve index.html (MUST be after all API routes)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
