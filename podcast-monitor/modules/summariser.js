@@ -7,7 +7,7 @@ const PODCAST_SYSTEM_PROMPT = fs.readFileSync(
 ).replace(/^#[^\n]*\n/gm, '').trim();
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-const SONNET_MODEL = 'claude-sonnet-4-5';
+const SONNET_MODEL = 'claude-sonnet-4-6';
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
 
 function buildTranscriptText(whisperJson) {

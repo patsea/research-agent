@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 import { getSigintDb } from './sigint-db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROMPT_PATH = join(__dirname, '../prompts/SIGINT_WEEKLY_BRIEFING.md');
+const PROMPT_PATH = join(__dirname, '../../config/prompts/research-sigint-briefing.md');
 const PROFILE_PATH = join(__dirname, '../../config/user-profile.json');
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 

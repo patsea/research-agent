@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 async function auditAssessment(stage1Output, auditVars) {
   const { companyName, geography, sector, interviewers, today } = auditVars;
 
-  const templatePath = join(__dirname, '../prompts/COMPANY_ASSESSMENT_AUDIT_TEMPLATE.md');
+  const templatePath = join(__dirname, '../../config/prompts/research-company-audit.md');
   const template = await readFile(templatePath, 'utf-8');
 
   // Build interviewer list string
@@ -94,7 +94,7 @@ export async function runCompanyAssessment(input) {
   const today = new Date().toISOString().split('T')[0];
 
   // --- STAGE 1: Perplexity deep research ---
-  const templatePath = join(__dirname, '../prompts/COMPANY_ASSESSMENT_TEMPLATE.md');
+  const templatePath = join(__dirname, '../../config/prompts/research-company-assessment.md');
   let template = await readFile(templatePath, 'utf-8');
 
   // Build attachments section
