@@ -71,3 +71,4 @@ podcast-monitor/data/
 
 # OS files
 .DS_Store
+config/models.json
