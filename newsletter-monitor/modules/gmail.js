@@ -3,8 +3,7 @@
  * Fetches newsletters from Gmail using stdio MCP pattern.
  * Uses dynamic import() to bridge CJS (this module) → ESM (@modelcontextprotocol/sdk).
  *
- * Active accounts: personal Gmail, gmail-aloma (credentials.json present)
- * Pending OAuth: gmail-growthworks (gcp-oauth.keys.json present, no credentials.json)
+ * Active accounts: personal Gmail, gmail-aloma, gmail-growthworks (all credentials.json present)
  */
 
 const path = require('path');
@@ -19,8 +18,12 @@ const ACCOUNT_CONFIGS = [
     name: 'gmail-aloma',
     oauthPath: path.join(process.env.HOME, '.gmail-mcp-aloma/gcp-oauth.keys.json'),
     credentialsPath: path.join(process.env.HOME, '.gmail-mcp-aloma/credentials.json'),
+  },
+  {
+    name: 'gmail-growthworks',
+    oauthPath: path.join(process.env.HOME, '.gmail-mcp-growthworks/gcp-oauth.keys.json'),
+    credentialsPath: path.join(process.env.HOME, '.gmail-mcp-growthworks/credentials.json'),
   }
-  // gmail-growthworks: pending OAuth — credentials.json not yet created
 ];
 
 async function fetchNewslettersFromAccount(accountConfig, daysBack) {

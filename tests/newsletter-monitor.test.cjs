@@ -66,4 +66,12 @@ describe('Newsletter Monitor (port 3041)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('ok', true);
   });
+
+  test('newsletters include gmail-growthworks source', async () => {
+    const res = await get(3041, '/api/newsletters');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    const accounts = res.body.map(n => n.account || n.source_account);
+    expect(accounts).toContain('gmail-growthworks');
+  });
 });

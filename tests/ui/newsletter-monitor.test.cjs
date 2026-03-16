@@ -142,3 +142,22 @@ test('NM-7 — Settings tab has prompt editor', async () => {
   expect(isVisible).toBe(true);
   expect(hasTextarea).toBe(true);
 });
+
+// NM-8 — gmail-growthworks badge CSS rule exists (green)
+test('NM-8 — gmail-growthworks badge has green CSS rule', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  const hasGrowthworksRule = await page.evaluate(() => {
+    const sheets = document.styleSheets;
+    for (const sheet of sheets) {
+      try {
+        for (const rule of sheet.cssRules) {
+          if (rule.selectorText && rule.selectorText.includes('.source-badge.gmail-growthworks')) return true;
+        }
+      } catch(e) {}
+    }
+    return false;
+  });
+  recordResult('NM-8', hasGrowthworksRule, `gmail-growthworks CSS rule: ${hasGrowthworksRule}`);
+  expect(hasGrowthworksRule).toBe(true);
+});
