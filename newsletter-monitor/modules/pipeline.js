@@ -1,7 +1,7 @@
 'use strict';
 const { fetchAllNewsletters } = require('./gmail');
 const { summariseNewsletter } = require('./summariser');
-const { notifyNewsletter } = require('../../shared/slack.cjs');
+const { notifyNewsletter, sendNewsletterDigest } = require('../../shared/slack.cjs');
 
 async function runPipeline(db, daysBack = 1) {
   const log = (msg) => console.log(`[newsletter-monitor] ${new Date().toISOString()} ${msg}`);
@@ -33,7 +33,7 @@ async function runPipeline(db, daysBack = 1) {
         INSERT INTO newsletters (message_id, subject, sender_name, sender_email, account, snippet, summary, received_at, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'))
       `).run(nl.message_id, nl.subject, nl.sender_name, nl.sender_email, nl.account, '', summary, nl.date || new Date().toISOString());
-      notifyNewsletter({ subject: nl.subject, sender_name: nl.sender_name, sender_email: nl.sender_email, account: nl.account, summary }).catch(() => {});
+      // REMOVED digest-refactor-20Mar: notifyNewsletter({ subject: nl.subject, sender_name: nl.sender_name, sender_email: nl.sender_email, account: nl.account, summary }).catch(() => {});
     }
 
     db.prepare(`
@@ -42,6 +42,14 @@ async function runPipeline(db, daysBack = 1) {
     `).run(runId, fetched, summarised, skipped, errors);
 
     log(`Run complete: ${summarised} summarised, ${skipped} skipped, ${errors} errors`);
+
+    // Send digest Slack after pipeline run completes
+    try {
+      const digestRes = await fetch('http://localhost:3041/api/digest/newsletter');
+      const digestItems = await digestRes.json();
+      if (digestItems.length > 0) await sendNewsletterDigest(digestItems);
+    } catch (e) { console.error('[pipeline] digest Slack error:', e.message); }
+
     return { ok: true, fetched, summarised, skipped, errors };
   } catch (err) {
     log(`Pipeline error: ${err.message}`);

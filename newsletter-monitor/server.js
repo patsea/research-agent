@@ -103,6 +103,47 @@ app.get('/api/run-log', (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
+// Daily newsletter digest — past 24h, AI-ranked by relevance_score
+app.get('/api/digest/newsletter', async (req, res) => {
+  try {
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const rows = db.prepare(`
+      SELECT id, subject, sender_name, sender_email, summary, relevance_score, received_at, account
+      FROM newsletters WHERE received_at >= ?
+      ORDER BY relevance_score DESC, received_at DESC LIMIT 20
+    `).all(since);
+    if (rows.length === 0) return res.json([]);
+
+    const unscored = rows.filter(r => !r.relevance_score);
+    if (unscored.length > 0 && ANTHROPIC_API_KEY) {
+      const prompt = `Score each newsletter 1-10 for relevance to a senior tech exec job search (AI trends, ops leadership, PE/VC, market intelligence). Return ONLY a JSON array, no markdown: [{"id": N, "score": N}]\nNewsletters:\n` +
+        unscored.map(n => `ID:${n.id} Subject:"${n.subject}" From:${n.sender_name||''} Summary:${(n.summary||'').slice(0,150)}`).join('\n');
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+        });
+        const data = await r.json();
+        const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
+        const scores = JSON.parse(text);
+        const stmt = db.prepare('UPDATE newsletters SET relevance_score = ? WHERE id = ?');
+        for (const { id, score } of scores) stmt.run(score, id);
+      } catch (e) { console.error('[digest/newsletter] scoring error:', e.message); }
+    }
+    const ranked = db.prepare(`
+      SELECT id, subject, sender_name, sender_email, summary, relevance_score, received_at, account
+      FROM newsletters WHERE received_at >= ?
+      ORDER BY relevance_score DESC, received_at DESC LIMIT 10
+    `).all(since);
+    res.json(ranked);
+  } catch (err) {
+    console.error('[digest/newsletter]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`[newsletter-monitor] Running on port ${PORT}`));

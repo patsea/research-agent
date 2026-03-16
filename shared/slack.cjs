@@ -262,4 +262,27 @@ function formatDuration(seconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-module.exports = { notifySignal, notifyNewsletter, notifyNewSender, notifyEpisode, notifyAlert, postToSlack };
+// Daily digest notifications
+async function sendPodcastDigest(items) {
+  if (!items || items.length === 0) return;
+  const top = items.slice(0, 3);
+  const lines = top.map((ep, i) =>
+    `${i+1}. *${(ep.title || 'Untitled').replace(/[<>|]/g, '')}* — ${ep.feed_name || ''} (score: ${ep.relevance_score ?? '?'})`
+  );
+  const text = `:studio_microphone: *Daily Podcast Digest* — top ${top.length} from past 24h\n` +
+    lines.join('\n') + `\n<http://localhost:3040|View all episodes>`;
+  await postToSlack({ text });
+}
+
+async function sendNewsletterDigest(items) {
+  if (!items || items.length === 0) return;
+  const top = items.slice(0, 3);
+  const lines = top.map((nl, i) =>
+    `${i+1}. *${(nl.subject || 'Untitled').replace(/[<>|]/g, '')}* — ${nl.sender_name || nl.sender_email || ''} (score: ${nl.relevance_score ?? '?'})`
+  );
+  const text = `:newspaper: *Daily Newsletter Digest* — top ${top.length} from past 24h\n` +
+    lines.join('\n') + `\n<http://localhost:3041|View all newsletters>`;
+  await postToSlack({ text });
+}
+
+module.exports = { notifySignal, notifyNewsletter, notifyNewSender, notifyEpisode, notifyAlert, postToSlack, sendPodcastDigest, sendNewsletterDigest };

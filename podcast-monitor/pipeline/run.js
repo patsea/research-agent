@@ -1,5 +1,5 @@
 const { pollAllFeeds } = require('../modules/poller');
-const { sendDailyDigest } = require('../modules/slack');
+// REMOVED digest-refactor-20Mar: const { sendDailyDigest } = require('../modules/slack');
 const { getDb } = require('../modules/db');
 
 (async () => {
@@ -21,8 +21,8 @@ const { getDb } = require('../modules/db');
         `).get(id)
       ).filter(Boolean);
 
-      const result = await sendDailyDigest(episodes);
-      console.log(`[pipeline] Slack: ${JSON.stringify(result)}`);
+      // REMOVED digest-refactor-20Mar: const result = await sendDailyDigest(episodes);
+      // REMOVED digest-refactor-20Mar: console.log(`[pipeline] Slack: ${JSON.stringify(result)}`);
     }
 
     process.exit(0);

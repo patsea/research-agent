@@ -591,6 +591,51 @@ app.post('/api/feeds/:id/backfill-dates', async (req, res) => {
   res.json({ ok: true, found: episodes.length, updated, still_null: stillNull });
 });
 
+// Daily podcast digest — past 24h, AI-ranked by relevance_score
+app.get('/api/digest/podcast', async (req, res) => {
+  try {
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const db = getDb();
+    // feed_name via JOIN feeds (not a column on episodes)
+    const rows = db.prepare(`
+      SELECT e.id, e.title, f.name AS feed_name, e.channel_name, e.description,
+             e.relevance_score, e.created_at
+      FROM episodes e LEFT JOIN feeds f ON e.feed_id = f.id
+      WHERE e.created_at >= ? ORDER BY e.relevance_score DESC, e.created_at DESC LIMIT 20
+    `).all(since);
+    if (rows.length === 0) return res.json([]);
+
+    const unscored = rows.filter(r => !r.relevance_score);
+    if (unscored.length > 0 && ANTHROPIC_API_KEY) {
+      const prompt = `Score each podcast episode 1-10 for relevance to a senior tech exec job search (AI, operations, growth, PE/VC). Return ONLY a JSON array, no markdown: [{"id": N, "score": N}]\nEpisodes:\n` +
+        unscored.map(e => `ID:${e.id} "${e.title}" Feed:${e.feed_name||''} Desc:${(e.description||'').slice(0,150)}`).join('\n');
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+        });
+        const data = await r.json();
+        const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
+        const scores = JSON.parse(text);
+        const stmt = db.prepare('UPDATE episodes SET relevance_score = ? WHERE id = ?');
+        for (const { id, score } of scores) stmt.run(score, id);
+      } catch (e) { console.error('[digest/podcast] scoring error:', e.message); }
+    }
+    const ranked = db.prepare(`
+      SELECT e.id, e.title, f.name AS feed_name, e.channel_name, e.description,
+             e.relevance_score, e.created_at
+      FROM episodes e LEFT JOIN feeds f ON e.feed_id = f.id
+      WHERE e.created_at >= ? ORDER BY e.relevance_score DESC, e.created_at DESC LIMIT 10
+    `).all(since);
+    res.json(ranked);
+  } catch (err) {
+    console.error('[digest/podcast]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Catch-all: serve index.html (MUST be after all API routes)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
