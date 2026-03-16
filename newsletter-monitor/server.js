@@ -144,6 +144,42 @@ app.get('/api/digest/newsletter', async (req, res) => {
   }
 });
 
+app.get('/api/subscriptions', (req, res) => {
+  try {
+    const senders = db.prepare(`
+      SELECT sender_name, sender_email, account,
+             COUNT(*) as total,
+             MAX(received_at) as last_received,
+             SUM(CASE WHEN status='unsubscribed' THEN 1 ELSE 0 END) as unsub_count
+      FROM newsletters
+      GROUP BY sender_email
+      ORDER BY last_received DESC
+    `).all();
+    res.json(senders);
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+// Settings: read/write newsletter summarisation prompt
+app.get('/api/settings/prompts', (req, res) => {
+  try {
+    const promptPath = path.join(__dirname, '..', 'config', 'prompts', 'newsletter-summarisation.md');
+    const fs = require('fs');
+    const content = fs.readFileSync(promptPath, 'utf8');
+    res.json({ summarisation: content });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/settings/prompts', (req, res) => {
+  try {
+    const { summarisation } = req.body;
+    if (!summarisation) return res.status(400).json({ error: 'Missing summarisation prompt' });
+    const promptPath = path.join(__dirname, '..', 'config', 'prompts', 'newsletter-summarisation.md');
+    const fs = require('fs');
+    fs.writeFileSync(promptPath, summarisation, 'utf8');
+    res.json({ ok: true });
+  } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`[newsletter-monitor] Running on port ${PORT}`));
