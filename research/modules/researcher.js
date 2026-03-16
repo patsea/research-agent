@@ -3,6 +3,9 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import 'dotenv/config';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { search } from './websearch.js';
@@ -128,7 +131,7 @@ ${granolaNotes ? `## Granola Meeting Notes\n${granolaNotes}` : ''}
 
   const r = await axios.post('https://api.anthropic.com/v1/messages',
     {
-      model: 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }]

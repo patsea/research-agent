@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -21,7 +24,7 @@ const TAXONOMY = [
 
 export async function classifySender({ emailAddress, displayName, subjects }) {
   const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: getModel('classification'),
     max_tokens: 50,
     messages: [{
       role: 'user',

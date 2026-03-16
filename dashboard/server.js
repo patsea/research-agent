@@ -3,6 +3,9 @@ import express from 'express';
 import axios from 'axios';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../shared/models.cjs');
 import { fileURLToPath } from 'url';
 import { getActivity } from '../shared/activityLogger.js';
 
@@ -212,6 +215,33 @@ app.post('/api/config/positioning', (req, res) => {
   }
 });
 
+// models config
+const MODELS_PATH = resolve(CONFIG_DIR, 'models.json');
+
+app.get('/api/config/models', (req, res) => {
+  getJsonConfig(MODELS_PATH, res, 'models');
+});
+
+app.post('/api/config/models', (req, res) => {
+  // Read existing to preserve _available and _descriptions
+  let existing = {};
+  try { existing = JSON.parse(readFileSync(MODELS_PATH, 'utf-8')); } catch {}
+  const merged = {
+    synthesis: req.body.synthesis || existing.synthesis,
+    classification: req.body.classification || existing.classification,
+    podcast_summary: req.body.podcast_summary || existing.podcast_summary,
+    podcast_section: req.body.podcast_section || existing.podcast_section,
+    _available: existing._available || [],
+    _descriptions: existing._descriptions || {}
+  };
+  try {
+    writeFileSync(MODELS_PATH, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to write models config', detail: e.message });
+  }
+});
+
 // AI-suggest scoring rubric dimensions
 app.post('/api/config/scoring-rubric/suggest', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
@@ -280,7 +310,7 @@ Return ONLY valid JSON in this exact format:
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 2000,
       messages: [{ role: 'user', content: rubricType === 'firm' ? firmPrompt : companyPrompt }]
     }, {

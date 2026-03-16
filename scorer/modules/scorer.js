@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 import 'dotenv/config';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const SIGNAL_VALUES = { High: 1.0, Medium: 0.5, Low: 0.0, Unknown: 0.0 };
 
@@ -38,8 +41,8 @@ No preamble, no explanation, no markdown fences.`;
   // Use Sonnet+web_search only when scoring blind (no research context)
   const hasResearch = researchContext && researchContext.length > 100;
   const model = hasResearch
-    ? (process.env.HAIKU_MODEL || 'claude-haiku-4-5-20251001')
-    : (process.env.SONNET_MODEL || 'claude-sonnet-4-6');
+    ? getModel('classification')
+    : getModel('synthesis');
 
   let llmResults = {};
   try {

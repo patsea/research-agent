@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { readFileSync } from 'fs';
 import 'dotenv/config';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const CONTACT_ID_PROMPT = readFileSync(
   new URL('../../config/prompts/contact-identification.md', import.meta.url), 'utf8'
@@ -34,7 +37,7 @@ export async function identifyContact({ companyName, campaignType, linkedinUrl }
   try {
     const r = await axios.post('https://api.anthropic.com/v1/messages',
       {
-        model: process.env.SONNET_MODEL || 'claude-sonnet-4-6',
+        model: getModel('synthesis'),
         max_tokens: 2000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         tool_choice: { type: 'any' },

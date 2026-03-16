@@ -1,6 +1,7 @@
 try { require('dotenv').config(); } catch (_) {}
 const express = require('express');
 const path = require('path');
+const { getModel } = require('../shared/models.cjs');
 const { getDb } = require('./modules/db');
 const { pollFeed, pollAllFeeds } = require('./modules/poller');
 const { transcribe, fetchMetadata } = require('./modules/transcriber');
@@ -275,7 +276,7 @@ app.post('/api/summaries/:id/section', async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: getModel('podcast_section'),
         max_tokens: 1000,
         system: 'You are summarising a specific section of a podcast for a senior executive. Be precise, factual, and specific. Capture the key arguments, data points, and conclusions from this section.',
         messages: [{
@@ -614,7 +615,7 @@ app.get('/api/digest/podcast', async (req, res) => {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model: getModel('classification'), max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
         });
         const data = await r.json();
         const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();

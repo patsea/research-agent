@@ -76,6 +76,7 @@
   <div class="tab" data-tab="attio">Attio Fields</div>
   <div class="tab" data-tab="rubric">Scoring Rubric</div>
   <div class="tab" data-tab="positioning">Positioning</div>
+  <div class="tab" data-tab="models">Models</div>
   <div class="tab" data-tab="prompts">Prompts</div>
 </div>
 
@@ -180,6 +181,16 @@
       </div>
     </div>
     <div class="save-bar"><button class="btn" onclick="saveRubric()">Save Scoring Rubric</button></div>
+  </div>
+
+  <!-- Models Panel -->
+  <div class="panel" id="panel-models">
+    <div class="card">
+      <h3>AI Model Selection</h3>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Choose which Claude model each agent slot uses. Changes take effect on the next API call (no restart needed).</p>
+      <div id="model-slots"></div>
+      <div class="save-bar"><button class="btn" onclick="saveModels()">Save Models</button></div>
+    </div>
   </div>
 
   <!-- Prompts Panel -->
@@ -596,11 +607,48 @@
     showToast(res.ok ? 'Prompt saved — restart agent to apply' : 'Save failed');
   }
 
+  // --- Models ---
+  const MODEL_OPTIONS = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6', 'claude-sonnet-4-5-20251212'];
+  let modelsData = {};
+
+  async function loadModels() {
+    try {
+      const res = await fetch('/api/config/models');
+      if (!res.ok) return;
+      modelsData = await res.json();
+      const descriptions = modelsData._descriptions || {};
+      const slots = ['synthesis', 'classification', 'podcast_summary', 'podcast_section'];
+      const el = document.getElementById('model-slots');
+      el.innerHTML = slots.map(slot => {
+        const options = MODEL_OPTIONS.map(m =>
+          `<option value="${m}" ${modelsData[slot] === m ? 'selected' : ''}>${m}</option>`
+        ).join('');
+        return `<div class="field" style="margin-bottom:16px">
+          <label>${slot.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</label>
+          <p style="font-size:12px;color:#9ca3af;margin:2px 0 6px 0">${descriptions[slot] || ''}</p>
+          <select id="model-${slot}">${options}</select>
+        </div>`;
+      }).join('');
+    } catch (e) { console.error('Failed to load models', e); }
+  }
+
+  async function saveModels() {
+    const body = {
+      synthesis: document.getElementById('model-synthesis').value,
+      classification: document.getElementById('model-classification').value,
+      podcast_summary: document.getElementById('model-podcast_summary').value,
+      podcast_section: document.getElementById('model-podcast_section').value
+    };
+    const res = await fetch('/api/config/models', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    showToast(res.ok ? 'Models saved — takes effect on next API call' : 'Save failed');
+  }
+
   // --- Init ---
   loadUserProfile();
   loadAttioFields();
   loadRubric();
   loadPositioning();
+  loadModels();
   loadPrompts();
 </script>
 </body>

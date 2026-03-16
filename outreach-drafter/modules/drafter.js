@@ -3,6 +3,9 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import 'dotenv/config';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const __dirname_drafter = dirname(fileURLToPath(import.meta.url));
 function _getDrafterProfile() {
@@ -60,7 +63,7 @@ Generate the outreach email now.`;
 
   const r = await axios.post('https://api.anthropic.com/v1/messages',
     {
-      model: process.env.SONNET_MODEL || 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }]
@@ -138,7 +141,7 @@ No preamble, no explanation, no markdown fences.`;
 
   const r = await axios.post('https://api.anthropic.com/v1/messages',
     {
-      model: process.env.SONNET_MODEL || 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 2000,
       system: _buildSystemPrompt(wordCountTarget),
       messages: [{ role: 'user', content: userPrompt }]

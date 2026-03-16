@@ -1,11 +1,14 @@
 import axios from 'axios';
 import 'dotenv/config';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 export async function search(query, maxResults = 10) {
   try {
     const r = await axios.post('https://api.anthropic.com/v1/messages',
       {
-        model: 'claude-sonnet-4-6',
+        model: getModel('synthesis'),
         max_tokens: 4000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         tool_choice: { type: 'any' },

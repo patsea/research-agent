@@ -34,6 +34,7 @@ describe('Podcast summary prompt — new/novel/contrarian', () => {
     const candidates = [
       path.join(BASE, 'modules/summariser.js'),
       path.join(BASE, 'server.js'),
+      path.join(BASE, '..', 'config', 'prompts', 'podcast-summarisation.md'),
     ];
     let found = false;
     for (const f of candidates) {

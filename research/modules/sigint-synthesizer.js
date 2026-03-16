@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 import { getSigintDb } from './sigint-db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -40,7 +43,7 @@ export async function synthesizeBriefing(daysBack = 7) {
     .replace('{{CANDIDATE_GEOGRAPHIES}}', (profile.targetGeographies || []).join(', ') || 'Europe');
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: getModel('synthesis'),
     max_tokens: 4000,
     messages: [{ role: 'user', content: prompt }]
   }, { timeout: 180000 });

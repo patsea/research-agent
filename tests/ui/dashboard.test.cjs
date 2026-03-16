@@ -144,3 +144,32 @@ test('1.13 — Settings Prompts tab shows grouped prompts', async () => {
   expect(isActive).toBe(true);
   expect(hasPrompts).toBe(true);
 });
+
+// UAT 1.14 — Models tab visible and loads selectors
+test('1.14 — Settings Models tab shows 4 model selectors', async () => {
+  const configPage = await browser.contexts()[0].newPage();
+  await configPage.goto(`${BASE}/config.html`, { waitUntil: 'domcontentloaded', timeout: 8000 });
+  await configPage.waitForTimeout(500);
+
+  // Click Models tab
+  const modelsTab = await configPage.$('.tab[data-tab="models"]');
+  expect(modelsTab).not.toBeNull();
+  recordResult('1.14a', modelsTab !== null, modelsTab ? 'Models tab found' : 'Models tab MISSING');
+
+  await modelsTab.click();
+  await configPage.waitForTimeout(1500);
+
+  // Verify models panel is visible
+  const panel = await configPage.$('#panel-models.active');
+  const isActive = panel !== null;
+  recordResult('1.14b', isActive, isActive ? 'Models panel active' : 'Models panel NOT active');
+
+  // Verify 4 selectors present
+  const selectors = await configPage.$$('#model-slots select');
+  const has4 = selectors.length === 4;
+  recordResult('1.14c', has4, `Found ${selectors.length} model selectors`);
+
+  await configPage.close();
+  expect(isActive).toBe(true);
+  expect(has4).toBe(true);
+});

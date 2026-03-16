@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
@@ -24,7 +27,7 @@ export async function runAudit({ priorResearch, taskContext, explicitQuestions, 
   ].filter(Boolean).join('\n\n');
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: getModel('synthesis'),
     max_tokens: 4000,
     system: AUDIT_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userMsg }]

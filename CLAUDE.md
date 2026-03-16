@@ -57,9 +57,9 @@ Example files (tracked, no personal data):
 
 ---
 
-## Investigation findings — mandatory
+## Investigation findings — mandatory (ENFORCED)
 
-Every investigation that produces confirmed facts MUST create a `FINDINGS-*-YYYYMMDD.md` file in `docs/findings/`. This is non-negotiable.
+Every INVESTIGATE-*.md instruction that produces confirmed facts MUST create a `FINDINGS-*-YYYYMMDD.md` file in `docs/findings/`. This is non-negotiable. **An investigation without a FINDINGS file is incomplete — do not move it to completed/.**
 
 - Write findings immediately after the investigation completes — not deferred, not optional.
 - Start with a `## Summary` section: max 5 bullets, each a standalone confirmed fact.
@@ -67,6 +67,7 @@ Every investigation that produces confirmed facts MUST create a `FINDINGS-*-YYYY
 - Include what was ruled out, not just what was found.
 - End with recommended next actions.
 - The findings file path is: `/Users/pwilliamson/Dropbox/ALOMA/claude-code/docs/findings/`
+- **Sub-agent enforcement:** When dispatching an INVESTIGATE instruction to a sub-agent, the prompt MUST include: "After completing all steps, write a FINDINGS file to /Users/pwilliamson/Dropbox/ALOMA/claude-code/docs/findings/FINDINGS-<description>-<date>.md with ## Summary (max 5 bullets) and ## Detail sections. This is mandatory — the investigation is not complete without it."
 
 Without findings files, the next session re-investigates what is already known.
 

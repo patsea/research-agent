@@ -3,6 +3,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const path = require('path');
 const Database = require('better-sqlite3');
+const { getModel } = require('../shared/models.cjs');
 const { runPipeline } = require('./modules/pipeline');
 
 const app = express();
@@ -123,7 +124,7 @@ app.get('/api/digest/newsletter', async (req, res) => {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model: getModel('classification'), max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
         });
         const data = await r.json();
         const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();

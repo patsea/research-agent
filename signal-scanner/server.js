@@ -3,6 +3,7 @@ import("../shared/activityLogger.js").then(m => { logActivity = m.logActivity; }
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const { getModel } = require('../shared/models.cjs');
 const fs = require('fs');
 
 const RESEARCH_GENERATOR_PROMPT = fs.readFileSync(
@@ -62,7 +63,7 @@ app.post('/api/signals/:id/audit', async (req, res) => {
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 2048,
       system: SIGNAL_AUDIT_PROMPT,
       messages: [{
@@ -107,7 +108,7 @@ app.get('/api/signals/:id/context', async (req, res) => {
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-6',
+      model: getModel('synthesis'),
       max_tokens: 1024,
       tools: [{
         type: 'web_search_20250305',

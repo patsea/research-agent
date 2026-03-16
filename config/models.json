@@ -1,0 +1,17 @@
+{
+  "synthesis": "claude-sonnet-4-6",
+  "classification": "claude-haiku-4-5-20251001",
+  "podcast_summary": "claude-sonnet-4-6",
+  "podcast_section": "claude-haiku-4-5-20251001",
+  "_available": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6",
+    "claude-sonnet-4-5-20251212"
+  ],
+  "_descriptions": {
+    "synthesis": "Research, audit, drafting, contact identification, company context",
+    "classification": "Signal extraction, email classification, sender categorisation, scoring with context",
+    "podcast_summary": "Podcast episode summary + NEW/NOVEL/CONTRARIAN section",
+    "podcast_section": "On-demand podcast section deep dives"
+  }
+}

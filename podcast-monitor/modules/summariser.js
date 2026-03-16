@@ -6,8 +6,8 @@ const PODCAST_SYSTEM_PROMPT = fs.readFileSync(
   path.join(__dirname, '../../config/prompts/podcast-summarisation.md'), 'utf8'
 ).replace(/^#[^\n]*\n/gm, '').trim();
 
+const { getModel } = require('../../shared/models.cjs');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-const SONNET_MODEL = 'claude-sonnet-4-6';
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
 
 function buildTranscriptText(whisperJson) {
@@ -83,7 +83,7 @@ Rules for topic_tags:
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: SONNET_MODEL,
+      model: getModel('podcast_summary'),
       max_tokens: 2000,
       system: PODCAST_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }]

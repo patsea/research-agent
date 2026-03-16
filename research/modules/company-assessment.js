@@ -1,6 +1,9 @@
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { getModel } = require('../../shared/models.cjs');
 import { deepResearch } from './perplexity.js';
 import { logActivity } from '../../shared/activityLogger.js';
 
@@ -48,7 +51,7 @@ async function auditAssessment(stage1Output, auditVars) {
         'anthropic-beta': 'interleaved-thinking-2025-05-14'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: getModel('synthesis'),
         max_tokens: 8000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{ role: 'user', content: auditPrompt }]
