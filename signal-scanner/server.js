@@ -3,6 +3,15 @@ import("../shared/activityLogger.js").then(m => { logActivity = m.logActivity; }
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+
+const RESEARCH_GENERATOR_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../config/prompts/signal-research-generator.md'), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
+
+const SIGNAL_AUDIT_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../config/prompts/signal-audit.md'), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
 
 // Signal Scanner — UI server only.
 // The daily pipeline runs independently via: node pipeline/run.js
@@ -26,26 +35,12 @@ app.get('/api/signals/:id/generate-prompt', (req, res) => {
   const signal = signalDb.signals.getById(req.params.id);
   if (!signal) return res.status(404).json({ error: 'Signal not found' });
 
-  const prompt = [
-    `Research the company "${signal.company_name}" in depth. Here is the context:`,
-    ``,
-    `Signal type: ${signal.signal_type}`,
-    `Sector: ${signal.sector}`,
-    `Geography: ${signal.geography || 'Unknown'}`,
-    `Summary: ${signal.ai_summary}`,
-    ``,
-    `Please provide:`,
-    `1. Company overview — what they do, founding year, HQ location, size (employees/revenue if available)`,
-    `2. Ownership structure — PE/VC-backed, public, private, recent transactions`,
-    `3. Leadership team — CEO, CTO, and any recent C-suite changes`,
-    `4. Technology stack and platform — what they build, key products`,
-    `5. Recent news — funding rounds, acquisitions, partnerships, product launches (last 12 months)`,
-    `6. Competitive landscape — key competitors and market position`,
-    `7. Growth signals — hiring trends, office expansions, new markets`,
-    `8. Red flags — layoffs, lawsuits, negative press, financial concerns`,
-    ``,
-    `Be specific with dates, numbers, and sources. If information is unavailable, say so explicitly.`
-  ].join('\n');
+  const prompt = RESEARCH_GENERATOR_PROMPT
+    .replace('{COMPANY_NAME}', signal.company_name)
+    .replace('{SIGNAL_TYPE}', signal.signal_type)
+    .replace('{SECTOR}', signal.sector)
+    .replace('{GEOGRAPHY}', signal.geography || 'Unknown')
+    .replace('{AI_SUMMARY}', signal.ai_summary);
 
   res.json({
     prompt,
@@ -69,19 +64,7 @@ app.post('/api/signals/:id/audit', async (req, res) => {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
-      system: `You are a sceptical due-diligence auditor. Your job is to review research output about a company and flag:
-- Claims that lack sources or specific dates
-- Contradictions between different facts presented
-- Missing critical information (financials, ownership, leadership)
-- Overly positive framing that may hide risks
-- Anything that seems AI-hallucinated or unverifiable
-
-Structure your audit as:
-## Verified Facts (high confidence)
-## Unverified Claims (needs checking)
-## Missing Information (gaps in research)
-## Red Flags (concerns or contradictions)
-## Overall Assessment (1-2 sentence verdict)`,
+      system: SIGNAL_AUDIT_PROMPT,
       messages: [{
         role: 'user',
         content: `Company: ${signal.company_name}\nSignal: ${signal.ai_summary}\n\nPerplexity Research Output:\n${perplexityOutput}\n\nPlease audit this research for accuracy, completeness, and potential issues.`

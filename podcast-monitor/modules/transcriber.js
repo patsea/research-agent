@@ -1,13 +1,16 @@
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('./db');
+
+const execFileAsync = promisify(execFile);
 
 const YTDLP = '/opt/homebrew/bin/yt-dlp';
 const WHISPER = process.env.WHISPER_PATH || 'whisper';
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
 
-function transcribe(episodeId) {
+async function transcribe(episodeId) {
   const db = getDb();
   const episode = db.prepare('SELECT * FROM episodes WHERE id = ?').get(episodeId);
   if (!episode) throw new Error(`Episode ${episodeId} not found`);
@@ -20,12 +23,13 @@ function transcribe(episodeId) {
   if (!fs.existsSync(mp3Path)) {
     console.log(`[transcriber] Downloading: ${url}`);
     try {
-      execSync(
-        `${YTDLP} -x --audio-format mp3 --output "${path.join(DOWNLOADS, `ep_${episodeId}.%(ext)s`)}" "${url}"`,
-        { timeout: 600000, stdio: ['pipe', 'pipe', 'pipe'] }
-      );
+      await execFileAsync(YTDLP, [
+        '-x', '--audio-format', 'mp3',
+        '--output', path.join(DOWNLOADS, `ep_${episodeId}.%(ext)s`),
+        url
+      ], { timeout: 600000 });
     } catch (err) {
-      console.error('[transcriber] yt-dlp error:', err.stderr?.toString().slice(0, 500));
+      console.error('[transcriber] yt-dlp error:', err.stderr?.slice(0, 500));
       throw new Error('yt-dlp download failed');
     }
   }
@@ -43,12 +47,15 @@ function transcribe(episodeId) {
   if (!fs.existsSync(jsonPath)) {
     console.log(`[transcriber] Transcribing: ${mp3File}`);
     try {
-      execSync(
-        `${WHISPER} "${mp3Path}" --model ${process.env.WHISPER_MODEL || 'small'} --language en --output_format json --output_dir "${DOWNLOADS}"`,
-        { timeout: 600000, stdio: ['pipe', 'pipe', 'pipe'] }
-      );
+      await execFileAsync(WHISPER, [
+        mp3Path,
+        '--model', process.env.WHISPER_MODEL || 'small',
+        '--language', 'en',
+        '--output_format', 'json',
+        '--output_dir', DOWNLOADS
+      ], { timeout: 600000 });
     } catch (err) {
-      console.error('[transcriber] whisper error:', err.stderr?.toString().slice(0, 500));
+      console.error('[transcriber] whisper error:', err.stderr?.slice(0, 500));
       throw new Error('Whisper transcription failed');
     }
   }
@@ -71,13 +78,12 @@ function transcribe(episodeId) {
   return { transcriptPath: jsonPath, segments };
 }
 
-function fetchMetadata(url) {
+async function fetchMetadata(url) {
   try {
-    const raw = execSync(
-      `${YTDLP} --dump-json --no-playlist "${url}"`,
-      { timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
-    ).toString().trim();
-    const d = JSON.parse(raw);
+    const { stdout } = await execFileAsync(YTDLP, [
+      '--dump-json', '--no-playlist', url
+    ], { timeout: 30000 });
+    const d = JSON.parse(stdout.trim());
     return {
       title:        d.title || null,
       description:  d.description || null,

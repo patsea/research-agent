@@ -9,20 +9,15 @@ function _getDrafterProfile() {
   return JSON.parse(readFileSync(join(__dirname_drafter, '..', '..', 'config', 'user-profile.json'), 'utf8'));
 }
 
-const SYSTEM_PROMPT = `You are drafting outreach emails for ${_getDrafterProfile().name}. You must follow these rules exactly:
-- ${_getDrafterProfile().proof_point_order_rule || 'Follow the proof point ordering from the positioning document'}
-- Under {wordCountTarget} words total (subject line not counted)
-- Problem-led opening — reference something real and specific about the company or contact
-- No em-dashes (use commas or full stops instead)
-- No Oxford commas
-- No compound adjective hyphens
-- No "I am reaching out" or "I hope this finds you well" openers
-- End with a low-friction ask: "Would a brief call make sense?" or similar
-- Never invent facts — only reference what is in the provided research context
-- If no research is provided, write a positioning-only email and flag it as generic
+const SYSTEM_PROMPT_TEMPLATE = readFileSync(
+  new URL('../../config/prompts/outreach-email-drafting.md', import.meta.url), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
 
-Return ONLY a JSON object: { "subject": "...", "body": "..." }
-No preamble, no explanation, no markdown fences.`;
+function _buildSystemPrompt(wordCountTarget) {
+  const profile = _getDrafterProfile();
+  // Prepend candidate name and proof point rule to the template
+  return `You are drafting outreach emails for ${profile.name}. ${profile.proof_point_order_rule ? `You must: ${profile.proof_point_order_rule}. ` : ''}${SYSTEM_PROMPT_TEMPLATE.replace('{wordCountTarget}', wordCountTarget)}`;
+}
 
 export async function generateDraft({ contact, research, templatePrompt, wordCountTarget = 200 }) {
   const positioningPath = process.env.POSITIONING_DOC_PATH;
@@ -34,7 +29,7 @@ export async function generateDraft({ contact, research, templatePrompt, wordCou
     positioning = 'No positioning document available.';
   }
 
-  const systemPrompt = SYSTEM_PROMPT.replace('{wordCountTarget}', wordCountTarget);
+  const systemPrompt = _buildSystemPrompt(wordCountTarget);
 
   const researchSection = research
     ? `## Research context
@@ -145,7 +140,7 @@ No preamble, no explanation, no markdown fences.`;
     {
       model: process.env.SONNET_MODEL || 'claude-sonnet-4-6',
       max_tokens: 2000,
-      system: SYSTEM_PROMPT.replace('{wordCountTarget}', wordCountTarget),
+      system: _buildSystemPrompt(wordCountTarget),
       messages: [{ role: 'user', content: userPrompt }]
     },
     {

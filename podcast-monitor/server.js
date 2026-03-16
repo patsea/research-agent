@@ -90,12 +90,12 @@ app.get('/api/episodes', (req, res) => {
   res.json(episodes);
 });
 
-app.post('/api/episodes/url', (req, res) => {
+app.post('/api/episodes/url', async (req, res) => {
   const { url, title } = req.body;
   if (!url) return res.status(400).json({ error: 'url required' });
 
-  // Fetch metadata via yt-dlp (synchronous, no audio download)
-  const meta = fetchMetadata(url);
+  // Fetch metadata via yt-dlp (async)
+  const meta = await fetchMetadata(url);
 
   try {
     const db = getDb();
@@ -147,9 +147,11 @@ app.post('/api/episodes/:id/fetch-metadata', async (req, res) => {
   }
 
   try {
-    const { execSync } = require('child_process');
+    const { execFile } = require('child_process');
+    const { promisify } = require('util');
+    const execFileAsync = promisify(execFile);
     const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
-    const raw = execSync(`${ytdlp} --dump-json --no-download "${ep.source_url}"`, { timeout: 30000 }).toString();
+    const { stdout: raw } = await execFileAsync(ytdlp, ['--dump-json', '--no-download', ep.source_url], { timeout: 30000 });
     const meta = JSON.parse(raw);
     const thumbnail = (meta.thumbnails && meta.thumbnails.length > 0)
       ? meta.thumbnails[meta.thumbnails.length - 1].url
@@ -176,7 +178,7 @@ app.post('/api/episodes/:id/summarise', (req, res) => {
   (async () => {
     try {
       console.log(`[server] Starting transcription for episode ${id}: ${episode.title}`);
-      transcribe(id);
+      await transcribe(id);
       console.log(`[server] Transcription complete, starting summarisation for episode ${id}`);
       await summarise(id);
       console.log(`[server] Summarisation complete for episode ${id}`);
@@ -380,8 +382,65 @@ app.get('/api/summaries/:id/suggested-tags', (req, res) => {
 });
 
 // POST /api/feeds/youtube — add a YouTube channel by handle, URL, or channel ID
+// Also accepts { url } for a single YouTube video (auto-fetches metadata)
 app.post('/api/feeds/youtube', async (req, res) => {
-  const { input, name, backfill } = req.body;
+  const { input, name, backfill, url } = req.body;
+
+  // Single video URL mode: insert as episode + auto-fetch metadata
+  if (url && !input) {
+    const isVideo = url.includes('youtube.com/watch') || url.includes('youtu.be/');
+    if (!isVideo) return res.status(400).json({ error: 'url must be a YouTube video URL' });
+
+    try {
+      const db = getDb();
+      // Check for duplicate
+      const existing = db.prepare('SELECT id FROM episodes WHERE source_url = ?').get(url);
+      if (existing) return res.status(409).json({ error: 'Video already exists', id: existing.id });
+
+      const result = db.prepare(`
+        INSERT INTO episodes (feed_id, title, source_url, audio_url, published_at, duration, thumbnail, status)
+        VALUES (NULL, ?, ?, NULL, NULL, NULL, NULL, 'new')
+      `).run(url, url);
+      const episodeId = result.lastInsertRowid;
+      logAct('youtube_video_added', url);
+      res.json({ id: episodeId });
+
+      // Auto-fetch metadata async (non-blocking) — single yt-dlp call for all fields
+      setImmediate(async () => {
+        try {
+          const { execFile } = require('child_process');
+          const { promisify } = require('util');
+          const execFileAsync = promisify(execFile);
+          const ytdlp = process.env.YTDLP_PATH || '/opt/homebrew/bin/yt-dlp';
+          const { stdout } = await execFileAsync(ytdlp, ['--dump-json', '--no-playlist', url], { timeout: 30000 });
+          const d = JSON.parse(stdout.trim());
+          const title = d.title || null;
+          const thumbnail = d.thumbnail || (d.thumbnails && d.thumbnails[0] && d.thumbnails[0].url) || null;
+          const duration = d.duration || null;
+          const published_at = d.upload_date ? d.upload_date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : null;
+          const channel_name = d.uploader || d.channel || d.uploader_id || null;
+          db.prepare(`
+            UPDATE episodes SET title = COALESCE(?, title),
+              thumbnail = COALESCE(?, thumbnail),
+              duration = COALESCE(?, duration),
+              published_at = COALESCE(?, published_at),
+              channel_name = COALESCE(?, channel_name)
+            WHERE id = ?
+          `).run(title, thumbnail, duration, published_at, channel_name, episodeId);
+          console.log('[podcast-monitor] Auto-metadata fetched for episode', episodeId);
+        } catch (err) {
+          console.error('[podcast-monitor] Auto-metadata fetch failed:', err.message);
+        }
+      });
+      return;
+    } catch (err) {
+      if (err.message.includes('UNIQUE')) {
+        return res.status(409).json({ error: 'Video already exists' });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   if (!input) return res.status(400).json({ error: 'input required (handle, URL, or channel ID)' });
 
   try {
@@ -400,11 +459,38 @@ app.post('/api/feeds/youtube', async (req, res) => {
     const feed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(result.lastInsertRowid);
 
     // Poll immediately
+    let newIds = [];
     try {
-      const newIds = await pollFeed(feed);
+      newIds = await pollFeed(feed);
       console.log('[youtube] Polled', feed.name, '—', newIds.length, 'episodes');
     } catch (pollErr) {
       console.error('[youtube] Poll error:', pollErr.message);
+    }
+
+    // Auto-fetch metadata for newly added episodes (non-blocking)
+    if (newIds.length > 0) {
+      setImmediate(async () => {
+        for (const epId of newIds) {
+          try {
+            const ep = db.prepare('SELECT source_url FROM episodes WHERE id = ?').get(epId);
+            if (ep && ep.source_url && (ep.source_url.includes('youtube.com') || ep.source_url.includes('youtu.be'))) {
+              const meta = await fetchMetadata(ep.source_url);
+              if (meta) {
+                db.prepare(`
+                  UPDATE episodes SET title = COALESCE(?, title),
+                    thumbnail = COALESCE(?, thumbnail),
+                    duration = COALESCE(?, duration),
+                    published_at = COALESCE(?, published_at)
+                  WHERE id = ?
+                `).run(meta.title, meta.thumbnail, meta.duration, meta.published_at, epId);
+              }
+            }
+          } catch (err) {
+            console.error('[podcast-monitor] Auto-metadata fetch failed for episode', epId, ':', err.message);
+          }
+        }
+        console.log('[podcast-monitor] Auto-metadata fetched for', newIds.length, 'episodes');
+      });
     }
 
     const updatedFeed = db.prepare('SELECT * FROM feeds WHERE id = ?').get(result.lastInsertRowid);
@@ -427,7 +513,7 @@ app.post('/api/feeds/:id/backfill-youtube', async (req, res) => {
   }
 
   try {
-    const videos = fetchChannelVideos(feed.url);
+    const videos = await fetchChannelVideos(feed.url);
 
     // Optional limit: only insert the N most recent videos (yt-dlp returns most-recent-first)
     const limit = req.body.limit ? parseInt(req.body.limit, 10) : null;
@@ -483,7 +569,7 @@ app.post('/api/feeds/:id/backfill-dates', async (req, res) => {
   }
 
   // Fetch dates via yt-dlp
-  const dateMap = fetchVideoDates(videoIds);
+  const dateMap = await fetchVideoDates(videoIds);
 
   // Update episodes
   const update = db.prepare('UPDATE episodes SET published_at = ? WHERE id = ?');

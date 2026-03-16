@@ -303,6 +303,70 @@ Return ONLY valid JSON in this exact format:
   }
 });
 
+// ── Prompt Editor API routes ─────────────────────────────────────
+
+const PROMPTS_DIR = resolve(__dirname, '..', 'config', 'prompts');
+
+const PROMPT_METADATA = [
+  // Phase 1 — file-based (copied from research/prompts/)
+  { name: 'research-interview-prep-system', label: 'Interview Prep System Prompt', agent: 'Research Hub', group: 'Research' },
+  { name: 'research-interview-prep-template', label: 'Interview Prep Template', agent: 'Research Hub', group: 'Research' },
+  { name: 'research-company-assessment', label: 'Company Assessment Template', agent: 'Research Hub', group: 'Research' },
+  { name: 'research-company-audit', label: 'Company Assessment Audit', agent: 'Research Hub', group: 'Research' },
+  { name: 'research-sigint-briefing', label: 'SIGINT Weekly Briefing', agent: 'Research Hub', group: 'Research' },
+  // Phase 2 — extracted from source
+  { name: 'signal-extraction', label: 'Signal Extraction', agent: 'Signal Scanner', group: 'Signal Scanner' },
+  { name: 'signal-research-generator', label: 'Research Prompt Generator', agent: 'Signal Scanner', group: 'Signal Scanner' },
+  { name: 'signal-audit', label: 'Signal Audit', agent: 'Signal Scanner', group: 'Signal Scanner' },
+  { name: 'research-general-audit', label: 'General Audit System Prompt', agent: 'Research Hub', group: 'Research' },
+  { name: 'contact-identification', label: 'Contact Identification', agent: 'Contact Research', group: 'Outreach' },
+  { name: 'outreach-email-drafting', label: 'Email Drafting System Prompt', agent: 'Outreach Drafter', group: 'Outreach' },
+  { name: 'email-reply-classification', label: 'Reply Classification', agent: 'Email Scan', group: 'Email' },
+  { name: 'gmail-sender-classification', label: 'Sender Classification', agent: 'Gmail Hygiene', group: 'Email' },
+  { name: 'podcast-summarisation', label: 'Podcast Summarisation', agent: 'Podcast Monitor', group: 'Monitoring' },
+  { name: 'newsletter-summarisation', label: 'Newsletter Summarisation', agent: 'Newsletter Monitor', group: 'Monitoring' },
+  { name: 'dashboard-rubric-suggest', label: 'Rubric AI Suggest', agent: 'Dashboard', group: 'Dashboard' },
+];
+
+// GET /api/config/prompts — list all prompts with metadata
+app.get('/api/config/prompts', (req, res) => {
+  const result = PROMPT_METADATA.map(p => {
+    const filePath = resolve(PROMPTS_DIR, `${p.name}.md`);
+    return { ...p, exists: existsSync(filePath) };
+  });
+  res.json(result);
+});
+
+// GET /api/config/prompts/:name — get single prompt content
+app.get('/api/config/prompts/:name', (req, res) => {
+  const meta = PROMPT_METADATA.find(p => p.name === req.params.name);
+  if (!meta) return res.status(404).json({ error: 'Unknown prompt name' });
+
+  const filePath = resolve(PROMPTS_DIR, `${meta.name}.md`);
+  if (!existsSync(filePath)) return res.status(404).json({ error: 'Prompt file not found' });
+
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    res.json({ ...meta, content });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read prompt', detail: e.message });
+  }
+});
+
+// POST /api/config/prompts/:name — save prompt content
+app.post('/api/config/prompts/:name', (req, res) => {
+  const meta = PROMPT_METADATA.find(p => p.name === req.params.name);
+  if (!meta) return res.status(404).json({ error: 'Unknown prompt name' });
+
+  const filePath = resolve(PROMPTS_DIR, `${meta.name}.md`);
+  try {
+    writeFileSync(filePath, req.body.content || '', 'utf-8');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to write prompt', detail: e.message });
+  }
+});
+
 // Attio attributes proxy
 app.get('/api/attio/attributes', async (req, res) => {
   const attioKey = process.env.ATTIO_API_KEY;

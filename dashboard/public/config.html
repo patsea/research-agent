@@ -76,6 +76,7 @@
   <div class="tab" data-tab="attio">Attio Fields</div>
   <div class="tab" data-tab="rubric">Scoring Rubric</div>
   <div class="tab" data-tab="positioning">Positioning</div>
+  <div class="tab" data-tab="prompts">Prompts</div>
 </div>
 
 <div class="container">
@@ -179,6 +180,14 @@
       </div>
     </div>
     <div class="save-bar"><button class="btn" onclick="saveRubric()">Save Scoring Rubric</button></div>
+  </div>
+
+  <!-- Prompts Panel -->
+  <div class="panel" id="panel-prompts">
+    <div class="card" style="background:#fffbeb;border-color:#f59e0b">
+      <p style="font-size:13px;color:#92400e"><strong>Warning:</strong> Editing prompts changes how agents behave. Restart the affected agent after saving for changes to take effect.</p>
+    </div>
+    <div id="prompts-list"></div>
   </div>
 
   <!-- Positioning Panel -->
@@ -534,11 +543,65 @@
     }
   }
 
+  // --- Prompts ---
+  async function loadPrompts() {
+    try {
+      const res = await fetch('/api/config/prompts');
+      if (!res.ok) return;
+      const prompts = await res.json();
+      const el = document.getElementById('prompts-list');
+      // Group by group
+      const groups = {};
+      for (const p of prompts) {
+        if (!groups[p.group]) groups[p.group] = [];
+        groups[p.group].push(p);
+      }
+      let html = '';
+      for (const [group, items] of Object.entries(groups)) {
+        html += `<div class="card"><h3>${group}</h3>`;
+        for (const p of items) {
+          html += `<div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <label style="font-size:13px;font-weight:500;color:#374151">${p.label} <span style="font-size:11px;color:#9ca3af">(${p.agent})</span></label>
+              <button class="btn btn-sm" onclick="savePrompt('${p.name}')">Save</button>
+            </div>
+            <textarea id="prompt-${p.name}" style="width:100%;font-family:'SF Mono',Monaco,Menlo,monospace;font-size:12px;min-height:120px;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;resize:vertical;line-height:1.5" placeholder="Loading..."></textarea>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+      el.innerHTML = html;
+      // Load content for each prompt
+      for (const p of prompts) {
+        try {
+          const r = await fetch('/api/config/prompts/' + p.name);
+          if (r.ok) {
+            const d = await r.json();
+            const ta = document.getElementById('prompt-' + p.name);
+            if (ta) ta.value = d.content || '';
+          }
+        } catch {}
+      }
+    } catch (e) { console.error('Failed to load prompts', e); }
+  }
+
+  async function savePrompt(name) {
+    const ta = document.getElementById('prompt-' + name);
+    if (!ta) return;
+    const res = await fetch('/api/config/prompts/' + name, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: ta.value })
+    });
+    showToast(res.ok ? 'Prompt saved — restart agent to apply' : 'Save failed');
+  }
+
   // --- Init ---
   loadUserProfile();
   loadAttioFields();
   loadRubric();
   loadPositioning();
+  loadPrompts();
 </script>
 </body>
 </html>

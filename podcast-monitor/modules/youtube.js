@@ -1,4 +1,6 @@
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 
 const YTDLP = '/opt/homebrew/bin/yt-dlp';
 
@@ -25,10 +27,10 @@ async function resolveChannelId(input) {
 
   // Use yt-dlp to resolve channel metadata (fast, no download)
   try {
-    const raw = execSync(
-      `${YTDLP} --dump-single-json --flat-playlist --playlist-end 1 "${url}"`,
-      { timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
-    ).toString().trim();
+    const { stdout } = await execFileAsync(YTDLP, [
+      '--dump-single-json', '--flat-playlist', '--playlist-end', '1', url
+    ], { timeout: 30000 });
+    const raw = stdout.trim();
 
     const d = JSON.parse(raw);
     const channelId = d.channel_id || d.uploader_id || null;

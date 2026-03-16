@@ -318,8 +318,6 @@
     </div>
   </div>
 
-  <!-- Legacy grid kept hidden for renderDashboard compatibility -->
-  <div class="agent-grid" id="agent-grid" style="display:none"></div>
 </div>
 
 <!-- ACTIVITY PANEL -->
@@ -444,11 +442,11 @@ async function loadStatus() {
   try {
     const res = await fetch('/api/status');
     agentData = await res.json();
-    renderDashboard();
     renderSidebar();
+    updateHealthDots();
+    updatePipelineFlow();
   } catch (e) {
-    document.getElementById('agent-grid').innerHTML =
-      '<div style="color:#ef4444;font-size:13px">Could not reach dashboard server</div>';
+    console.error('Could not reach dashboard server', e);
   }
 }
 
@@ -485,34 +483,7 @@ function renderAgentCard(agent) {
     </div>`;
 }
 
-function renderDashboard() {
-  const grid = document.getElementById('agent-grid');
-  const pipeline = agentData.filter(a => a.group === 'pipeline');
-  const standalone = agentData.filter(a => a.group === 'standalone');
-  const ungrouped = agentData.filter(a => !a.group);
-
-  let html = '';
-  if (pipeline.length) {
-    html += `<div class="agent-group">
-      <div class="agent-group-label">Pipeline Agents</div>
-      <div class="agent-grid-inner">${pipeline.map(renderAgentCard).join('')}</div>
-    </div>`;
-  }
-  if (standalone.length) {
-    html += `<div class="agent-group">
-      <div class="agent-group-label">Standalone Agents</div>
-      <div class="agent-grid-inner">${standalone.map(renderAgentCard).join('')}</div>
-    </div>`;
-  }
-  if (ungrouped.length) {
-    html += `<div class="agent-group">
-      <div class="agent-grid-inner">${ungrouped.map(renderAgentCard).join('')}</div>
-    </div>`;
-  }
-
-  grid.innerHTML = html;
-  updatePipelineFlow();
-}
+// renderDashboard removed — using hardcoded pipeline HTML only
 
 function renderSidebar() {
   const sidebar = document.getElementById('sidebar');

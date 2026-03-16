@@ -2,7 +2,9 @@
  * youtube-backfill.js — one-shot YouTube channel video enumeration via yt-dlp
  * Bypasses the 15-entry RSS feed limit by using --flat-playlist.
  */
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 
 /**
  * Extract channel_id from a YouTube RSS feed URL.
@@ -19,30 +21,22 @@ function extractChannelId(feedUrl) {
  * Fetch all video entries from a YouTube channel using yt-dlp --flat-playlist.
  * Returns array of { title, source_url, guid, published_at, description, thumbnail_url }
  */
-function fetchChannelVideos(feedUrl) {
+async function fetchChannelVideos(feedUrl) {
   const channelId = extractChannelId(feedUrl);
   const channelUrl = `https://www.youtube.com/channel/${channelId}/videos`;
   const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
 
-  // Use --flat-playlist with JSON output for reliable parsing
-  const cmd = [
-    ytdlp,
-    '--flat-playlist',
-    '--dump-json',
-    '--no-warnings',
-    `"${channelUrl}"`
-  ].join(' ');
-
-  console.log(`[youtube-backfill] Running: ${cmd}`);
+  const args = ['--flat-playlist', '--dump-json', '--no-warnings', channelUrl];
+  console.log(`[youtube-backfill] Running: ${ytdlp} ${args.join(' ')}`);
   const startTime = Date.now();
 
   let raw;
   try {
-    raw = execSync(cmd, {
+    const { stdout } = await execFileAsync(ytdlp, args, {
       timeout: 120000,
-      maxBuffer: 10 * 1024 * 1024,
-      encoding: 'utf8'
+      maxBuffer: 10 * 1024 * 1024
     });
+    raw = stdout;
   } catch (err) {
     throw new Error(`yt-dlp failed: ${err.message}`);
   }
@@ -84,7 +78,7 @@ function fetchChannelVideos(feedUrl) {
  * Processes in batches of 10 to avoid overwhelming yt-dlp.
  * Returns Map<videoId, ISODateString>
  */
-function fetchVideoDates(videoIds) {
+async function fetchVideoDates(videoIds) {
   const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
   const results = new Map();
   const batchSize = 10;
@@ -97,12 +91,11 @@ function fetchVideoDates(videoIds) {
 
     for (const videoId of batch) {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
-      const cmd = `${ytdlp} --no-playlist --no-download --print '%(id)s|||%(upload_date)s' "${url}"`;
       try {
-        const raw = execSync(cmd, {
-          timeout: 30000,
-          encoding: 'utf8'
-        }).trim();
+        const { stdout } = await execFileAsync(ytdlp, [
+          '--no-playlist', '--no-download', '--print', '%(id)s|||%(upload_date)s', url
+        ], { timeout: 30000 });
+        const raw = stdout.trim();
 
         const parts = raw.split('|||');
         if (parts.length >= 2 && parts[1] && parts[1] !== 'NA') {

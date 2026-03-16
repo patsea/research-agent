@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Outreach Drafter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f9fafb; color:#111827; font-size:14px; }
+.topnav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:100; }
+.topnav-brand { font-size:16px; font-weight:700; }
+.topnav-links { display:flex; gap:4px; }
+.topnav-link { padding:6px 14px; border-radius:6px; font-size:14px; font-weight:500; color:#6b7280; text-decoration:none; cursor:pointer; }
+.topnav-link:hover { background:#f3f4f6; color:#111827; }
+.topnav-link.active { background:#111827; color:#fff; }
+.page { max-width:1200px; margin:0 auto; padding:24px; }
+.section { background:#fff; border-radius:8px; border:1px solid #e5e7eb; margin-bottom:20px; }
+.section-header { padding:16px 20px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center; justify-content:space-between; }
+.section-header h2 { font-size:14px; font-weight:600; }
+.section-header .count { font-size:12px; color:#6b7280; background:#f3f4f6; padding:2px 8px; border-radius:10px; }
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; padding:8px 16px; font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e5e7eb; }
+td { padding:10px 16px; border-bottom:1px solid #f9fafb; vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:#fafafa; cursor:pointer; }
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.badge-draft { background:#fef9c3; color:#854d0e; }
+.badge-approved { background:#dcfce7; color:#166534; }
+.badge-new { background:#dbeafe; color:#1d4ed8; }
+.btn { padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; border:none; }
+.btn-primary { background:#1d4ed8; color:#fff; }
+.btn-primary:hover { background:#1e40af; }
+.btn-secondary { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+.btn-green { background:#16a34a; color:#fff; }
+.btn-sm { padding:4px 10px; font-size:12px; }
+.empty { padding:24px; color:#9ca3af; text-align:center; font-size:13px; }
+/* COMPOSE SCREEN */
+.compose-screen { display:none; }
+.compose-screen.active { display:block; }
+.pipeline-screen.hidden { display:none; }
+.compose-layout { display:grid; grid-template-columns:340px 1fr; gap:20px; }
+.compose-left { display:flex; flex-direction:column; gap:16px; }
+.card { background:#fff; border-radius:8px; border:1px solid #e5e7eb; padding:16px; }
+.card h3 { font-size:13px; font-weight:600; margin-bottom:12px; color:#374151; }
+.field-row { margin-bottom:8px; }
+.field-row label { display:block; font-size:11px; font-weight:600; color:#6b7280; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.04em; }
+.field-row .value { font-size:13px; color:#111827; }
+.field-row .value.empty-val { color:#9ca3af; font-style:italic; }
+.research-context { font-size:12px; color:#374151; background:#f9fafb; border-radius:6px; padding:10px; max-height:200px; overflow-y:auto; line-height:1.5; }
+.compose-right { display:flex; flex-direction:column; gap:12px; }
+.compose-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.draft-subject { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:8px 12px; font-size:14px; font-weight:500; }
+.draft-body { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:12px; font-size:13px; min-height:320px; resize:vertical; font-family:inherit; line-height:1.6; }
+.draft-body:focus, .draft-subject:focus { outline:none; border-color:#1d4ed8; }
+.word-count { font-size:12px; color:#6b7280; }
+.word-count.over { color:#dc2626; font-weight:600; }
+.section-regen { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+/* POSITIONING */
+.positioning-screen { display:none; }
+.positioning-screen.active { display:block; }
+.pos-textarea { width:100%; border:1px solid #d1d5db; border-radius:6px; padding:12px; font-family:monospace; font-size:12px; min-height:500px; resize:vertical; }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <span class="topnav-brand">Outreach Drafter</span>
+  <div class="topnav-links">
+    <span class="topnav-link active" id="nav-pipeline" onclick="showPipeline()">Pipeline</span>
+    <span class="topnav-link" id="nav-positioning" onclick="showPositioning()">Positioning</span>
+  </div>
+</nav>
+
+<!-- PIPELINE SCREEN -->
+<div class="page pipeline-screen" id="pipeline-screen">
+
+  <!-- Section 1: To Create -->
+  <div class="section">
+    <div class="section-header">
+      <h2>To Create</h2>
+      <span class="count" id="count-to-create">—</span>
+    </div>
+    <div id="list-to-create"><div class="empty">Loading contacts...</div></div>
+  </div>
+
+  <!-- Section 2: Draft -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Draft — not yet sent</h2>
+      <span class="count" id="count-draft">—</span>
+    </div>
+    <div id="list-draft"><div class="empty">No drafts yet.</div></div>
+  </div>
+
+  <!-- Section 3: Approved last 7 days -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Approved — last 7 days</h2>
+      <span class="count" id="count-approved">—</span>
+    </div>
+    <div id="list-approved"><div class="empty">No approved drafts.</div></div>
+  </div>
+
+</div>
+
+<!-- COMPOSE SCREEN -->
+<div class="page compose-screen" id="compose-screen">
+  <div style="margin-bottom:16px">
+    <button class="btn btn-secondary btn-sm" onclick="showPipeline()">← Back to Pipeline</button>
+    <span id="compose-title" style="font-size:15px;font-weight:600;margin-left:12px"></span>
+  </div>
+  <div class="compose-layout">
+    <!-- Left: Contact + Research -->
+    <div class="compose-left">
+      <div class="card">
+        <h3>Contact</h3>
+        <div class="field-row"><label>Name</label><div class="value" id="cf-name">—</div></div>
+        <div class="field-row"><label>Title</label><div class="value" id="cf-title">—</div></div>
+        <div class="field-row"><label>Company</label><div class="value" id="cf-company">—</div></div>
+        <div class="field-row"><label>Email</label><div class="value" id="cf-email">—</div></div>
+        <div class="field-row"><label>Campaign Type</label><div class="value" id="cf-campaign">—</div></div>
+      </div>
+      <div class="card">
+        <h3>Research Context <span id="research-status" style="font-size:11px;color:#6b7280;font-weight:400"></span></h3>
+        <div class="research-context" id="research-context-display">Loading research...</div>
+      </div>
+    </div>
+    <!-- Right: Draft editor -->
+    <div class="compose-right">
+      <div class="compose-toolbar">
+        <button class="btn btn-primary btn-sm" id="btn-generate" onclick="generateDraft()">✨ Generate Draft</button>
+        <button class="btn btn-secondary btn-sm" onclick="regenSection('opening')">↺ Opening</button>
+        <button class="btn btn-secondary btn-sm" onclick="regenSection('proofpoints')">↺ Proof Points</button>
+        <button class="btn btn-secondary btn-sm" onclick="regenSection('ask')">↺ Ask</button>
+        <span class="word-count" id="word-count-display"></span>
+      </div>
+      <input type="text" class="draft-subject" id="draft-subject" placeholder="Subject line...">
+      <textarea class="draft-body" id="draft-body" placeholder="Draft will appear here after generation..." oninput="updateWordCount()"></textarea>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-green" id="btn-approve" onclick="approveDraft()">✓ Approve & Save to Gmail</button>
+        <button class="btn btn-secondary" onclick="saveDraftOnly()">Save</button>
+        <button class="btn btn-secondary" style="color:#dc2626" onclick="dismissDraft()">Dismiss</button>
+        <span id="save-status" style="font-size:12px;color:#6b7280"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POSITIONING SCREEN -->
+<div class="page positioning-screen" id="positioning-screen">
+  <div class="card">
+    <h3 style="margin-bottom:12px">Positioning Document</h3>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:12px">Used by the drafter as your voice and positioning guide. Edit in Settings → Positioning for permanent changes. This view is for reference while composing.</p>
+    <textarea class="pos-textarea" id="pos-content" readonly></textarea>
+    <div style="margin-top:8px;font-size:12px;color:#6b7280" id="pos-word-count"></div>
+  </div>
+</div>
+
+<script>
+let _currentContact = null;
+let _currentDraftId = null;
+let _currentResearch = '';
+let _wordCountTarget = 200;
+
+// ===== NAVIGATION =====
+function showPipeline() {
+  document.getElementById('pipeline-screen').classList.remove('hidden');
+  document.getElementById('compose-screen').classList.remove('active');
+  document.getElementById('positioning-screen').classList.remove('active');
+  document.getElementById('nav-pipeline').classList.add('active');
+  document.getElementById('nav-positioning').classList.remove('active');
+  loadPipeline();
+}
+
+function showPositioning() {
+  document.getElementById('pipeline-screen').classList.add('hidden');
+  document.getElementById('compose-screen').classList.remove('active');
+  document.getElementById('positioning-screen').classList.add('active');
+  document.getElementById('nav-pipeline').classList.remove('active');
+  document.getElementById('nav-positioning').classList.add('active');
+  loadPositioning();
+}
+
+function showCompose(contact, draftId) {
+  _currentContact = contact;
+  _currentDraftId = draftId || null;
+  document.getElementById('pipeline-screen').classList.add('hidden');
+  document.getElementById('compose-screen').classList.add('active');
+  document.getElementById('positioning-screen').classList.remove('active');
+
+  // Fill contact details
+  document.getElementById('compose-title').textContent = (contact.name || contact.contact_name || '?') + ' — ' + (contact.company || '?');
+  document.getElementById('cf-name').textContent = contact.name || contact.contact_name || '—';
+  document.getElementById('cf-title').textContent = contact.title || contact.contact_title || '—';
+  document.getElementById('cf-company').textContent = contact.company || '—';
+  document.getElementById('cf-email').textContent = contact.email || contact.contact_email || '—';
+  document.getElementById('cf-campaign').textContent = contact.campaign_type || '—';
+
+  // Load existing draft if editing
+  if (draftId) {
+    loadExistingDraft(draftId);
+  } else {
+    document.getElementById('draft-subject').value = '';
+    document.getElementById('draft-body').value = '';
+    updateWordCount();
+  }
+
+  // Load research context
+  loadResearchContext(contact.company || '');
+}
+
+// ===== PIPELINE =====
+async function loadPipeline() {
+  await Promise.all([loadToCreate(), loadDrafts(), loadApproved()]);
+}
+
+async function loadToCreate() {
+  const el = document.getElementById('list-to-create');
+  try {
+    const r = await fetch('/api/contacts-to-draft');
+    const contacts = await r.json();
+    document.getElementById('count-to-create').textContent = contacts.length;
+    if (!contacts.length) {
+      el.innerHTML = '<div class="empty">No confirmed contacts waiting. Confirm contacts in Contact Research first.</div>';
+      return;
+    }
+    el.innerHTML = '<table><thead><tr><th>Name</th><th>Company</th><th>Title</th><th>Email</th><th>Campaign</th><th></th></tr></thead><tbody>' +
+      contacts.map(c => '<tr onclick="showCompose(' + JSON.stringify(c).replace(/"/g,"'") + ')">' +
+        '<td><strong>' + (c.name||'—') + '</strong></td>' +
+        '<td>' + (c.company||'—') + '</td>' +
+        '<td style="color:#6b7280">' + (c.title||'—') + '</td>' +
+        '<td style="color:#6b7280">' + (c.email||'—') + '</td>' +
+        '<td><span class="badge badge-new">' + (c.campaign_type||'—') + '</span></td>' +
+        '<td><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();showCompose(' + JSON.stringify(c).replace(/"/g,"'") + ')">Compose →</button></td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Could not load contacts — is Contact Research running?</div>';
+  }
+}
+
+async function loadDrafts() {
+  const el = document.getElementById('list-draft');
+  try {
+    const r = await fetch('/api/drafts?status=draft');
+    const drafts = await r.json();
+    document.getElementById('count-draft').textContent = drafts.length;
+    if (!drafts.length) { el.innerHTML = '<div class="empty">No drafts yet.</div>'; return; }
+    el.innerHTML = '<table><thead><tr><th>Name</th><th>Company</th><th>Subject</th><th>Words</th><th>Status</th><th></th></tr></thead><tbody>' +
+      drafts.map(d => '<tr onclick="openDraft(\'' + d.id + '\')">' +
+        '<td><strong>' + (d.contact_name||'—') + '</strong></td>' +
+        '<td>' + (d.company||'—') + '</td>' +
+        '<td style="color:#6b7280;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (d.subject||'—') + '</td>' +
+        '<td style="color:#6b7280">' + (d.word_count||'—') + '</td>' +
+        '<td><span class="badge badge-draft">draft</span></td>' +
+        '<td style="display:flex;gap:6px">' +
+          '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDraft(\'' + d.id + '\')">Edit</button>' +
+          '<button class="btn btn-green btn-sm" onclick="event.stopPropagation();quickApprove(\'' + d.id + '\',this)">Approve</button>' +
+        '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  } catch(e) { el.innerHTML = '<div class="empty">Error loading drafts.</div>'; }
+}
+
+async function loadApproved() {
+  const el = document.getElementById('list-approved');
+  try {
+    const r = await fetch('/api/drafts?status=approved');
+    const drafts = await r.json();
+    // Filter last 7 days
+    const cutoff = new Date(Date.now() - 7*24*3600*1000).toISOString();
+    const recent = drafts.filter(d => d.approved_at > cutoff);
+    document.getElementById('count-approved').textContent = recent.length;
+    if (!recent.length) { el.innerHTML = '<div class="empty">No approved drafts in last 7 days.</div>'; return; }
+    el.innerHTML = '<table><thead><tr><th>Name</th><th>Company</th><th>Subject</th><th>Approved</th></tr></thead><tbody>' +
+      recent.map(d => '<tr>' +
+        '<td><strong>' + (d.contact_name||'—') + '</strong></td>' +
+        '<td>' + (d.company||'—') + '</td>' +
+        '<td style="color:#6b7280">' + (d.subject||'—') + '</td>' +
+        '<td style="color:#6b7280">' + (d.approved_at||'').substring(0,10) + '</td>' +
+        '</tr>').join('') +
+      '</tbody></table>';
+  } catch(e) { el.innerHTML = '<div class="empty">Error loading approved drafts.</div>'; }
+}
+
+// ===== COMPOSE =====
+async function loadResearchContext(company) {
+  const el = document.getElementById('research-context-display');
+  const status = document.getElementById('research-status');
+  if (!company) { el.textContent = 'No company specified.'; return; }
+  status.textContent = '(loading...)';
+  try {
+    const r = await fetch('/api/research-context/' + encodeURIComponent(company));
+    const d = await r.json();
+    if (d.found && d.content) {
+      _currentResearch = d.content;
+      el.textContent = d.content;
+      status.textContent = '— ' + (d.date||'').substring(0,10);
+    } else {
+      _currentResearch = '';
+      el.textContent = 'No research found for ' + company + '. Draft will be positioning-only.';
+      status.textContent = '(none)';
+    }
+  } catch(e) {
+    _currentResearch = '';
+    el.textContent = 'Could not load research context.';
+    status.textContent = '(error)';
+  }
+}
+
+async function loadExistingDraft(draftId) {
+  try {
+    const r = await fetch('/api/drafts');
+    const drafts = await r.json();
+    const d = drafts.find(x => x.id === draftId);
+    if (d) {
+      document.getElementById('draft-subject').value = d.subject || '';
+      document.getElementById('draft-body').value = d.body || '';
+      updateWordCount();
+    }
+  } catch(e) {}
+}
+
+async function generateDraft() {
+  const btn = document.getElementById('btn-generate');
+  btn.disabled = true; btn.textContent = '✨ Generating...';
+  document.getElementById('save-status').textContent = '';
+  try {
+    const contact = {
+      name: document.getElementById('cf-name').textContent,
+      title: document.getElementById('cf-title').textContent,
+      company: document.getElementById('cf-company').textContent,
+      email: document.getElementById('cf-email').textContent,
+      campaignType: document.getElementById('cf-campaign').textContent
+    };
+    const r = await fetch('/api/draft', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contact,
+        research: _currentResearch || undefined
+      })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    _currentDraftId = d.id;
+    document.getElementById('draft-subject').value = d.subject || '';
+    document.getElementById('draft-body').value = d.body || '';
+    updateWordCount();
+  } catch(e) {
+    document.getElementById('save-status').textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Generate Draft';
+  }
+}
+
+async function regenSection(section) {
+  if (!_currentDraftId) { alert('Generate a draft first'); return; }
+  const body = document.getElementById('draft-body').value;
+  try {
+    const r = await fetch('/api/draft/regenerate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ draftId: _currentDraftId, currentBody: body, section })
+    });
+    const d = await r.json();
+    if (d.body) { document.getElementById('draft-body').value = d.body; updateWordCount(); }
+  } catch(e) { alert('Regen error: ' + e.message); }
+}
+
+async function approveDraft() {
+  if (!_currentDraftId) { alert('No draft to approve. Generate first.'); return; }
+  const btn = document.getElementById('btn-approve');
+  btn.disabled = true; btn.textContent = 'Saving to Gmail...';
+  try {
+    const r = await fetch('/api/draft/' + _currentDraftId + '/approve', { method:'POST' });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('save-status').textContent = '✅ Saved to Gmail Drafts';
+    setTimeout(() => showPipeline(), 1500);
+  } catch(e) {
+    document.getElementById('save-status').textContent = 'Error: ' + e.message;
+    btn.disabled = false; btn.textContent = '✓ Approve & Save to Gmail';
+  }
+}
+
+async function saveDraftOnly() {
+  document.getElementById('save-status').textContent = 'Saved';
+  setTimeout(() => document.getElementById('save-status').textContent = '', 2000);
+}
+
+async function dismissDraft() {
+  if (!_currentDraftId) { showPipeline(); return; }
+  await fetch('/api/draft/' + _currentDraftId + '/dismiss', { method:'POST' });
+  showPipeline();
+}
+
+async function quickApprove(draftId, btn) {
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    await fetch('/api/draft/' + draftId + '/approve', { method:'POST' });
+    btn.textContent = '✅';
+    loadDrafts(); loadApproved();
+  } catch(e) { btn.disabled = false; btn.textContent = 'Approve'; }
+}
+
+function openDraft(draftId) {
+  // Open compose for an existing draft
+  fetch('/api/drafts').then(r=>r.json()).then(drafts => {
+    const d = drafts.find(x => x.id === draftId);
+    if (d) {
+      const contact = {
+        name: d.contact_name, title: d.contact_title,
+        company: d.company, email: d.contact_email, campaign_type: d.campaign_type
+      };
+      _currentDraftId = draftId;
+      showCompose(contact, draftId);
+    }
+  });
+}
+
+function updateWordCount() {
+  const body = document.getElementById('draft-body').value;
+  const count = body.split(/\s+/).filter(w => w.length > 0).length;
+  const el = document.getElementById('word-count-display');
+  el.textContent = count + ' / ' + _wordCountTarget + ' words';
+  el.className = 'word-count' + (count > _wordCountTarget ? ' over' : '');
+}
+
+// ===== POSITIONING =====
+async function loadPositioning() {
+  try {
+    const r = await fetch('/api/positioning');
+    const d = await r.json();
+    const content = d.content || '';
+    document.getElementById('pos-content').value = content;
+    const words = content.split(/\s+/).filter(w=>w.length>0).length;
+    document.getElementById('pos-word-count').textContent = words + ' words — edit in Settings → Positioning';
+  } catch(e) {
+    document.getElementById('pos-content').value = 'Could not load positioning document.';
+  }
+}
+
+// Init
+loadPipeline();
+</script>
+</body>
+</html>

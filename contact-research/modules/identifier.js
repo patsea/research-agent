@@ -1,5 +1,10 @@
 import axios from 'axios';
+import { readFileSync } from 'fs';
 import 'dotenv/config';
+
+const CONTACT_ID_PROMPT = readFileSync(
+  new URL('../../config/prompts/contact-identification.md', import.meta.url), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
 
 const TITLE_PRIORITY = {
   portfolio_cpo: ['CPO', 'VP Product', 'Head of Product', 'Chief Digital Officer'],
@@ -35,17 +40,10 @@ export async function identifyContact({ companyName, campaignType, linkedinUrl }
         tool_choice: { type: 'any' },
         messages: [{
           role: 'user',
-          content: `Find the senior contact at "${companyName}" for a ${campaignType} outreach campaign.
-
-Target titles in priority order: ${titleList}
-
-Return the most senior person matching these titles. I need:
-- Full name
-- Exact job title
-- Company name
-- LinkedIn profile URL if findable
-
-Search for "${companyName}" combined with each target title. Return the best match.`
+          content: CONTACT_ID_PROMPT
+            .replace(/\{COMPANY_NAME\}/g, companyName)
+            .replace('{CAMPAIGN_TYPE}', campaignType)
+            .replace('{TITLE_LIST}', titleList)
         }]
       },
       {

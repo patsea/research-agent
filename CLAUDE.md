@@ -1,3 +1,16 @@
+## Superpowers — always active
+
+The following superpowers skills are mandatory for all code changes in this project:
+
+- `superpowers:test-driven-development` — write failing tests before any implementation code; confirm fail → write code → confirm pass
+- `superpowers:systematic-debugging` — identify root cause in a single pass before writing any fix
+- `superpowers:verification-before-completion` — self-check all changes before writing SUMMARY
+- `superpowers:subagent-driven-development`
+- `superpowers:test-driven-development` (UI) — any change to a UI route, HTML page or frontend component requires a Playwright test in `tests/ui/`; run with `npm run test:ui`
+ — structured parallel agent coordination; agents write results to /tmp before reporting
+
+---
+
 # Research Agent — Operational Rules
 
 Rules Claude must follow when working in this codebase. Read this file before making any changes.

@@ -2,6 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const { getDb } = require('./db');
 
+const PODCAST_SYSTEM_PROMPT = fs.readFileSync(
+  path.join(__dirname, '../../config/prompts/podcast-summarisation.md'), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
+
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 const SONNET_MODEL = 'claude-sonnet-4-5';
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
@@ -48,6 +52,13 @@ Return ONLY valid JSON, no preamble, no markdown fences:
       "timestamp_end": "HH:MM:SS",
       "teaser": "One sentence: the specific argument or insight discussed in this section"
     }
+  ],
+  "new_novel_contrarian": [
+    {
+      "type": "new|novel|contrarian",
+      "idea": "One sentence stating the idea",
+      "why": "One sentence: why this challenges or extends current thinking"
+    }
   ]
 }
 
@@ -74,7 +85,7 @@ Rules for topic_tags:
     body: JSON.stringify({
       model: SONNET_MODEL,
       max_tokens: 2000,
-      system: 'You are summarising a podcast transcript for a senior executive. Be precise and factual. Never invent timestamps or content. Return only valid JSON.',
+      system: PODCAST_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }]
     })
   });
@@ -99,6 +110,7 @@ Rules for topic_tags:
 
   const overview = parsed.overview || '';
   const topicTags = parsed.topic_tags || [];
+  const newNovelContrarian = parsed.new_novel_contrarian || [];
 
   // Upsert into summaries
   const existing = db.prepare('SELECT id FROM summaries WHERE episode_id = ?').get(episodeId);
@@ -122,8 +134,8 @@ Rules for topic_tags:
   db.prepare('UPDATE episodes SET status = ?, transcript_path = ? WHERE id = ?')
     .run('summarised', jsonPath, episodeId);
 
-  console.log(`[summariser] Episode ${episodeId} summarised — ${topicTags.length} topic tags`);
-  return { overview, topicTags };
+  console.log(`[summariser] Episode ${episodeId} summarised — ${topicTags.length} topic tags, ${newNovelContrarian.length} novel/contrarian items`);
+  return { overview, topicTags, newNovelContrarian };
 }
 
 module.exports = { summarise };

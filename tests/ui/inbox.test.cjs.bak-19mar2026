@@ -1,0 +1,63 @@
+/**
+ * Dashboard Inbox tab tests
+ * Covers UAT: 16.1, 16.2, 16.3, 16.7
+ */
+const { connectChrome, getOrOpenPage, recordResult, saveResults } = require('./helpers.cjs');
+
+const BASE = 'http://localhost:3030';
+let browser, page;
+
+beforeAll(async () => {
+  browser = await connectChrome();
+  page = await getOrOpenPage(browser, BASE);
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(1000);
+});
+
+afterAll(async () => {
+  saveResults();
+  await browser.close();
+});
+
+// UAT 16.1 — Inbox tab visible
+test('16.1 — Inbox tab visible in nav', async () => {
+  const tab = await page.$('text=Inbox, [data-tab="inbox"]');
+  recordResult('16.1', tab !== null, tab ? 'Found' : 'MISSING');
+  expect(tab).not.toBeNull();
+});
+
+// UAT 16.2 — Clicking Inbox loads both panels
+test('16.2 — Inbox tab loads Gmail Hygiene + Email Scan panels', async () => {
+  const tab = await page.$('text=Inbox, [data-tab="inbox"]');
+  if (tab) {
+    await tab.click();
+    await page.waitForTimeout(2000);
+    const bodyText = await page.textContent('body');
+    const hasHygiene = bodyText.toLowerCase().includes('sender') || bodyText.toLowerCase().includes('hygiene');
+    const hasEmailScan = bodyText.toLowerCase().includes('scan') || bodyText.toLowerCase().includes('classification');
+    recordResult('16.2', hasHygiene && hasEmailScan,
+      `Hygiene panel: ${hasHygiene}, EmailScan panel: ${hasEmailScan}`);
+    expect(hasHygiene && hasEmailScan).toBe(true);
+  } else {
+    recordResult('16.2', false, 'Inbox tab not found');
+    expect(tab).not.toBeNull();
+  }
+});
+
+// UAT 16.3 — Gmail Hygiene panel shows senders
+test('16.3 — Gmail Hygiene panel shows senders grouped by category', async () => {
+  const senderRows = await page.$$('[class*="sender"], tr[data-sender-id]');
+  const ok = senderRows.length > 0;
+  recordResult('16.3', ok, `Sender rows: ${senderRows.length}`);
+  expect(ok).toBe(true);
+});
+
+// UAT 16.7 — Email Scan panel shows results
+test('16.7 — Email Scan panel shows classification results', async () => {
+  const badges = await page.$$('[class*="badge"], [class*="classification"], [class*="tag"]');
+  const resultsText = await page.textContent('body');
+  const ok = badges.length > 0 || resultsText.toLowerCase().includes('interested') ||
+    resultsText.toLowerCase().includes('classified');
+  recordResult('16.7', ok, `Classification badges: ${badges.length}`);
+  expect(ok).toBe(true);
+});

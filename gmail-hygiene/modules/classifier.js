@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'fs';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const GMAIL_CLASSIFIER_PROMPT = readFileSync(
+  new URL('../../config/prompts/gmail-sender-classification.md', import.meta.url), 'utf8'
+).replace(/^#[^\n]*\n/gm, '').trim();
 
 const TAXONOMY = [
   'Job Search/Outreach', 'Job Search/Alerts',
@@ -20,16 +25,10 @@ export async function classifySender({ emailAddress, displayName, subjects }) {
     max_tokens: 50,
     messages: [{
       role: 'user',
-      content: `Classify this email sender into exactly one category.
-
-Sender: ${emailAddress}
-Display name: ${displayName || 'unknown'}
-Recent subjects: ${subjects.slice(0, 3).join(', ') || 'none'}
-
-Categories:
-${TAXONOMY.map(c => `- ${c}`).join('\n')}
-
-Respond with ONLY the category name, nothing else.`
+      content: GMAIL_CLASSIFIER_PROMPT
+        .replace('{EMAIL_ADDRESS}', emailAddress)
+        .replace('{DISPLAY_NAME}', displayName || 'unknown')
+        .replace('{SUBJECTS}', subjects.slice(0, 3).join(', ') || 'none')
     }]
   });
 

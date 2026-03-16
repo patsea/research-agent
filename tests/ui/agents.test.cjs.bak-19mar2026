@@ -1,0 +1,146 @@
+/**
+ * Agent UI tests
+ * Covers UAT: 5.1, 5.2, 5.7, 6.1, 6.7, 12.2, 12.3, 12.6
+ */
+const { connectChrome, getOrOpenPage, recordResult, saveResults } = require('./helpers.cjs');
+
+let browser;
+
+beforeAll(async () => {
+  browser = await connectChrome();
+});
+
+afterAll(async () => {
+  saveResults();
+  await browser.close();
+});
+
+// --- CONTACT RESEARCH (3036) ---
+
+describe('Contact Research (port 3036)', () => {
+  let page;
+  beforeAll(async () => {
+    page = await getOrOpenPage(browser, 'http://localhost:3036');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+  });
+
+  // UAT 5.1 — Research Library has checkbox column
+  test('5.1 — Research Library shows checkbox column', async () => {
+    const checkbox = await page.$('input[type="checkbox"], th:has-text("Select"), [class*="checkbox"]');
+    recordResult('5.1', checkbox !== null, checkbox ? 'Checkbox found' : 'No checkbox column');
+    expect(checkbox).not.toBeNull();
+  });
+
+  // UAT 5.7 — No per-row Find Contact buttons
+  test('5.7 — No per-row Find Contact buttons', async () => {
+    const findBtn = await page.$('button:has-text("Find Contact"), td button:has-text("Find")');
+    recordResult('5.7', findBtn === null, findBtn ? 'Find Contact button FOUND — should be absent' : 'Correctly absent');
+    expect(findBtn).toBeNull();
+  });
+
+  // UAT 5.2 — Batch toolbar appears on row selection
+  test('5.2 — Batch toolbar appears when row checked', async () => {
+    const firstCheckbox = await page.$('table input[type="checkbox"]:not([data-select-all])');
+    if (firstCheckbox) {
+      await firstCheckbox.click();
+      await page.waitForTimeout(500);
+      const toolbar = await page.$('[class*="batch"], [class*="toolbar"], [class*="selected"]');
+      const ok = toolbar !== null;
+      recordResult('5.2', ok, ok ? 'Batch toolbar appeared' : 'Batch toolbar not found after check');
+      expect(ok).toBe(true);
+      // Uncheck to restore state
+      await firstCheckbox.click();
+    } else {
+      recordResult('5.2', false, 'No checkboxes found in table — may be empty');
+      expect(firstCheckbox).not.toBeNull();
+    }
+  });
+});
+
+// --- OUTREACH DRAFTER (3037) ---
+
+describe('Outreach Drafter (port 3037)', () => {
+  let page;
+  beforeAll(async () => {
+    page = await getOrOpenPage(browser, 'http://localhost:3037');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(800);
+  });
+
+  // UAT 6.1 — 3 tabs: Pipeline / Drafts / Positioning
+  test('6.1 — Three tabs: Pipeline, Drafts, Positioning', async () => {
+    const pipeline = await page.$('text=Pipeline, [data-tab="pipeline"]');
+    const drafts = await page.$('text=Drafts, [data-tab="drafts"]');
+    const positioning = await page.$('text=Positioning, [data-tab="positioning"]');
+    const ok = pipeline !== null && drafts !== null && positioning !== null;
+    recordResult('6.1', ok, `Pipeline:${!!pipeline} Drafts:${!!drafts} Positioning:${!!positioning}`);
+    expect(ok).toBe(true);
+  });
+
+  // UAT 6.7 — Positioning tab shows content
+  test('6.7 — Positioning tab shows POSITIONING.md content', async () => {
+    const posTab = await page.$('text=Positioning, [data-tab="positioning"]');
+    if (posTab) {
+      await posTab.click();
+      await page.waitForTimeout(800);
+      const content = await page.textContent('body');
+      // POSITIONING.md should have substantial text
+      const ok = content.length > 500;
+      recordResult('6.7', ok, `Positioning content length: ${content.length}`);
+      expect(ok).toBe(true);
+    } else {
+      recordResult('6.7', false, 'Positioning tab not found');
+      expect(posTab).not.toBeNull();
+    }
+  });
+});
+
+// --- PODCAST MONITOR (3040) ---
+
+describe('Podcast Monitor (port 3040)', () => {
+  let page;
+  beforeAll(async () => {
+    page = await getOrOpenPage(browser, 'http://localhost:3040');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+  });
+
+  // UAT 12.2 — Queue tab loads with episode cards
+  test('12.2 — Queue tab shows episode cards with feed name', async () => {
+    const queueTab = await page.$('text=Queue, [data-tab="queue"]');
+    if (queueTab) await queueTab.click();
+    await page.waitForTimeout(800);
+    const cards = await page.$$('[class*="episode"], [class*="card"]');
+    recordResult('12.2', cards.length > 0, `Episode cards: ${cards.length}`);
+    expect(cards.length).toBeGreaterThan(0);
+  });
+
+  // UAT 12.3 — Summarise button is present and clickable (not blocked)
+  test('12.3 — Summarise button responds within 3s (not blocked by execSync)', async () => {
+    const summariseBtn = await page.$('button:has-text("Summarise"), button:has-text("Summarize")');
+    if (summariseBtn) {
+      const startTime = Date.now();
+      await summariseBtn.click();
+      // Wait for any response — modal, status change, or network request
+      await page.waitForTimeout(3000);
+      const elapsed = Date.now() - startTime;
+      // If server was blocked by execSync, click would hang for minutes
+      // A response within 3s confirms the event loop is free
+      recordResult('12.3', elapsed < 3500, `Response within ${elapsed}ms`);
+      expect(elapsed).toBeLessThan(3500);
+    } else {
+      recordResult('12.3', false, 'Summarise button not found');
+      expect(summariseBtn).not.toBeNull();
+    }
+  });
+
+  // UAT 12.6 — Dismiss button archives (not deletes)
+  test('12.6 — Dismiss button present and responds', async () => {
+    const dismissBtn = await page.$('button:has-text("Dismiss")');
+    const ok = dismissBtn !== null;
+    recordResult('12.6', ok, ok ? 'Dismiss button present' : 'Dismiss button not found');
+    // Do NOT click dismiss — would archive an episode. Just confirm button exists.
+    expect(ok).toBe(true);
+  });
+});

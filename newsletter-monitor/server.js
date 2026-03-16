@@ -81,7 +81,7 @@ app.patch('/api/newsletters/:id/status', (req, res) => {
   if (!allowed.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${allowed.join(', ')}` });
   try {
     db.prepare('UPDATE newsletters SET status = ? WHERE id = ?').run(status, req.params.id);
-    logActivity('newsletter-monitor', null, 'status-update', `Newsletter ${req.params.id} → ${status}`);
+    logActivity({ agent: 'newsletter-monitor', action: 'status-update', detail: `Newsletter ${req.params.id} → ${status}` });
     res.json({ ok: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -91,7 +91,7 @@ app.post('/api/run', async (req, res) => {
   res.json({ ok: true, message: 'Pipeline started', daysBack });
   try {
     const result = await runPipeline(db, daysBack);
-    logActivity('newsletter-monitor', null, 'run-complete', `Fetched ${result.fetched}, summarised ${result.summarised}`);
+    logActivity({ agent: 'newsletter-monitor', action: 'run-complete', detail: `Fetched ${result.fetched}, summarised ${result.summarised}` });
   } catch(err) {
     console.error('[newsletter-monitor] Run error:', err.message);
   }
