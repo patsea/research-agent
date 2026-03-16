@@ -59,3 +59,15 @@ FINDINGS-*.md
 # Podcast monitor downloads
 podcast-monitor/downloads/
 podcast-monitor/data/
+
+# Backup files created by instruction execution
+*.bak
+*.bak-*
+**/*.bak
+**/*.bak-*
+
+# Chrome CDP profile
+/Chrome-CDP/
+
+# OS files
+.DS_Store
