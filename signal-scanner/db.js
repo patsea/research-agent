@@ -11,6 +11,7 @@ db.exec(`
     signal_type TEXT DEFAULT 'other', sector TEXT DEFAULT 'Other', sector_raw TEXT DEFAULT '',
     ai_summary TEXT NOT NULL, signal_date TEXT, source_name TEXT, source_url TEXT DEFAULT '',
     excerpt TEXT DEFAULT '', geography TEXT DEFAULT '', confidence TEXT DEFAULT 'Medium',
+    ownership_hint TEXT DEFAULT '',
     method TEXT DEFAULT '', status TEXT DEFAULT 'new', created_at TEXT DEFAULT (datetime('now')), run_id TEXT DEFAULT ''
   );
   CREATE TABLE IF NOT EXISTS sources (
@@ -41,8 +42,8 @@ if (!db.prepare('SELECT COUNT(*) as c FROM exclusions').get().c) {
 const signals = {
   insert(d) {
     const id = uuidv4();
-    db.prepare(`INSERT INTO signals (id,headline,company_name,signal_type,sector,sector_raw,ai_summary,signal_date,source_name,source_url,excerpt,geography,confidence,method,status,run_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?)`)
-      .run(id,d.headline,d.company_name||'',d.signal_type||'other',d.sector||'Other',d.sector_raw||'',d.ai_summary,d.signal_date||null,d.source_name||'',d.source_url||'',d.excerpt||'',d.geography||'',d.confidence||'Medium',d.method||'',d.run_id||'');
+    db.prepare(`INSERT INTO signals (id,headline,company_name,signal_type,sector,sector_raw,ai_summary,signal_date,source_name,source_url,excerpt,geography,confidence,ownership_hint,method,status,run_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'new',?)`)
+      .run(id,d.headline,d.company_name||'',d.signal_type||'other',d.sector||'Other',d.sector_raw||'',d.ai_summary,d.signal_date||null,d.source_name||'',d.source_url||'',d.excerpt||'',d.geography||'',d.confidence||'Medium',d.ownership_hint||'',d.method||'',d.run_id||'');
     return id;
   },
   list({status,signal_type,sector,source_name,geography,confidence,limit=200,offset=0}={}) {

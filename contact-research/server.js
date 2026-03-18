@@ -39,7 +39,7 @@ app.get('/api/health', (req, res) => {
 
 // Full research pipeline
 app.post('/api/research', async (req, res) => {
-  const { companyName, campaignType, linkedinUrl, context, companyDomain } = req.body;
+  const { companyName, campaignType, linkedinUrl, context, companyDomain, researchRunId } = req.body;
 
   if (!companyName && !linkedinUrl) {
     return res.status(400).json({ error: 'companyName or linkedinUrl required' });
@@ -48,11 +48,28 @@ app.post('/api/research', async (req, res) => {
   try {
     console.log(`[research] Starting pipeline for ${companyName || linkedinUrl} (${campaignType})`);
 
+    // Fetch Research Hub brief if a valid run ID is provided
+    let researchContext = '';
+    const isValidRunId = researchRunId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(researchRunId);
+    if (isValidRunId) {
+      try {
+        const briefRes = await fetch(`http://localhost:3035/api/research/${researchRunId}/file`);
+        if (briefRes.ok) {
+          researchContext = await briefRes.text();
+        }
+      } catch (e) {
+        console.warn('[contact-research] Could not fetch research brief:', e.message);
+      }
+    } else if (researchRunId) {
+      console.warn(`[contact-research] Ignoring non-UUID researchRunId: ${researchRunId}`);
+    }
+
     // Step 1: Identify contact
     const identified = await identifyContact({
       companyName: companyName || null,
       campaignType: campaignType || 'pe_vc',
-      linkedinUrl: linkedinUrl || null
+      linkedinUrl: linkedinUrl || null,
+      researchContext
     });
     console.log(`[research] Identified: ${identified.name || 'N/A'} (${identified.confidence})`);
 

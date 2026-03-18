@@ -5,9 +5,11 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { getModel } = require('../../shared/models.cjs');
 
-const CONTACT_ID_PROMPT = readFileSync(
-  new URL('../../config/prompts/contact-identification.md', import.meta.url), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
+function _getContactIdPrompt() {
+  return readFileSync(
+    new URL('../../config/prompts/contact-identification.md', import.meta.url), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
 
 const TITLE_PRIORITY = {
   portfolio_cpo: ['CPO', 'VP Product', 'Head of Product', 'Chief Digital Officer'],
@@ -17,7 +19,8 @@ const TITLE_PRIORITY = {
   interim_provider: ['Managing Director', 'Practice Lead']
 };
 
-export async function identifyContact({ companyName, campaignType, linkedinUrl }) {
+export async function identifyContact({ companyName, campaignType, linkedinUrl, researchContext = '' }) {
+  const CONTACT_ID_PROMPT = _getContactIdPrompt();
   // Path B — LinkedIn URL already known
   if (linkedinUrl) {
     return {
@@ -47,6 +50,9 @@ export async function identifyContact({ companyName, campaignType, linkedinUrl }
             .replace(/\{COMPANY_NAME\}/g, companyName)
             .replace('{CAMPAIGN_TYPE}', campaignType)
             .replace('{TITLE_LIST}', titleList)
+            .replace(/\{RESEARCH_CONTEXT\}/g, researchContext
+              ? '## Research Hub Brief\n\n' + researchContext
+              : '')
         }]
       },
       {

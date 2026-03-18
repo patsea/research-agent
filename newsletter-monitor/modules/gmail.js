@@ -66,6 +66,38 @@ async function fetchNewslettersFromAccount(accountConfig, daysBack) {
 
     const parsed = parseNewsletterResults(raw, accountConfig.name);
     console.log(`[newsletter-monitor] ${accountConfig.name}: ${parsed.length} emails found`);
+
+    // Fetch full body for each email via read_email
+    let bodyCount = 0;
+    for (const email of parsed) {
+      if (!email.message_id) continue;
+      try {
+        const readResult = await client.callTool({
+          name: 'read_email',
+          arguments: { messageId: email.message_id }
+        });
+        const bodyText = readResult?.content?.[0]?.text || '';
+        // Extract body: everything after the double-newline following headers
+        const bodyMatch = bodyText.match(/\n\n([\s\S]*?)(?:\n\nAttachments \(|$)/);
+        email.body = bodyMatch ? bodyMatch[1].trim() : '';
+        if (!email.body && bodyText.length > 0) {
+          // Fallback: take everything after the last header line
+          const lines = bodyText.split('\n');
+          const headerEnd = lines.findIndex((l, i) => i > 0 && l.trim() === '');
+          if (headerEnd > 0) {
+            email.body = lines.slice(headerEnd + 1).join('\n').trim();
+          }
+        }
+        if (email.body) bodyCount++;
+        // Small delay to avoid rate limiting
+        await new Promise(r => setTimeout(r, 200));
+      } catch (err) {
+        console.error(`[newsletter-monitor] read_email error for ${email.message_id}: ${err.message}`);
+        email.body = '';
+      }
+    }
+    console.log(`[newsletter-monitor] ${accountConfig.name}: ${bodyCount}/${parsed.length} bodies fetched`);
+
     return parsed;
 
   } catch (err) {

@@ -39,12 +39,13 @@ describe('Prompt consolidation', () => {
     expect(violations).toEqual([]);
   });
 
-  test('Podcast summariser uses claude-sonnet-4-6 not claude-sonnet-4-5', () => {
+  test('Podcast summariser uses getModel() not hardcoded model strings', () => {
     const summariserPath = path.join(PROJECT_ROOT, 'podcast-monitor', 'modules', 'summariser.js');
     const content = fs.readFileSync(summariserPath, 'utf8');
 
     expect(content).not.toContain('claude-sonnet-4-5');
-    expect(content).toContain('claude-sonnet-4-6');
+    // Model is now centralized via shared/models.cjs — verify getModel usage, not hardcoded string
+    expect(content).toContain('getModel');
   });
 
   test('config/prompts has all 16+ expected prompt files', () => {

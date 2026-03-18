@@ -28,3 +28,12 @@ describe('Signal Scanner (port 3033)', () => {
     expect(res.body.length).toBeLessThanOrEqual(1);
   });
 });
+
+test('signals table has ownership_hint column', () => {
+  const Database = require('better-sqlite3');
+  const path = require('path');
+  const db = new Database(path.join(__dirname, '../signal-scanner/data/signals.db'));
+  const cols = db.prepare("PRAGMA table_info(signals)").all().map(c => c.name);
+  expect(cols).toContain('ownership_hint');
+  db.close();
+});

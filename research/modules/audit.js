@@ -7,17 +7,20 @@ const require = createRequire(import.meta.url);
 const { getModel } = require('../../shared/models.cjs');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function _getProfile() {
   return JSON.parse(readFileSync(join(__dirname, '../../config/user-profile.json'), 'utf8'));
 }
 
-const AUDIT_SYSTEM_PROMPT = readFileSync(
-  new URL('../../config/prompts/research-general-audit.md', import.meta.url), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
+function _getAuditPrompt() {
+  return readFileSync(
+    new URL('../../config/prompts/research-general-audit.md', import.meta.url), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
 
 export async function runAudit({ priorResearch, taskContext, explicitQuestions, namedPeople, researchType }) {
+  const AUDIT_SYSTEM_PROMPT = _getAuditPrompt();
   const userMsg = [
     `## TASK CONTEXT\n${taskContext || `Executive job search research for ${_getProfile().name}.`}`,
     `## PRIOR RESEARCH (Perplexity Stage 1 output)\n${priorResearch}`,

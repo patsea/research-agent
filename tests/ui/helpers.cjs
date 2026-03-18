@@ -1,24 +1,20 @@
 /**
- * Shared CDP helper for UI tests
- * Connects to existing Chrome session — never launches a new browser
+ * Shared browser helper for UI tests
+ * Launches headless Chromium — no CDP or external Chrome required
+ * Set HEADLESS=false for headed mode (useful for authenticated test flows)
  */
 const { chromium } = require('playwright');
 
-const CDP_URL = 'http://localhost:9222';
+const BASE = 'http://localhost';
+const HEADLESS = process.env.HEADLESS !== 'false';
 const RESULTS = [];
 
 async function connectChrome() {
-  const browser = await chromium.connectOverCDP(CDP_URL);
+  const browser = await chromium.launch({ headless: HEADLESS });
   return browser;
 }
 
 async function getOrOpenPage(browser, url) {
-  // Find existing tab matching url, or open new one
-  for (const ctx of browser.contexts()) {
-    for (const pg of ctx.pages()) {
-      if (pg.url().startsWith(url)) return pg;
-    }
-  }
   const ctx = browser.contexts()[0] || await browser.newContext();
   const page = await ctx.newPage();
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });

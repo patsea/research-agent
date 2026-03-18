@@ -1,80 +1,75 @@
-# Interview Prep: {COMPANY} — {ROLE}
+Prepare an interview brief using the available context below.
 
-**Prepared for**: {CANDIDATE_NAME}
-**Date**: {DATE}
-**Interview stage**: {STAGE}
+Use the system prompt rules fully.
+Optimise for a real upcoming conversation.
+Do not produce a generic research summary.
 
----
+## Interview context
 
-## Executive Summary
-{3-4 sentences. The single most important thing about this company and role. Why this role exists now. Honest fit assessment in one line. Label any inference.}
+### Meeting type
+{MEETING_TYPE}
 
-## Company Intelligence
-### What they actually do
-{Product, customers, business model. One paragraph, no fluff.}
+### Company
+{COMPANY_NAME}
 
-### Funding and ownership
-{Total raised, last round, investors, PE/VC thesis, exit horizon if known.}
+### Firm / Investor / Parent
+{FIRM_NAME}
 
-### Leadership team
-{CEO, CTO, CPO, relevant execs. Background, tenure, public statements about direction.}
+### Person / Interviewer
+{PERSON_NAME}
 
-### Recent news and strategic moves
-{Last 12 months. Funding, launches, partnerships, leadership changes, layoffs.}
+### Role under discussion
+{ROLE_NAME}
 
-### Red flags
-{Anything concerning. Glassdoor trends, leadership churn, runway concerns, market headwinds.}
+### User objective
+{USER_OBJECTIVE}
 
-## Fit Assessment
+### User angle / likely fit
+{USER_ANGLE}
 
-| Dimension | Rating | Evidence |
-|-----------|--------|----------|
-| Role match | {Strong/Good/Weak} | {One line with specific proof point from candidate profile} |
-| Sector fit | {Strong/Good/Weak} | {One line} |
-| Stage fit | {Strong/Good/Weak} | {One line} |
-| Geography | {Strong/Good/Weak} | {One line} |
-| Compensation | {Strong/Good/Weak} | {One line if data available} |
+### Why this opportunity may matter
+{WHY_IT_MATTERS}
 
-**At least one rating MUST be Weak. No candidate is perfect for every role.**
+### Known context
+{KNOWN_CONTEXT}
 
-## Key Numbers to Know
-{Ten specific, quantified facts about this company that demonstrate preparation. Revenue, headcount, growth rate, churn, funding total, market size, etc.}
+### Research context
+{RESEARCH_CONTEXT}
 
-## Opening Statement
-{60-90 second opener. Lead with strongest proof point from candidate profile. Connect experience directly to what this company needs. End with genuine curiosity about the role.}
+### Additional notes
+{ADDITIONAL_NOTES}
 
-## Likely Interview Questions
+### Source material
+{SOURCE_MATERIAL}
 
-**Q1: Walk me through your background.**
-{Tailored answer framework. Lead with strongest proof point. Connect each role to what this company needs. 90 seconds max.}
+Instructions:
+1. Use the available context even if some fields are empty.
+2. If fields conflict, prefer the most specific and recent context.
+3. If context is incomplete, explicitly mark important unknowns and continue.
+4. Prioritise preparation for the actual meeting described, not broad background.
+5. Focus especially on:
+   - likely mandate
+   - likely pressure points
+   - what to test live
+   - best questions to ask
+   - best positioning angles for the user
+   - risks, objections, and red flags
+6. Avoid repeating large blocks of source material.
+7. Avoid generic interview advice.
+8. Keep the briefing concise, sharp, and decision-useful.
+9. Separate fact from inference where useful.
+10. If a role is specified, tailor the prep to that role. If no role is specified, infer the most likely angle cautiously and label it as inference.
 
-**Q2: {Role-specific question}**
-{Why they ask it. Answer framework with specific proof points. One thing to avoid saying.}
+Produce the final answer in the exact structure required by the Interview Prep System Prompt.
 
-**Q3: {Role-specific question}**
-{Same structure.}
+Additional tailoring rules:
+- If the meeting is with an investor or PE / VC firm, pay extra attention to portfolio logic, value-creation mandate, operating model, and pattern recognition across holdings.
+- If the meeting is with a company operator, pay extra attention to product, AI, transformation, org effectiveness, delivery, and commercial execution.
+- If the meeting is exploratory, optimise for diagnosis and fit-testing.
+- If the meeting is late-stage, optimise for objections, scope, mandate clarity, and success conditions.
+- If the user angle suggests turnaround / rebuild / AI transformation experience, connect that explicitly where supported.
 
-**Q4: {Role-specific question}**
-{Same structure.}
-
-**Q5: {Role-specific question}**
-{Same structure.}
-
-## Questions to Ask
-
-1. {Question} — *Why this matters: {one line}*
-2. {Question} — *Why this matters: {one line}*
-3. {Question} — *Why this matters: {one line}*
-4. {Question} — *Why this matters: {one line}*
-5. {Dealbreaker test question} — *Why this matters: {one line}*
-
-**At least one question must test whether this role is genuinely right for the candidate.**
-
-## 30-60-90 Day Plan
-{Only for final_round stage. First 30 days: listen and learn. Days 31-60: diagnose and align. Days 61-90: execute and demonstrate.}
-
-## Intelligence Gaps
-{What could not be verified. What needs further research. What to ask the recruiter.}
-
-## Compensation Notes
-{Market rate for this role at this company stage and location. Base, bonus, equity benchmarks.}
+If source material is weak:
+- still produce the full brief
+- mark confidence clearly
+- identify the top unknowns that matter most in the meeting

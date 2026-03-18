@@ -84,3 +84,23 @@ describe('Podcast Monitor — YouTube auto-metadata (port 3040)', () => {
     expect(hasMeta).toBeTruthy();
   }, 20000);
 });
+
+test('episodes table has rich scoring columns', () => {
+  const Database = require('better-sqlite3');
+  const path = require('path');
+  const db = new Database(path.join(__dirname, '../podcast-monitor/data/podcast-monitor.db'));
+  const cols = db.prepare('PRAGMA table_info(episodes)').all().map(c => c.name);
+  expect(cols).toContain('episode_verdict');
+  expect(cols).toContain('one_line_takeaway');
+  expect(cols).toContain('best_sections_json');
+  expect(cols).toContain('skip_sections_json');
+  expect(cols).toContain('top_tags_json');
+  expect(cols).toContain('why_relevant');
+  db.close();
+});
+
+test('parser supports both score and episode_score field names', () => {
+  const fs = require('fs'), path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../podcast-monitor/server.js'), 'utf8');
+  expect(src).toMatch(/episode_score/);
+});

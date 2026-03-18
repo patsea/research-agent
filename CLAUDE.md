@@ -6,8 +6,8 @@ The following superpowers skills are mandatory for all code changes in this proj
 - `superpowers:systematic-debugging` — identify root cause in a single pass before writing any fix
 - `superpowers:verification-before-completion` — self-check all changes before writing SUMMARY
 - `superpowers:subagent-driven-development`
-- `superpowers:test-driven-development` (UI) — any change to a UI route, HTML page or frontend component requires a Playwright test in `tests/ui/`; run with `npm run test:ui`
- — structured parallel agent coordination; agents write results to /tmp before reporting
+- `superpowers:test-driven-development` (UI) — Playwright tests in `tests/ui/` are ONLY required when changes touch: `dashboard/public/`, `*/public/*.html`, UI-serving routes (GET / that return HTML), or frontend CSS/JS. Backend-only changes (API logic, DB queries, config, pipelines, modules) do NOT require UI tests. Run with `npm run test:ui`
+- `superpowers:subagent-driven-development` — structured parallel agent coordination; agents write results to /tmp before reporting
 
 ---
 
@@ -75,7 +75,6 @@ Without findings files, the next session re-investigates what is already known.
 
 ## Known issues (not bugs — deferred work)
 
-- Env var inconsistency: `CLAUDE_API_KEY` (signal-scanner, research, email-scan) vs `ANTHROPIC_API_KEY` (scorer, contact-research, outreach-drafter) — same key, not yet standardised
 - Signal Scanner forward_queue.jsonl has no consumer — forwarding a signal does not automatically trigger research
 - Agent 5 → Agent 4 notify call silently fails (endpoint mismatch: /status vs /confirm) — cosmetic only
 - FullEnrich domain derivation is naive — may fail for non-.com companies

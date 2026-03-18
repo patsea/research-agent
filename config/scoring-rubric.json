@@ -1,25 +1,78 @@
 {
-  "_comment": "Scoring rubric configuration. The scorer agent seeds these dimensions on first run. Edit scorer/db.js seedRubrics() to load from this file, or modify directly in the Scorer UI after first launch.",
   "companyRubric": {
-    "name": "ELNS+H Company Rubric",
+    "name": "MTOS+H Company Rubric",
     "scoringType": "company",
     "dimensions": [
-      { "id": "E", "name": "Early growth signal", "weight": 0.20, "prompt": "Is there evidence of recent funding, acquisition, or rapid headcount growth at this company?" },
-      { "id": "L", "name": "Leadership gap", "weight": 0.25, "prompt": "Is there evidence of a missing or recently vacated senior product or operations leadership role?" },
-      { "id": "N", "name": "No product discipline", "weight": 0.20, "prompt": "Is there evidence that the company lacks structured product management or has an engineering-led culture without product rigour?" },
-      { "id": "S", "name": "Scale pressure", "weight": 0.20, "prompt": "Is this company under pressure to scale — from investors, competitors, or market conditions?" },
-      { "id": "H", "name": "Hiring history signal (manual)", "weight": 0.15, "prompt": "Manual input — has this company previously hired senior product or ops leaders from the outside?" }
+      {
+        "id": "M",
+        "name": "Mandate signal",
+        "weight": 0.30,
+        "manual": false,
+        "prompt": "Is there public evidence of a senior product, operations, or transformation role being created, vacated, or unfilled? Include: CPO/COO/CTO departure or absence, founder running product without operator backing, board announcement of operational review, post-acquisition integration need."
+      },
+      {
+        "id": "T",
+        "name": "Transformation need",
+        "weight": 0.25,
+        "manual": false,
+        "prompt": "Is there evidence the company is undergoing a material business model, product, or operational transformation, not just growing? Triggers: SaaS migration, AI integration into core product, post-merger integration, shift from services to software, platform consolidation, major cost programme."
+      },
+      {
+        "id": "O",
+        "name": "Operating gap",
+        "weight": 0.20,
+        "manual": false,
+        "prompt": "Is there evidence the company lacks operating capability at CPO/COO level? Proxies: engineering-led leadership without product or operations layer, rapid scaling with no operator on team, Glassdoor execution themes, investor commentary on operational maturity."
+      },
+      {
+        "id": "S",
+        "name": "Stakeholder pressure",
+        "weight": 0.15,
+        "manual": false,
+        "prompt": "Is there investor or board-level pressure creating urgency for the mandate? Triggers: PE ownership with active return-timeline, recent acquisition creating integration debt, public company with activist pressure, series C+ with down-round risk or churn signals."
+      },
+      {
+        "id": "H",
+        "name": "Hiring history",
+        "weight": 0.10,
+        "manual": true,
+        "prompt": "Has the company previously hired senior operators externally at CPO/COO/VP level in the last 3 years, or shown a pattern of bringing in executives for transformation rather than promoting internally?"
+      }
     ],
     "thresholds": { "hot": 0.65, "warm": 0.40 }
   },
   "firmRubric": {
-    "name": "TMAN Firm Rubric",
+    "name": "FOAN Firm Rubric",
     "scoringType": "firm",
     "dimensions": [
-      { "id": "T", "name": "Tech specialisation", "weight": 0.40, "prompt": "Does this firm primarily invest in technology or tech-enabled businesses?" },
-      { "id": "M", "name": "Market fit", "weight": 0.25, "prompt": "Is this firm active in markets relevant to your target geography and sector?" },
-      { "id": "N", "name": "Network signal (manual)", "weight": 0.20, "prompt": "Manual input — is there a warm connection or prior contact with this firm?" },
-      { "id": "A", "name": "Activity recency", "weight": 0.15, "prompt": "Has this firm made investments or portfolio moves in the last 12 months?" }
+      {
+        "id": "F",
+        "name": "Portfolio fit",
+        "weight": 0.35,
+        "manual": false,
+        "prompt": "Does this firm's portfolio consist primarily of B2B SaaS, enterprise software, AI/ML, or tech-enabled services companies with 50–500 employees? Ignore consumer, hardware, early-stage, and non-tech portfolios."
+      },
+      {
+        "id": "O",
+        "name": "Operator orientation",
+        "weight": 0.30,
+        "manual": false,
+        "prompt": "Does this firm show evidence of actively placing or sourcing operating executives for portfolio companies? Proxies: Operating Partner hires on team page, published talent or value-creation programme, OP title visible on LinkedIn."
+      },
+      {
+        "id": "A",
+        "name": "Active mandate signal",
+        "weight": 0.20,
+        "manual": false,
+        "prompt": "Is there evidence this firm currently has portfolio companies with open or likely senior operator mandates? Triggers: open CPO/COO/Operating Partner role at portfolio company, recent acquisition in portfolio creating integration need."
+      },
+      {
+        "id": "N",
+        "name": "Network — warm path",
+        "weight": 0.15,
+        "manual": true,
+        "prompt": "Does Patrick have a direct or warm-intro relationship with anyone at this firm or a portfolio company? Score High for named contact or prior meeting, Medium for second-degree with strong mutual, Low for cold."
+      }
     ],
     "thresholds": { "tier1": 0.65, "tier2": 0.40 }
   }

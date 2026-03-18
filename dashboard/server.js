@@ -28,6 +28,7 @@ const AGENTS = [
   { id: 'email-scan', name: 'Email Scan',       port: 3034, path: '/api/health', group: 'pipeline', description: 'Daily Gmail scan — classifies replies, updates Attio' },
   { id: 'gmail-hygiene', name: 'Gmail Hygiene', port: 3039, path: '/api/health', group: 'standalone', description: 'Auto-labels emails, unsubscribe, spam blocking' },
   { id: 'podcast-monitor', name: 'Podcast Monitor', port: 3040, path: '/api/health', group: 'standalone', description: 'RSS polling, transcription, AI summarisation with interest-tag filtering' },
+  { id: 'newsletter-monitor', name: 'Newsletter Monitor', port: 3041, path: '/api/health', group: 'standalone', description: 'Gmail newsletter extraction, AI summarisation with interest-tag filtering' },
 ];
 
 app.get('/api/status', async (req, res) => {
@@ -146,6 +147,36 @@ app.post('/api/proxy/email-scan/scan', async (req, res) => {
   } catch (e) { res.status(502).json({ error: 'Email Scan not reachable', detail: e.message }); }
 });
 
+// ── Newsletter Monitor proxy routes (port 3041) ────────────────────
+app.get('/api/proxy/newsletter/newsletters', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3041/api/newsletters', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Newsletter Monitor not reachable', detail: e.message }); }
+});
+
+app.get('/api/proxy/newsletter/subscriptions', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:3041/api/subscriptions', { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Newsletter Monitor not reachable', detail: e.message }); }
+});
+
+app.post('/api/proxy/newsletter/run', async (req, res) => {
+  try {
+    const response = await axios.post('http://localhost:3041/api/run', req.body || {}, { timeout: 60000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Newsletter Monitor not reachable', detail: e.message }); }
+});
+
+app.patch('/api/proxy/newsletter/status/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await axios.patch(`http://localhost:3041/api/newsletters/${id}/status`, req.body || {}, { timeout: 5000 });
+    res.json(response.data);
+  } catch (e) { res.status(502).json({ error: 'Newsletter Monitor not reachable', detail: e.message }); }
+});
+
 // ── Config API routes ──────────────────────────────────────────────
 
 // Helper: JSON config read/write
@@ -244,9 +275,9 @@ app.post('/api/config/models', (req, res) => {
 
 // AI-suggest scoring rubric dimensions
 app.post('/api/config/scoring-rubric/suggest', async (req, res) => {
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'No ANTHROPIC_API_KEY or CLAUDE_API_KEY set in environment' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in environment' });
   }
 
   const { rubricType } = req.body || {};
@@ -268,45 +299,12 @@ app.post('/api/config/scoring-rubric/suggest', async (req, res) => {
     userProfile.positioning ? `Positioning: ${userProfile.positioning}` : ''
   ].filter(Boolean).join('\n');
 
-  const firmPrompt = `You are helping a senior executive build a scoring rubric for evaluating executive search firms.
-Given this candidate profile:
-${profileContext}
-
-Generate 4-5 scoring dimensions for evaluating exec search firms. Each dimension should have:
-- id: snake_case identifier
-- name: human readable name
-- weight: decimal weight (all weights must sum to 1.0)
-- description: one sentence explaining what this measures
-- scoringPrompt: the prompt an AI scorer would use to rate a firm 0-1 on this dimension
-
-Focus on: sector specialisation, placement track record, partner seniority, mandate relevance, relationship quality.
-
-Also include thresholds:
-- tier1: minimum score (0-1) to be classified as Tier 1 firm
-- tier2: minimum score (0-1) to be classified as Tier 2 firm
-
-Return ONLY valid JSON in this exact format:
-{"dimensions":[{"id":"...","name":"...","weight":0.25,"description":"...","scoringPrompt":"..."}],"thresholds":{"tier1":0.75,"tier2":0.5}}`;
-
-  const companyPrompt = `You are helping a senior executive build a scoring rubric for evaluating target companies for their job search.
-Given this candidate profile:
-${profileContext}
-
-Generate 5-6 scoring dimensions for evaluating companies as potential employers. Each dimension should have:
-- id: snake_case identifier
-- name: human readable name
-- weight: decimal weight (all weights must sum to 1.0)
-- description: one sentence explaining what this measures
-- scoringPrompt: the prompt an AI scorer would use to rate a company 0-1 on this dimension
-
-Focus on: leadership gap signal, growth trajectory, sector fit, cultural alignment, compensation potential, board/investor quality.
-
-Also include thresholds:
-- hot: minimum score (0-1) to be classified as a Hot lead
-- warm: minimum score (0-1) to be classified as a Warm lead
-
-Return ONLY valid JSON in this exact format:
-{"dimensions":[{"id":"...","name":"...","weight":0.2,"description":"...","scoringPrompt":"..."}],"thresholds":{"hot":0.75,"warm":0.5}}`;
+  // Load prompt from config/prompts/dashboard-rubric-suggest.md
+  const suggestPromptRaw = readFileSync(resolve(__dirname, '..', 'config', 'prompts', 'dashboard-rubric-suggest.md'), 'utf-8');
+  const firmSection = suggestPromptRaw.split('## Firm Rubric')[1] || '';
+  const companySection = (suggestPromptRaw.split('## Company Rubric')[1] || '').split('## Firm Rubric')[0] || '';
+  const firmPrompt = firmSection.trim().replace('{{PROFILE_CONTEXT}}', profileContext);
+  const companyPrompt = companySection.trim().replace('{{PROFILE_CONTEXT}}', profileContext);
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
@@ -322,11 +320,8 @@ Return ONLY valid JSON in this exact format:
       timeout: 60000
     });
 
-    const text = response.data?.content?.[0]?.text || '';
-    // Strip markdown code fences if present
-    const jsonStr = text.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
-    const parsed = JSON.parse(jsonStr);
-    res.json(parsed);
+    const text = response.data?.content?.map(b => b.text || '').join('') || '';
+    res.json({ markdown: text });
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
     res.status(500).json({ error: 'AI suggest failed', detail });
@@ -338,7 +333,7 @@ Return ONLY valid JSON in this exact format:
 const PROMPTS_DIR = resolve(__dirname, '..', 'config', 'prompts');
 
 const PROMPT_METADATA = [
-  // Phase 1 — file-based (copied from research/prompts/)
+  // All prompts loaded from config/prompts/
   { name: 'research-interview-prep-system', label: 'Interview Prep System Prompt', agent: 'Research Hub', group: 'Research' },
   { name: 'research-interview-prep-template', label: 'Interview Prep Template', agent: 'Research Hub', group: 'Research' },
   { name: 'research-company-assessment', label: 'Company Assessment Template', agent: 'Research Hub', group: 'Research' },
@@ -356,13 +351,21 @@ const PROMPT_METADATA = [
   { name: 'podcast-summarisation', label: 'Podcast Summarisation', agent: 'Podcast Monitor', group: 'Monitoring' },
   { name: 'newsletter-summarisation', label: 'Newsletter Summarisation', agent: 'Newsletter Monitor', group: 'Monitoring' },
   { name: 'dashboard-rubric-suggest', label: 'Rubric AI Suggest', agent: 'Dashboard', group: 'Dashboard' },
+  { name: 'scorer-rubric', label: 'Scorer Rubric Prompt', agent: 'Scorer', group: 'Scoring' },
+  { name: 'podcast-digest-scoring', label: 'Podcast Digest Scoring', agent: 'Podcast Monitor', group: 'Monitoring' },
+  { name: 'newsletter-digest-scoring', label: 'Newsletter Digest Scoring', agent: 'Newsletter Monitor', group: 'Monitoring' },
+  { name: 'portfolio-researcher', label: 'Portfolio Researcher', agent: 'Research Hub', group: 'Research' },
 ];
 
 // GET /api/config/prompts — list all prompts with metadata
 app.get('/api/config/prompts', (req, res) => {
   const result = PROMPT_METADATA.map(p => {
     const filePath = resolve(PROMPTS_DIR, `${p.name}.md`);
-    return { ...p, exists: existsSync(filePath) };
+    let content = '';
+    if (existsSync(filePath)) {
+      try { content = readFileSync(filePath, 'utf-8'); } catch (_) {}
+    }
+    return { ...p, exists: existsSync(filePath), content };
   });
   res.json(result);
 });

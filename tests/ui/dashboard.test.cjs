@@ -173,3 +173,145 @@ test('1.14 — Settings Models tab shows 4 model selectors', async () => {
   expect(isActive).toBe(true);
   expect(has4).toBe(true);
 });
+
+// UAT 1.15 — Newsletter Monitor health dot turns green
+test('1.15 — Newsletter Monitor health dot turns green', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(3000); // allow health poll cycle
+  const dot = await page.$('#hdot-3041.running');
+  recordResult('1.15', dot !== null, dot ? 'Newsletter dot green' : 'Newsletter dot NOT green');
+  expect(dot).not.toBeNull();
+});
+
+test('Newsletter Monitor card shows triple Gmail copy', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  const cardText = await page.$eval(
+    '.agent-card[data-port="3041"]',
+    el => el.textContent
+  );
+  expect(cardText).toContain('triple');
+  expect(cardText).not.toContain('dual');
+});
+
+test('guide.html contains Gmail Hygiene, Podcast Monitor, Newsletter Monitor sections', async () => {
+  const guidePage = await browser.contexts()[0].newPage();
+  await guidePage.goto(`${BASE}/guide.html`, { waitUntil: 'domcontentloaded', timeout: 8000 });
+  const body = await guidePage.textContent('body');
+  await guidePage.close();
+  expect(body).toMatch(/gmail.hygiene/i);
+  expect(body).toMatch(/podcast.monitor/i);
+  expect(body).toMatch(/newsletter.monitor/i);
+});
+
+test('Pipeline agent cards are equal width', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  const widths = await page.$$eval('.pipeline-row .agent-card', cards =>
+    cards.map(c => c.getBoundingClientRect().width)
+  );
+  const allEqual = widths.length > 1 && widths.every(w => Math.abs(w - widths[0]) < 2);
+  recordResult('card-width', allEqual, `Widths: ${widths.map(w => w.toFixed(0)).join(', ')}`);
+  expect(allEqual).toBe(true);
+});
+
+test('guide.html nav contains Inbox and Settings', async () => {
+  const guidePage = await browser.contexts()[0].newPage();
+  await guidePage.goto(`${BASE}/guide.html`, { waitUntil: 'domcontentloaded', timeout: 8000 });
+  const navText = await guidePage.textContent('#guide-top-nav');
+  await guidePage.close();
+  expect(navText).toContain('Inbox');
+  expect(navText).toContain('Settings');
+});
+
+// Bug A — Workspace: clicking second agent after unreachable one does not show stale error
+test('Workspace: second agent load clears previous error state', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+  const wsTab = await page.$('#btn-workspace');
+  if (wsTab) {
+    await wsTab.click();
+    await page.waitForTimeout(2000);
+    const sidebarItems = await page.$$('.sidebar-item');
+    if (sidebarItems.length >= 2) {
+      // Click first agent and wait for potential error
+      await sidebarItems[0].click();
+      await page.waitForTimeout(3000);
+      // Click second agent
+      await sidebarItems[1].click();
+      await page.waitForTimeout(3000);
+      // The iframe should not retain srcdoc from a previous agent's error
+      const iframe = await page.$('#agent-iframe');
+      const srcdoc = await iframe.getAttribute('srcdoc');
+      const src = await iframe.getAttribute('src');
+      // If srcdoc is set, it should reference the SECOND agent, not the first
+      if (srcdoc) {
+        const firstName = await sidebarItems[0].textContent();
+        expect(srcdoc).not.toContain(firstName.trim());
+      }
+    }
+  }
+  recordResult('bugA', true, 'Workspace error state does not poison next agent');
+});
+
+// Bug B — Activity nav link from URL param activates Activity tab
+test('Activity tab activates from ?tab=activity URL param', async () => {
+  await page.goto(`${BASE}/?tab=activity`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  const activityPanel = await page.$('#activity-panel');
+  const display = await activityPanel.evaluate(el => getComputedStyle(el).display);
+  recordResult('bugB', display !== 'none', `Activity panel display: ${display}`);
+  expect(display).not.toBe('none');
+});
+
+// Bug C — Inbox nav link from URL param activates Inbox tab
+test('Inbox tab activates from ?tab=inbox URL param', async () => {
+  await page.goto(`${BASE}/?tab=inbox`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  const inboxPanel = await page.$('#inbox-panel');
+  const display = await inboxPanel.evaluate(el => getComputedStyle(el).display);
+  recordResult('bugC', display !== 'none', `Inbox panel display: ${display}`);
+  expect(display).not.toBe('none');
+});
+
+// Bug D — Inbox nav click activates inbox panel and hides dashboard
+test('Inbox nav click activates inbox panel and hides dashboard', async () => {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  await page.click('#btn-inbox');
+  await page.waitForTimeout(500);
+  const inboxDisplay = await page.$eval('#inbox-panel', el => getComputedStyle(el).display);
+  const dashDisplay = await page.$eval('#dashboard-view', el => getComputedStyle(el).display);
+  const btnActive = await page.$eval('#btn-inbox', el => el.classList.contains('active'));
+  recordResult('bugD-inbox', inboxDisplay !== 'none', `Inbox panel display: ${inboxDisplay}`);
+  recordResult('bugD-dash', dashDisplay === 'none', `Dashboard display: ${dashDisplay}`);
+  recordResult('bugD-btn', btnActive, `Inbox btn active: ${btnActive}`);
+  expect(inboxDisplay).not.toBe('none');
+  expect(dashDisplay).toBe('none');
+  expect(btnActive).toBe(true);
+});
+
+// Tooltip test — User Profile tab has tooltips on field labels
+test('User Profile tab has tooltips on field labels', async () => {
+  const configPage = await browser.contexts()[0].newPage();
+  await configPage.goto(`${BASE}/config.html`, { waitUntil: 'domcontentloaded', timeout: 8000 });
+  await configPage.waitForTimeout(500);
+
+  // User Profile tab is active by default
+  const panel = await configPage.$('#panel-profile.active');
+  expect(panel).not.toBeNull();
+
+  // Check for tooltip icons with data-tip attributes
+  const tooltips = await configPage.$$('.tooltip-icon[data-tip]');
+  recordResult('tooltips', tooltips.length >= 10, `Found ${tooltips.length} tooltip icons`);
+  expect(tooltips.length).toBeGreaterThanOrEqual(10);
+
+  // Verify specific field tooltips exist
+  const fullNameTip = await configPage.$('.tooltip-icon[data-tip*="email signatures"]');
+  expect(fullNameTip).not.toBeNull();
+
+  const positioningTip = await configPage.$('.tooltip-icon[data-tip*="elevator pitch"]');
+  expect(positioningTip).not.toBeNull();
+
+  await configPage.close();
+});

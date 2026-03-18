@@ -2,15 +2,13 @@
  * Dashboard double layout test
  * Confirms only ONE layout section is rendered — no legacy grid visible
  */
-const { chromium } = require('playwright');
+const { connectChrome, getOrOpenPage } = require('./helpers.cjs');
 
 let browser, page;
 
 beforeAll(async () => {
-  browser = await chromium.connectOverCDP('http://localhost:9222');
-  const ctx = browser.contexts()[0];
-  page = await ctx.newPage();
-  await page.goto('http://localhost:3030', { waitUntil: 'domcontentloaded' });
+  browser = await connectChrome();
+  page = await getOrOpenPage(browser, 'http://localhost:3030');
   await page.waitForTimeout(1500);
 });
 

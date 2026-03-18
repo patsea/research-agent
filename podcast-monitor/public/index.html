@@ -256,6 +256,9 @@ async function loadEpisodes() {
       <div class="card-title" title="${esc(ep.title)}">${esc(ep.title)}</div>
       <div class="card-meta">${esc(ep.feed_name || 'Manual')} &middot; ${fmtDate(ep.published_at)}${ep.duration ? ' &middot; ' + Math.round(ep.duration/60) + ' min' : ''}</div>
       ${ep.description ? '<div class="desc-text" style="margin:4px 0 8px;max-height:60px;overflow:hidden;font-size:12px">' + esc(ep.description).slice(0,200) + (ep.description.length > 200 ? '...' : '') + '</div>' : ''}
+      ${ep.episode_verdict ? '<div style="margin:4px 0;font-size:12px;font-weight:600;color:#4a5568">' + esc(ep.episode_verdict) + (ep.relevance_score != null ? ' &middot; Score: ' + ep.relevance_score : '') + '</div>' : ''}
+      ${ep.one_line_takeaway ? '<div style="margin:2px 0 6px;font-size:11px;font-style:italic;color:#666">' + esc(ep.one_line_takeaway) + '</div>' : ''}
+      ${(() => { try { const tags = JSON.parse(ep.top_tags_json || '[]'); return tags.length ? '<div style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:4px">' + tags.map(t => '<span style="background:#edf2f7;border-radius:4px;padding:1px 6px;font-size:10px;color:#4a5568">' + esc(t) + '</span>').join('') + '</div>' : ''; } catch { return ''; } })()}
       <span class="badge ${badgeClass}">${ep.status}</span>
       <div class="card-actions">
         <button class="btn" onclick="dismiss(${ep.id})" ${ep.status==='dismissed'?'disabled':''}>Dismiss</button>
@@ -577,7 +580,7 @@ async function renderSuggestedTags(summaryId, container) {
 async function loadPromptEditors() {
   const list = document.getElementById('prompts-list');
   try {
-    const data = await fetch('http://localhost:3030/api/config/prompts').then(r => r.json());
+    const data = await fetch('/api/proxy/prompts', { cache: 'no-cache' }).then(r => r.json());
     // Filter to podcast-related prompts
     const podcastPrompts = data.filter(p => p.name && p.name.includes('podcast'));
     if (!podcastPrompts.length) {
@@ -609,9 +612,14 @@ function togglePromptSection(header) {
 
 async function savePrompt(name) {
   const textarea = document.getElementById('prompt-text-' + name);
-  if (!textarea) return;
+  if (!textarea) {
+    console.error('savePrompt: textarea not found with id "prompt-text-' + name + '"');
+    toast('Error: prompt textarea not found for "' + name + '"');
+    return;
+  }
   try {
-    const r = await fetch('http://localhost:3030/api/config/prompts/' + encodeURIComponent(name), {
+    console.log('savePrompt: saving prompt "' + name + '" (' + textarea.value.length + ' chars)');
+    const r = await fetch('/api/proxy/prompts/' + encodeURIComponent(name), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: textarea.value })
@@ -619,9 +627,11 @@ async function savePrompt(name) {
     if (r.ok) {
       toast('Prompt saved');
     } else {
-      toast('Error saving prompt');
+      const detail = await r.text().catch(() => '');
+      toast('Save failed: ' + (detail || r.status));
     }
   } catch (err) {
+    console.error('savePrompt error:', err);
     toast('Error: ' + err.message);
   }
 }

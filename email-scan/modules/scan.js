@@ -113,7 +113,7 @@ async function scanInbound(stats, options = {}, account = 'gmail') {
             stats.attioUpdates++;
             didAttioUpdate = true;
             break;
-          case 'not_right_timing':
+          case 'not_now':
           case 'soft_no':
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'On File');
             stats.attioUpdates++;
@@ -123,6 +123,19 @@ async function scanInbound(stats, options = {}, account = 'gmail') {
             if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'Closed');
             stats.attioUpdates++;
             didAttioUpdate = true;
+            break;
+          case 'meeting':
+            if (!PROTECTED.has(person.currentStatus)) await updateStatus(person.id, 'Interested');
+            await createTask(person.id, `Prepare for meeting with ${person.name}`, addDays(replyDate, 1));
+            await appendNote(person.id, `Meeting proposed by ${person.name}`, classified.summary || '(no summary)');
+            stats.attioUpdates++;
+            didAttioUpdate = true;
+            break;
+          case 'referral':
+            await appendNote(person.id, `Referral from ${person.name}`, classified.summary || '(no summary)');
+            break;
+          case 'unclear':
+            await appendNote(person.id, `Unclear reply from ${person.name}`, classified.summary || '(no summary)');
             break;
           case 'ooo':
             await createTask(person.id, `Re-contact ${person.name} on return`, classified.ooo_return_date || addDays(replyDate, 21));

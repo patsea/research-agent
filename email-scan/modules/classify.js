@@ -5,21 +5,30 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { getModel } = require('../../shared/models.cjs');
 
-const SYSTEM_PROMPT = readFileSync(
-  new URL('../../config/prompts/email-reply-classification.md', import.meta.url), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
-
 export async function classifyReply(subject, body) {
+  const SYSTEM_PROMPT = readFileSync(
+    new URL('../../config/prompts/email-reply-classification.md', import.meta.url), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+
+  // Strip unsubstituted placeholder tokens — these have no runtime data source
+  // Patrick will remove them from the prompt file via Dashboard; this is a safety net
+  const cleanPrompt = SYSTEM_PROMPT
+    .replace(/\{\{EMAIL_ADDRESS\}\}/g, '')
+    .replace(/\{\{DISPLAY_NAME\}\}/g, '')
+    .replace(/\{\{SUBJECT\}\}/g, '')
+    .replace(/\{\{RECENT_SUBJECTS\}\}/g, '')
+    .replace(/\{\{BODY\}\}/g, '');
+
   try {
     const r = await axios.post('https://api.anthropic.com/v1/messages',
       {
         model: getModel('classification'),
         max_tokens: 400,
-        system: SYSTEM_PROMPT,
+        system: cleanPrompt,
         messages: [{ role: 'user', content: `Subject: ${subject}\n\nBody:\n${(body || '').slice(0, 2000)}` }]
       },
       {
-        headers: { 'x-api-key': process.env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01' },
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
         timeout: 15000
       }
     );

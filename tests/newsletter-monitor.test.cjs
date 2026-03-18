@@ -74,4 +74,41 @@ describe('Newsletter Monitor (port 3041)', () => {
     const accounts = res.body.map(n => n.account || n.source_account);
     expect(accounts).toContain('gmail-growthworks');
   });
+
+  test('newsletters table has body column', async () => {
+    const Database = require('better-sqlite3');
+    const path = require('path');
+    const db = new Database(path.join(__dirname, '../newsletter-monitor/data/newsletter-monitor.db'));
+    const cols = db.prepare("PRAGMA table_info(newsletters)").all().map(c => c.name);
+    expect(cols).toContain('body');
+    db.close();
+  });
+
+  test('GET /api/newsletters returns body field', async () => {
+    const res = await get(3041, '/api/newsletters');
+    expect(res.status).toBe(200);
+    if (res.body.length > 0) {
+      expect(res.body[0]).toHaveProperty('body');
+    }
+  });
+
+  test('Newsletter digest does not fire twice on same day', async () => {
+    const fs = require('fs');
+    const lockFile = '/tmp/newsletter-digest-test-' + Date.now() + '.lock';
+
+    try {
+      // First call — pass test-specific lockFile in body (only works when NODE_ENV=test)
+      const res1 = await post(3041, '/api/digest/send', { lockFile });
+      expect(res1.status).toBe(200);
+      expect(fs.existsSync(lockFile)).toBe(true);
+
+      // Second call same day should be skipped
+      const res2 = await post(3041, '/api/digest/send', { lockFile });
+      expect(res2.status).toBe(200);
+      expect(res2.body).toHaveProperty('skipped', true);
+    } finally {
+      // Cleanup only the test-specific lockfile — never touch the real daily one
+      try { fs.unlinkSync(lockFile); } catch(_) {}
+    }
+  });
 });

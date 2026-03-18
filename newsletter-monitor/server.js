@@ -2,6 +2,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const Database = require('better-sqlite3');
 const { getModel } = require('../shared/models.cjs');
 const { runPipeline } = require('./modules/pipeline');
@@ -21,6 +22,7 @@ db.exec(`
     sender_email TEXT,
     account TEXT,
     snippet TEXT,
+    body TEXT DEFAULT '',
     summary TEXT,
     received_at TEXT,
     status TEXT DEFAULT 'new',
@@ -107,8 +109,9 @@ app.get('/api/run-log', (req, res) => {
 // Daily newsletter digest — past 24h, AI-ranked by relevance_score
 app.get('/api/digest/newsletter', async (req, res) => {
   try {
-    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    const daysBack = parseInt(req.query.daysBack) || 1;
+    const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
     const rows = db.prepare(`
       SELECT id, subject, sender_name, sender_email, summary, relevance_score, received_at, account
       FROM newsletters WHERE received_at >= ?
@@ -118,7 +121,9 @@ app.get('/api/digest/newsletter', async (req, res) => {
 
     const unscored = rows.filter(r => !r.relevance_score);
     if (unscored.length > 0 && ANTHROPIC_API_KEY) {
-      const prompt = `Score each newsletter 1-10 for relevance to a senior tech exec job search (AI trends, ops leadership, PE/VC, market intelligence). Return ONLY a JSON array, no markdown: [{"id": N, "score": N}]\nNewsletters:\n` +
+      const scoringInstruction = fs.readFileSync(
+        path.join(__dirname, '../config/prompts/newsletter-digest-scoring.md'), 'utf8').trim();
+      const prompt = scoringInstruction + `\nNewsletters:\n` +
         unscored.map(n => `ID:${n.id} Subject:"${n.subject}" From:${n.sender_name||''} Summary:${(n.summary||'').slice(0,150)}`).join('\n');
       try {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -142,6 +147,30 @@ app.get('/api/digest/newsletter', async (req, res) => {
   } catch (err) {
     console.error('[digest/newsletter]', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/digest/send', async (req, res) => {
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const lockFile = req.body?.lockFile ||
+    process.env.NEWSLETTER_DIGEST_LOCK_FILE ||
+    `/tmp/newsletter-digest-${today}.lock`;
+
+  if (fs.existsSync(lockFile)) {
+    return res.json({ ok: true, skipped: true, reason: 'already sent today' });
+  }
+
+  try {
+    const { sendNewsletterDigest } = require('../shared/slack.cjs');
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const newsletters = db.prepare(
+      "SELECT id, subject, sender_name, sender_email, summary, relevance_score, received_at, account FROM newsletters WHERE received_at >= ? ORDER BY relevance_score DESC LIMIT 10"
+    ).all(since);
+    fs.writeFileSync(lockFile, new Date().toISOString());
+    if (newsletters.length > 0) await sendNewsletterDigest(newsletters);
+    res.json({ ok: true, sent: true, count: newsletters.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

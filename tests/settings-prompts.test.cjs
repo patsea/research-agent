@@ -65,7 +65,8 @@ const PHASE2 = [
   'gmail-sender-classification',
   'podcast-summarisation',
   'newsletter-summarisation',
-  'dashboard-rubric-suggest'
+  'dashboard-rubric-suggest',
+  'scorer-rubric'
 ];
 
 const ALL_PROMPTS = [...PHASE1, ...PHASE2];
@@ -78,11 +79,11 @@ describe('Prompt files exist on disk', () => {
 });
 
 describe('GET /api/config/prompts — list all', () => {
-  test('returns array of 16 prompts', async () => {
+  test('returns array of 20 prompts', async () => {
     const { status, body } = await get('/api/config/prompts');
     expect(status).toBe(200);
     expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBe(16);
+    expect(body.length).toBe(20);
   });
 
   test('every prompt has name, label, agent, group, exists fields', async () => {

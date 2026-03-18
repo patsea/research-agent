@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
 import 'dotenv/config';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -7,35 +8,24 @@ const { getModel } = require('../../shared/models.cjs');
 
 const SIGNAL_VALUES = { High: 1.0, Medium: 0.5, Low: 0.0, Unknown: 0.0 };
 
-// Manual dimension IDs per scoring type
-const MANUAL_DIMENSIONS = { company: 'H', firm: 'N' };
-
 export async function scoreItem({ name, scoringType, researchContext, rubric, manualInputs = {} }) {
+  const PROMPT_TEMPLATE = readFileSync(
+    new URL('../../config/prompts/scorer-rubric.md', import.meta.url), 'utf8'
+  );
   const dimensions = rubric.dimensions;
-  const manualDimId = MANUAL_DIMENSIONS[scoringType];
 
-  // Separate auto and manual dimensions
-  const autoDimensions = dimensions.filter(d => d.id !== manualDimId);
-  const manualDimension = dimensions.find(d => d.id === manualDimId);
+  // Derive manual vs auto dimensions from rubric flags
+  const autoDimensions = dimensions.filter(d => !d.manual);
+  const manualDimension = dimensions.find(d => d.manual);
 
-  // Build LLM scoring prompt
+  // Build LLM scoring prompt from template
   const dimPrompts = autoDimensions.map(d => `${d.id}: ${d.prompt}`).join('\n');
-  const prompt = `You are scoring "${name}" for outreach relevance.
-
-Score EACH of the following dimensions. Use web search to find current evidence.
-Return a JSON object with one key per dimension ID.
-
-Dimensions:
-${dimPrompts}
-
-Research context provided:
-${researchContext || 'None — rely on web search only.'}
-
-Return ONLY valid JSON:
-{
-${autoDimensions.map(d => `  "${d.id}": { "signal": "High|Medium|Low", "evidence": "one sentence", "confidence": "High|Medium|Low" }`).join(',\n')}
-}
-No preamble, no explanation, no markdown fences.`;
+  const jsonSchema = autoDimensions.map(d => `  "${d.id}": { "signal": "High|Medium|Low", "evidence": "one sentence", "confidence": "High|Medium|Low" }`).join(',\n');
+  const prompt = PROMPT_TEMPLATE
+    .replace('{{NAME}}', name)
+    .replace('{{DIMENSIONS}}', dimPrompts)
+    .replace('{{RESEARCH_CONTEXT}}', researchContext || 'None — rely on web search only.')
+    .replace('{{JSON_SCHEMA}}', jsonSchema);
 
   // Model selection: use Haiku if research context provided (no web search needed)
   // Use Sonnet+web_search only when scoring blind (no research context)
@@ -85,8 +75,8 @@ No preamble, no explanation, no markdown fences.`;
 
   // Build dimension results
   const dimensionResults = dimensions.map(d => {
-    if (d.id === manualDimId) {
-      // Manual dimension
+    if (d.manual) {
+      // Manual dimension — derive signal from manual inputs
       const signal = (scoringType === 'company')
         ? (manualInputs.hSignal || 'Unknown')
         : (manualInputs.networkSignal || 'Unknown');

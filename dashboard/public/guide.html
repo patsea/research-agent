@@ -275,6 +275,8 @@
     <a href="/?tab=workspace">Workspace</a>
     <a href="/guide.html" class="active">Guide</a>
     <a href="/?tab=activity">Activity</a>
+    <a href="/?tab=inbox">Inbox</a>
+    <a href="/config.html">Settings</a>
   </div>
 </nav>
 <div class="layout">
@@ -293,6 +295,7 @@
     <div class="section-label">Standalone</div>
     <a href="#gmail-hygiene">Gmail Hygiene</a>
     <a href="#podcast-monitor">Podcast Monitor</a>
+    <a href="#newsletter-monitor">Newsletter Monitor</a>
   </nav>
 
   <main>
@@ -366,25 +369,27 @@
 
     <section id="gmail-hygiene">
       <h2>Gmail Hygiene <span style="font-size:11px;font-weight:500;color:#64748b;margin-left:8px;padding:2px 8px;background:#f8f8fa;border:1px solid #e8e8e8;border-radius:4px;">Port 3039</span></h2>
-      <p>Scans your inbox, classifies senders, and manages unsubscribes and spam. API-only — no UI.</p>
+      <p>Inbox labelling and sender classification across dual Gmail accounts (gmail + gmail-aloma). Embedded in the Dashboard Inbox tab.</p>
       <h3>What it does</h3>
       <ul>
-        <li>Scan the last N days of your inbox</li>
+        <li>Scan the last N days of your inbox across both Gmail accounts</li>
         <li>Classify senders by type (newsletter, marketing, transactional, personal)</li>
         <li>Identify unsubscribe candidates based on frequency and engagement</li>
-        <li>Never auto-blocks — you confirm every unsubscribe and block action</li>
+        <li>Actions: Keep or Unsubscribe — you confirm every action</li>
       </ul>
+      <h3>Schedule</h3>
+      <p>Runs daily at 09:00 UTC via launchd. Can also be triggered manually from the Dashboard Inbox tab.</p>
       <h3>Key endpoints</h3>
       <ul class="rule-list">
-        <li><span class="label"><code>POST /api/scan</code></span>Scan inbox for the last N days (body: <code>{"days": 30}</code>)</li>
+        <li><span class="label"><code>POST /api/scan</code></span>Scan inbox for the last N days (body: <code>{"daysBack": 30}</code>)</li>
         <li><span class="label"><code>GET /api/senders</code></span>List all classified senders</li>
+        <li><span class="label"><code>GET /api/digest</code></span>Get the latest scan digest summary</li>
         <li><span class="label"><code>POST /api/senders/:id/unsubscribe</code></span>Unsubscribe from a sender</li>
-        <li><span class="label"><code>POST /api/senders/:id/block</code></span>Block a sender</li>
         <li><span class="label"><code>GET /api/health</code></span>Health check</li>
       </ul>
       <h3>First-time setup</h3>
       <p>Run a 30-day scan to build the sender database:</p>
-      <p><code>curl -X POST http://localhost:3039/api/scan -H "Content-Type: application/json" -d '{"days": 30}'</code></p>
+      <p><code>curl -X POST http://localhost:3039/api/scan -H "Content-Type: application/json" -d '{"daysBack": 30}'</code></p>
       <div class="callout">
         <strong>Cold start timeout:</strong> The first <code>npx</code> invocation may take 30-60 seconds to install dependencies. Subsequent calls are fast. If the scan times out, just retry.
       </div>
@@ -530,7 +535,11 @@
 
     <section id="podcast-monitor">
       <h2>Podcast Monitor <span style="font-size:11px;font-weight:500;color:#64748b;margin-left:8px;padding:2px 8px;background:#f8f8fa;border:1px solid #e8e8e8;border-radius:4px;">Port 3040</span></h2>
-      <p>RSS and YouTube polling, Whisper transcription, and Claude summaries with topic tags.</p>
+      <p>RSS and YouTube polling, Whisper transcription, and Claude summaries. Every summary must include NEW, NOVEL, or CONTRARIAN insight tags.</p>
+      <h3>UI Tabs</h3>
+      <p>The Podcast Monitor has 4 tabs: <strong>Queue</strong> (pending episodes), <strong>Summaries</strong> (completed summaries with topic tags and timestamps), <strong>Subscriptions</strong> (RSS and YouTube feed management), and <strong>Settings</strong> (polling frequency, transcription model).</p>
+      <h3>Schedule</h3>
+      <p>Feeds are polled daily at 09:00 UTC. Digest notifications fire at 08:30 and 09:00 UTC via launchd.</p>
       <h3>Workflow</h3>
       <ol class="step-list">
         <li>
@@ -542,7 +551,7 @@
         <li>
           <div class="content">
             <div class="title">Summarise</div>
-            <div class="detail">Each episode is transcribed via Whisper and summarised by Claude into key takeaways.</div>
+            <div class="detail">Each episode is transcribed via Whisper and summarised by Claude into key takeaways. Every summary must contain at least one NEW, NOVEL, or CONTRARIAN tag.</div>
           </div>
         </li>
         <li>
@@ -558,21 +567,45 @@
           </div>
         </li>
       </ol>
-      <h3>Tags</h3>
-      <p>Tags are navigation aids, not categories. They help you find relevant segments across episodes — not classify the episode as a whole.</p>
       <h3>Key endpoints</h3>
       <ul class="rule-list">
+        <li><span class="label"><code>GET /api/feeds</code></span>List all subscribed RSS and YouTube feeds</li>
+        <li><span class="label"><code>POST /api/feeds</code></span>Add an RSS or YouTube feed</li>
         <li><span class="label"><code>GET /api/episodes</code></span>List all episodes with summaries</li>
         <li><span class="label"><code>POST /api/episodes/:id/summarise</code></span>Trigger summarisation for a specific episode</li>
         <li><span class="label"><code>POST /api/summaries/:id/section</code></span>Generate a deep summary section with timestamps</li>
-        <li><span class="label"><code>POST /api/feeds</code></span>Add an RSS feed</li>
-        <li><span class="label"><code>POST /api/feeds/youtube</code></span>Add a YouTube channel feed</li>
         <li><span class="label"><code>GET /api/tags</code></span>List all topic tags</li>
       </ul>
       <h3>Settings</h3>
-      <p>Polling frequency, feed list, and transcription model are configured via the Settings page or directly in the podcast-monitor <code>.env</code> file.</p>
+      <p>Polling frequency, feed list, and transcription model are configured via the Settings tab or directly in the podcast-monitor <code>.env</code> file.</p>
       <div class="callout">
         <strong>Deep summaries need transcripts:</strong> The <code>/api/summaries/:id/section</code> endpoint requires a completed transcript. Run summarisation first, then request deep sections with timestamps.
+      </div>
+    </section>
+
+    <section id="newsletter-monitor">
+      <h2>Newsletter Monitor <span style="font-size:11px;font-weight:500;color:#64748b;margin-left:8px;padding:2px 8px;background:#f8f8fa;border:1px solid #e8e8e8;border-radius:4px;">Port 3041</span></h2>
+      <p>Daily newsletter digest across 3 Gmail accounts (gmail + gmail-aloma + gmail-growthworks). Haiku-powered summaries with one-click archive and unsubscribe.</p>
+      <h3>UI Tabs</h3>
+      <p>The Newsletter Monitor has 4 tabs: <strong>Today</strong> (today's newsletter digest), <strong>History</strong> (past digests), <strong>Subscriptions</strong> (manage newsletter sources across all 3 accounts), and <strong>Settings</strong> (schedule, account config).</p>
+      <h3>Schedule</h3>
+      <p>Runs daily via launchd at 16:00, 16:30, and 17:00 UTC (one run per Gmail account). A Slack digest notification fires after the final run completes.</p>
+      <h3>Actions</h3>
+      <ul>
+        <li><strong>Archive</strong> — sets newsletter status to <code>read</code>, removing it from the Today view</li>
+        <li><strong>Read</strong> — opens the original email in Gmail in a new tab</li>
+        <li><strong>Unsubscribe</strong> — triggers unsubscribe for the newsletter source</li>
+      </ul>
+      <h3>Key endpoints</h3>
+      <ul class="rule-list">
+        <li><span class="label"><code>POST /api/run</code></span>Trigger a newsletter scan (body: <code>{"daysBack": 1}</code>)</li>
+        <li><span class="label"><code>GET /api/newsletters</code></span>List all newsletters from the latest scan</li>
+        <li><span class="label"><code>GET /api/subscriptions</code></span>List all tracked newsletter subscriptions</li>
+        <li><span class="label"><code>GET /api/digest/newsletter</code></span>Get the formatted newsletter digest</li>
+        <li><span class="label"><code>GET /api/health</code></span>Health check</li>
+      </ul>
+      <div class="callout">
+        <strong>Triple Gmail:</strong> Newsletter Monitor scans 3 separate Gmail accounts. Each account runs on its own launchd schedule (16:00, 16:30, 17:00 UTC) to avoid API rate limits. The digest combines results from all 3 accounts.
       </div>
     </section>
 

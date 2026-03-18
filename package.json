@@ -4,11 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPatterns=tests/ --forceExit --testTimeout=15000",
+    "test": "touch /tmp/slack-test-mode && NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPatterns=tests/ --forceExit --testTimeout=15000; EXIT=$?; rm -f /tmp/slack-test-mode; exit $EXIT",
     "start:all": "for dir in dashboard signal-scanner email-scan research contact-research outreach-drafter scorer gmail-hygiene podcast-monitor; do (cd $dir && node server.js >> /tmp/jsa-$dir.log 2>&1 &); done && echo 'All agents started. Logs in /tmp/jsa-*.log'",
     "health": "for PORT in 3030 3033 3034 3035 3036 3037 3038 3039 3040; do STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT 2>/dev/null); NAMES='3030:Dashboard 3033:Signal-Scanner 3034:Email-Scan 3035:Research 3036:Contact-Research 3037:Outreach-Drafter 3038:Scorer 3039:Gmail-Hygiene 3040:Podcast-Monitor'; NAME=$(echo $NAMES | tr ' ' '\\n' | grep ^$PORT: | cut -d: -f2); echo \"Port $PORT ($NAME): $STATUS\"; done",
     "stop:all": "for PORT in 3030 3033 3034 3035 3036 3037 3038 3039 3040; do PID=$(lsof -ti :$PORT 2>/dev/null); if [ -n \"$PID\" ]; then kill $PID && echo \"Stopped port $PORT (PID $PID)\"; fi; done && echo 'All agents stopped.'",
-    "test:ui": "jest --testPathPatterns=tests/ui/ --forceExit --testTimeout=30000 --runInBand"
+    "test:ui": "touch /tmp/slack-test-mode && NODE_ENV=test jest --testPathPatterns=tests/ui/ --forceExit --testTimeout=30000 --runInBand; EXIT=$?; rm -f /tmp/slack-test-mode; exit $EXIT"
   },
   "jest": {
     "testEnvironment": "node",
@@ -19,7 +19,9 @@
     ],
     "transform": {},
     "forceExit": true,
-    "testTimeout": 15000
+    "testTimeout": 15000,
+    "globalSetup": "./tests/globalSetup.cjs",
+    "globalTeardown": "./tests/globalTeardown.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

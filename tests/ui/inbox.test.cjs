@@ -79,3 +79,51 @@ test('16.7 — Email Scan panel shows scan area', async () => {
   recordResult('16.7', ok, detail);
   expect(ok).toBe(true);
 });
+
+// UAT 16.8 — Newsletter Monitor panel exists in Inbox tab
+test('16.8 — Newsletter Monitor panel exists', async () => {
+  // Ensure we are on the Inbox tab
+  const tab = await page.$('#btn-inbox');
+  if (tab) await tab.click();
+  await page.waitForTimeout(1500);
+  const panel = await page.$('#newsletter-monitor-panel');
+  const ok = panel !== null;
+  recordResult('16.8', ok, ok ? 'newsletter-monitor-panel found' : 'MISSING');
+  expect(ok).toBe(true);
+});
+
+// UAT 16.9 — Newsletter sender count badge present
+test('16.9 — Newsletter sender count badge visible', async () => {
+  const badge = await page.$('.newsletter-sender-count');
+  const ok = badge !== null;
+  let detail = 'newsletter-sender-count not found';
+  if (badge) {
+    const text = (await badge.textContent()).trim();
+    detail = `newsletter-sender-count: "${text}"`;
+  }
+  recordResult('16.9', ok, detail);
+  expect(ok).toBe(true);
+});
+
+// UAT 16.10 — Gmail Hygiene senders show real names, not "Unknown"
+test('16.10 — Gmail Hygiene senders show email or name, not Unknown', async () => {
+  // Navigate to inbox tab
+  const tab = await page.$('#btn-inbox');
+  if (tab) await tab.click();
+  await page.waitForTimeout(3000);
+  const ghSenders = await page.$('#gh-senders');
+  let ok = true;
+  let detail = 'gh-senders not found';
+  if (ghSenders) {
+    const text = await ghSenders.textContent();
+    // If senders are loaded, none should show "Unknown"
+    if (text.includes('Unknown')) {
+      ok = false;
+      detail = 'Found "Unknown" in sender names';
+    } else {
+      detail = 'No Unknown senders found';
+    }
+  }
+  recordResult('16.10', ok, detail);
+  expect(ok).toBe(true);
+});

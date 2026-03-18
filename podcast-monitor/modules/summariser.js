@@ -2,12 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { getDb } = require('./db');
 
-const PODCAST_SYSTEM_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../../config/prompts/podcast-summarisation.md'), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
-
 const { getModel } = require('../../shared/models.cjs');
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+
+function _getPodcastPrompt() {
+  return fs.readFileSync(
+    path.join(__dirname, '../../config/prompts/podcast-summarisation.md'), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
 
 function buildTranscriptText(whisperJson) {
@@ -85,7 +87,7 @@ Rules for topic_tags:
     body: JSON.stringify({
       model: getModel('podcast_summary'),
       max_tokens: 2000,
-      system: PODCAST_SYSTEM_PROMPT,
+      system: _getPodcastPrompt(),
       messages: [{ role: 'user', content: userPrompt }]
     })
   });

@@ -12,11 +12,14 @@ function _getDrafterProfile() {
   return JSON.parse(readFileSync(join(__dirname_drafter, '..', '..', 'config', 'user-profile.json'), 'utf8'));
 }
 
-const SYSTEM_PROMPT_TEMPLATE = readFileSync(
-  new URL('../../config/prompts/outreach-email-drafting.md', import.meta.url), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
+function _getSystemPromptTemplate() {
+  return readFileSync(
+    new URL('../../config/prompts/outreach-email-drafting.md', import.meta.url), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
 
 function _buildSystemPrompt(wordCountTarget) {
+  const SYSTEM_PROMPT_TEMPLATE = _getSystemPromptTemplate();
   const profile = _getDrafterProfile();
   // Prepend candidate name and proof point rule to the template
   return `You are drafting outreach emails for ${profile.name}. ${profile.proof_point_order_rule ? `You must: ${profile.proof_point_order_rule}. ` : ''}${SYSTEM_PROMPT_TEMPLATE.replace('{wordCountTarget}', wordCountTarget)}`;

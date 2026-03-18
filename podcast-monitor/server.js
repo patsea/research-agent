@@ -266,7 +266,7 @@ app.post('/api/summaries/:id/section', async (req, res) => {
 
     const chunkText = segments.map(seg => seg.text.trim()).join(' ');
 
-    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     const fetchMod = (await import('node-fetch')).default;
     const response = await fetchMod('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -595,8 +595,9 @@ app.post('/api/feeds/:id/backfill-dates', async (req, res) => {
 // Daily podcast digest — past 24h, AI-ranked by relevance_score
 app.get('/api/digest/podcast', async (req, res) => {
   try {
-    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    const daysBack = parseInt(req.query.daysBack) || 1;
+    const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
     const db = getDb();
     // feed_name via JOIN feeds (not a column on episodes)
     const rows = db.prepare(`
@@ -609,24 +610,72 @@ app.get('/api/digest/podcast', async (req, res) => {
 
     const unscored = rows.filter(r => !r.relevance_score);
     if (unscored.length > 0 && ANTHROPIC_API_KEY) {
-      const prompt = `Score each podcast episode 1-10 for relevance to a senior tech exec job search (AI, operations, growth, PE/VC). Return ONLY a JSON array, no markdown: [{"id": N, "score": N}]\nEpisodes:\n` +
-        unscored.map(e => `ID:${e.id} "${e.title}" Feed:${e.feed_name||''} Desc:${(e.description||'').slice(0,150)}`).join('\n');
-      try {
-        const r = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: getModel('classification'), max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
-        });
-        const data = await r.json();
-        const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
-        const scores = JSON.parse(text);
-        const stmt = db.prepare('UPDATE episodes SET relevance_score = ? WHERE id = ?');
-        for (const { id, score } of scores) stmt.run(score, id);
-      } catch (e) { console.error('[digest/podcast] scoring error:', e.message); }
+      const fs = require('fs');
+      // Read prompt fresh each call (supports live editing via Dashboard)
+      const promptTemplate = fs.readFileSync(
+        path.join(__dirname, '../config/prompts/podcast-digest-scoring.md'), 'utf8').trim();
+
+      // Look up summaries for section data
+      const summaryStmt = db.prepare('SELECT summary_text, topic_tags FROM summaries WHERE episode_id = ?');
+
+      const updateStmt = db.prepare(`UPDATE episodes SET
+        relevance_score = ?,
+        episode_verdict = ?,
+        why_relevant = ?,
+        best_sections_json = ?,
+        skip_sections_json = ?,
+        top_tags_json = ?,
+        one_line_takeaway = ?
+      WHERE id = ?`);
+
+      // Score episodes ONE AT A TIME (new prompt takes single episode context)
+      for (const ep of unscored) {
+        try {
+          // Gather section summaries from existing summary if available
+          const summaryRow = summaryStmt.get(ep.id);
+          let sectionSummariesJson = '[]';
+          if (summaryRow && summaryRow.topic_tags) {
+            try { sectionSummariesJson = summaryRow.topic_tags; } catch { /* keep default */ }
+          }
+
+          // Inject the 6 required tokens
+          const prompt = promptTemplate
+            .replace('{TITLE}', ep.title || '')
+            .replace('{PODCAST_NAME}', ep.feed_name || ep.channel_name || '')
+            .replace('{GUESTS}', ep.guests || '')
+            .replace('{PUBLISHED_AT}', ep.published_at || '')
+            .replace('{EPISODE_SUMMARY}', (summaryRow && summaryRow.summary_text) || ep.description || '')
+            .replace('{SECTION_SUMMARIES_JSON}', sectionSummariesJson);
+
+          const r = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: getModel('classification'), max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+          });
+          const data = await r.json();
+          const text = (data?.content?.[0]?.text || '{}').replace(/```json|```/g, '').trim();
+          const parsed = JSON.parse(text);
+
+          const episodeScore = parsed.episode_score ?? parsed.score ?? null;
+          const verdict = parsed.episode_verdict || '';
+          const whyRelevant = parsed.why_it_is_or_is_not_worth_it || '';
+          const bestSections = (() => { try { return JSON.stringify(parsed.best_sections || []); } catch { return '[]'; } })();
+          const skipSections = (() => { try { return JSON.stringify(parsed.skip_sections || []); } catch { return '[]'; } })();
+          const topTags = (() => { try { return JSON.stringify(parsed.top_tags || []); } catch { return '[]'; } })();
+          const takeaway = parsed.one_line_takeaway || '';
+
+          updateStmt.run(episodeScore, verdict, whyRelevant, bestSections, skipSections, topTags, takeaway, ep.id);
+          console.log(`[digest/podcast] scored episode ${ep.id}: ${episodeScore}/10 — ${verdict}`);
+        } catch (e) {
+          console.error(`[digest/podcast] scoring error for episode ${ep.id}:`, e.message);
+        }
+      }
     }
     const ranked = db.prepare(`
       SELECT e.id, e.title, f.name AS feed_name, e.channel_name, e.description,
-             e.relevance_score, e.created_at
+             e.relevance_score, e.created_at,
+             e.episode_verdict, e.one_line_takeaway, e.best_sections_json,
+             e.skip_sections_json, e.top_tags_json, e.why_relevant
       FROM episodes e LEFT JOIN feeds f ON e.feed_id = f.id
       WHERE e.created_at >= ? ORDER BY e.relevance_score DESC, e.created_at DESC LIMIT 10
     `).all(since);
@@ -665,6 +714,41 @@ app.patch('/api/feeds/:id/toggles', (req, res) => {
 
   const updated = db.prepare('SELECT * FROM feeds WHERE id = ?').get(req.params.id);
   res.json(updated);
+});
+
+// Proxy to dashboard for prompts (avoids CORS from port 3040 → 3030)
+app.get('/api/proxy/prompts', async (req, res) => {
+  try {
+    const response = await fetch('http://localhost:3030/api/config/prompts');
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(503).json({ error: 'Dashboard unavailable', message: e.message });
+  }
+});
+
+app.get('/api/proxy/prompts/:name', async (req, res) => {
+  try {
+    const response = await fetch(`http://localhost:3030/api/config/prompts/${req.params.name}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(503).json({ error: 'Dashboard unavailable', message: e.message });
+  }
+});
+
+app.post('/api/proxy/prompts/:name', async (req, res) => {
+  try {
+    const response = await fetch(`http://localhost:3030/api/config/prompts/${req.params.name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (e) {
+    res.status(503).json({ error: 'Dashboard unavailable', message: e.message });
+  }
 });
 
 // Catch-all: serve index.html (MUST be after all API routes)

@@ -28,44 +28,21 @@ export async function runPortfolioResearch(input) {
   const today = new Date().toISOString().split('T')[0];
   const dimensionList = ELNS_DIMENSIONS.map((d, i) => `${i + 1}. ${d}`).join('\n');
 
-  const prompt = `Research the portfolio of "${fundName}" and assess which companies might benefit from a senior product/operations leader. Today is ${today}. Focus on information from 2024-2026.
+  const p = _getProfile();
+  const profileContext = `A ${p.roles[0]?.title || 'CPO/COO'} with ${p.ai_experience} and a PE-backed transformation track record is reviewing this fund's portfolio. Key credentials:\n${p.roles.map(r => '- ' + r.company + ': ' + r.title + ', ' + r.highlight).join('\n')}\n- ${p.education}, ${p.location.split(' —')[0]}\n- Positioning: ${p.positioning}`;
 
-## Context
-${(() => { const p = _getProfile(); return `A ${p.roles[0]?.title || 'CPO/COO'} with ${p.ai_experience} and a PE-backed transformation track record is reviewing this fund's portfolio. Key credentials:\n${p.roles.map(r => '- ' + r.company + ': ' + r.title + ', ' + r.highlight).join('\n')}\n- ${p.education}, ${p.location.split(' —')[0]}\n- Positioning: ${p.positioning}`; })()}
-
-${contactName ? `Fund contact: ${contactName}` : ''}
-${context ? `Discussion context: ${context}` : ''}
-
-## Task
-1. List ALL known active portfolio companies of ${fundName} (not exited). For each: company name, sector, funding stage, approximate headcount, founding year, founder backgrounds, any recent news.
-
-2. Identify the top 5-8 companies that are SaaS, software, AI/tech, or digital transformation plays.
-
-3. For each of those companies, assess against these 8 ELNS (Executive Leadership Need Signal) dimensions. Score each dimension 0-2:
-   - 0 = no signal detected
-   - 1 = weak signal (possible but unconfirmed)
-   - 2 = strong signal (clear evidence)
-
-ELNS Dimensions:
-${dimensionList}
-
-4. Provide ONE sentence of evidence for each non-zero score.
-
-5. Rank companies by total ELNS score (maximum 16 points).
-
-## Output Format
-Start with a summary table:
-
-| Rank | Company | Sector | ELNS Score (/16) | Top 2 Signals |
-|------|---------|--------|-----------------|---------------|
-
-Then provide detailed write-ups for the top ${topN} companies with:
-- Company overview (2-3 sentences)
-- Full 8-dimension ELNS scoring with evidence
-- Why this company might need a CPO/COO
-- Conversation angle (how to frame interest as peer insight, not recruitment pitch)
-
-Frame all observations as strategic portfolio insight, not as a job application.`;
+  const promptTemplate = readFileSync(
+    join(__dirname_pr, '../../config/prompts/portfolio-researcher.md'), 'utf8');
+  const prompt = promptTemplate
+    .replace(/\{FIRM_NAME\}/g, fundName)
+    .replace('{FIRM_WEBSITE}', input.firmWebsite || '')
+    .replace('{GEOGRAPHY_FOCUS}', input.geographyFocus || '')
+    .replace('{SECTOR_FOCUS}', input.sectorFocus || '')
+    .replace('{RESEARCH_CONTEXT}', [
+      profileContext,
+      contactName ? `Fund contact: ${contactName}` : '',
+      context ? `Discussion context: ${context}` : ''
+    ].filter(Boolean).join('\n'));
 
   console.log(`Running Perplexity deep research on ${fundName} portfolio...`);
   const markdown = await deepResearch(prompt, 6000);

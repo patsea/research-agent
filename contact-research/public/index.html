@@ -254,7 +254,7 @@ async function loadLibrary() {
         const rowId = item.id || item.company_name;
         const isChecked = selectedRows.has(rowId);
 
-        return '<tr data-row-id="' + rowId + '" data-company="' + (item.company_name||'').replace(/"/g,'&quot;') + '" data-context="' + (item.context_type||'') + '" data-contact-id="' + (contact ? contact.id : '') + '">' +
+        return '<tr data-row-id="' + rowId + '" data-company="' + (item.company_name||'').replace(/"/g,'&quot;') + '" data-context="' + (item.context_type||'') + '" data-contact-id="' + (contact ? contact.id : '') + '" data-run-id="' + (item.id || '') + '">' +
           '<td><input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleRow(\'' + rowId + '\', this.checked, this.closest(\'tr\'))"></td>' +
           '<td><strong>' + (item.company_name || '\u2014') + '</strong></td>' +
           '<td style="color:#6b7280">' + (item.context_type || '\u2014') + '</td>' +
@@ -283,7 +283,8 @@ function toggleRow(rowId, checked, trEl) {
     selectedRows.set(rowId, {
       company: trEl.dataset.company,
       contextType: trEl.dataset.context,
-      contactId: trEl.dataset.contactId
+      contactId: trEl.dataset.contactId,
+      runId: trEl.dataset.runId || null
     });
   } else {
     selectedRows.delete(rowId);
@@ -300,7 +301,8 @@ function toggleAll(checked) {
       selectedRows.set(rowId, {
         company: tr.dataset.company,
         contextType: tr.dataset.context,
-        contactId: tr.dataset.contactId
+        contactId: tr.dataset.contactId,
+        runId: tr.dataset.runId || null
       });
     } else {
       selectedRows.delete(rowId);
@@ -350,7 +352,7 @@ async function runBatchStep(step) {
         const r = await fetch('/api/research', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ companyName: info.company, campaignType: role })
+          body: JSON.stringify({ companyName: info.company, campaignType: role, researchRunId: info.runId || null })
         });
         const d = await r.json();
         if (d.error) throw new Error(d.error);

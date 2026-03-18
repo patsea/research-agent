@@ -107,10 +107,12 @@
 
   /* Agents section */
   .agents-section { padding: 0; }
-  .pipeline-row { display: flex; align-items: center; gap: 10px; overflow-x: auto;
+  .pipeline-row { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px;
                   padding-bottom: 8px; margin-bottom: 4px; }
-  .pipeline-arrow { color: #ccc; font-size: 20px; flex-shrink: 0; line-height: 1; user-select: none; }
-  .pipeline-card { position: relative; min-width: 148px; max-width: 160px; flex-shrink: 0;
+  .pipeline-row .agent-card { flex: 1 1 0; min-width: 0; box-sizing: border-box; }
+  .pipeline-arrow { color: #ccc; font-size: 20px; flex-shrink: 0; line-height: 1; user-select: none;
+                    display: flex; align-items: center; }
+  .pipeline-card { position: relative;
                    padding: 16px 14px 14px !important; text-align: center; border-left: none !important; }
   .pipeline-card .agent-name { font-size: 13px; }
   .pipeline-card .agent-desc { font-size: 11px; margin-bottom: 8px; }
@@ -119,7 +121,8 @@
   .health-dot { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px;
                 border-radius: 50%; background: #ef4444; }
   .health-dot.running { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
-  .standalone-row { display: flex; gap: 14px; }
+  .standalone-row { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+  .standalone-row .agent-card { flex: 0 0 auto; width: calc((100% - 16px) / 3); box-sizing: border-box; }
   .section-divider { border: none; border-top: 1px solid #e0e0e0; margin: 20px 0 16px; }
 
   /* Workspace view */
@@ -311,7 +314,7 @@
       <div class="agent-card pipeline-card" id="pcard-newsletter" data-port="3041">
         <div class="health-dot" id="hdot-3041"></div>
         <div class="agent-name">Newsletter Monitor</div>
-        <div class="agent-desc">Daily digest, dual Gmail, Haiku summaries</div>
+        <div class="agent-desc">Daily digest, triple Gmail, Haiku summaries</div>
         <div class="agent-port">:3041</div>
         <button class="btn-open" onclick="openNewTab(3041,'/')">Open &#8599;</button>
       </div>
@@ -405,6 +408,34 @@
       </div>
     </div>
     <div id="es-results" style="font-size:13px;color:#999;">Click Run scan or wait for auto-load.</div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- Newsletter Monitor Section -->
+  <div id="newsletter-monitor-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <h2 style="font-size:16px;font-weight:600;">Newsletter Monitor</h2>
+        <span class="newsletter-sender-count" style="background:#3b82f6;color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;">--</span>
+      </div>
+      <button class="btn-open" onclick="nlRunScan()">Run scan</button>
+    </div>
+    <div id="nl-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="nl-today">--</div>
+        <div style="font-size:11px;color:#999;">Today</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="nl-archived">--</div>
+        <div style="font-size:11px;color:#999;">Archived</div>
+      </div>
+      <div class="agent-card" style="padding:14px;text-align:center;cursor:default;">
+        <div style="font-size:22px;font-weight:700;" id="nl-total">--</div>
+        <div style="font-size:11px;color:#999;">Total senders</div>
+      </div>
+    </div>
+    <div id="nl-list" style="font-size:13px;color:#999;">Loading newsletters...</div>
   </div>
 </div>
 
@@ -505,24 +536,34 @@ function loadAgentInWorkspace(port, name) {
   const iframe = document.getElementById('agent-iframe');
   const placeholder = document.getElementById('iframe-placeholder');
   if (!iframe) return;
-  // Try loading the agent root — if it fails or stays blank, show health status inline
+  // Clear previous error/srcdoc state to prevent poisoning from unreachable agents
+  iframe.removeAttribute('srcdoc');
   iframe.onerror = null;
+  iframe.onload = null;
+  // Try loading the agent root — if it fails or stays blank, show health status inline
   iframe.src = 'http://localhost:' + port + '/';
   iframe.style.display = 'block';
   if (placeholder) placeholder.style.display = 'none';
-  // Fallback: if iframe stays blank after 2s, show health check data
+  // Cancel fallback when iframe loads successfully
+  iframe.onload = function() { clearTimeout(iframe._fallbackTimer); };
+  // Fallback: if iframe stays blank after 3s, check health via dashboard proxy
   clearTimeout(iframe._fallbackTimer);
   iframe._fallbackTimer = setTimeout(async () => {
     try {
-      const res = await fetch('http://localhost:' + port + '/api/health');
-      const data = await res.json();
+      const statusRes = await fetch('/api/status');
+      const agents = await statusRes.json();
+      const agent = agents.find(a => a.port === port);
+      if (agent && agent.running) {
+        // Agent is healthy but iframe didn't fire onload — likely slow load, leave it alone
+        return;
+      }
       iframe.srcdoc = '<body style="font-family:sans-serif;padding:24px"><h2>' + name + '</h2>' +
-        '<p style="color:#4caf50">Healthy</p><pre>' + JSON.stringify(data, null, 2) + '</pre></body>';
+        '<p style="color:#f44336">Unreachable on port ' + port + '</p></body>';
     } catch(e) {
       iframe.srcdoc = '<body style="font-family:sans-serif;padding:24px"><h2>' + name + '</h2>' +
         '<p style="color:#f44336">Unreachable on port ' + port + '</p></body>';
     }
-  }, 2000);
+  }, 3000);
 }
 
 function embedAgent(id, port, path) {
@@ -556,13 +597,13 @@ function setMode(mode) {
   document.getElementById('btn-workspace').classList.toggle('active', mode === 'workspace');
   document.getElementById('btn-activity').classList.toggle('active', mode === 'activity');
   document.getElementById('btn-inbox').classList.toggle('active', mode === 'inbox');
-  // Auto-load Outreach Drafter (agent5, port 3037) when entering workspace with no agent selected
+  // Auto-load Outreach Drafter when entering workspace with no agent selected
   if (mode === 'workspace' && !document.querySelector('.sidebar-item.active')) {
-    const agent5 = agentData.find(a => a.id === 'agent5');
-    if (agent5 && agent5.running) embedAgent('agent5', 3037, '/');
+    const od = agentData.find(a => a.id === 'outreach-drafter');
+    if (od && od.running) embedAgent('outreach-drafter', 3037, '/');
   }
   if (mode === 'activity') loadActivity();
-  if (mode === 'inbox') { loadGmailHygiene(); loadEmailScan(); }
+  if (mode === 'inbox') { loadGmailHygiene(); loadEmailScan(); loadNewsletterPanel(); }
 }
 
 async function loadActivity() {
@@ -780,15 +821,23 @@ function updatePipelineFlow() { updateHealthDots(); }
 loadStatus();
 setInterval(loadStatus, 30000);
 
+// Activate tab from URL param (e.g. ?tab=activity, ?tab=inbox, ?tab=workspace)
+(function() {
+  const tabParam = new URLSearchParams(window.location.search).get('tab');
+  if (tabParam && ['dashboard', 'workspace', 'activity', 'inbox'].includes(tabParam)) {
+    setMode(tabParam);
+  }
+})();
+
 // --- Inbox: Gmail Hygiene ---
 async function loadGmailHygiene() {
   try {
     const res = await fetch('/api/proxy/gmail-hygiene/senders');
     const senders = await res.json();
     if (!Array.isArray(senders)) { document.getElementById('gh-senders').textContent = 'No sender data'; return; }
-    const toReview = senders.filter(s => !s.action || s.action === 'pending');
-    const kept = senders.filter(s => s.action === 'keep');
-    const unsub = senders.filter(s => s.action === 'unsubscribe' || s.action === 'blocked');
+    const toReview = senders.filter(s => !s.status || s.status === 'active' || s.status === 'pending');
+    const kept = senders.filter(s => s.status === 'kept' || s.status === 'keep');
+    const unsub = senders.filter(s => s.status === 'unsubscribed' || s.status === 'blocked');
     document.getElementById('gh-total').textContent = senders.length;
     document.getElementById('gh-review').textContent = toReview.length;
     document.getElementById('gh-kept').textContent = kept.length;
@@ -797,7 +846,7 @@ async function loadGmailHygiene() {
     // Group by label
     const byLabel = {};
     senders.forEach(s => {
-      const lbl = s.label || s.category || 'Uncategorised';
+      const lbl = s.label_name || s.label || s.category || 'Uncategorised';
       if (!byLabel[lbl]) byLabel[lbl] = [];
       byLabel[lbl].push(s);
     });
@@ -808,11 +857,11 @@ async function loadGmailHygiene() {
         ${items.map(s => `
           <div class="agent-card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:6px;cursor:default;">
             <div>
-              <div style="font-size:13px;font-weight:500;">${esc(s.sender || s.email || s.from || 'Unknown')}</div>
-              <div style="font-size:11px;color:#999;">${s.count ? s.count + ' emails' : ''} ${s.action && s.action !== 'pending' ? '<span class="result-badge ' + (s.action === 'keep' ? 'success' : 'error') + '">' + esc(s.action) + '</span>' : ''}</div>
+              <div style="font-size:13px;font-weight:500;">${esc(s.display_name || s.email_address || s.sender || s.email || 'Unknown')}</div>
+              <div style="font-size:11px;color:#999;">${s.frequency_per_month ? s.frequency_per_month + '/mo' : (s.count ? s.count + ' emails' : '')} ${(s.status || s.action) && (s.status || s.action) !== 'pending' && (s.status || s.action) !== 'active' ? '<span class="result-badge ' + ((s.status || s.action) === 'kept' || (s.status || s.action) === 'keep' ? 'success' : 'error') + '">' + esc(s.status || s.action) + '</span>' : ''}</div>
             </div>
             <div style="display:flex;gap:6px;">
-              ${!s.action || s.action === 'pending' ? `
+              ${(!s.status || s.status === 'active') && (!s.action || s.action === 'pending') ? `
                 <button class="btn-forward" style="font-size:11px;padding:4px 10px;" onclick="ghAction('${esc(s.id || s._id || '')}','keep')">Keep</button>
                 <button class="btn-dismiss" style="font-size:11px;padding:4px 10px;" onclick="ghAction('${esc(s.id || s._id || '')}','unsubscribe')">Unsub</button>
               ` : ''}
@@ -894,6 +943,79 @@ async function esScan() {
     showToast(data.message || 'Scan complete');
     await loadEmailScan();
   } catch (e) { showToast('Scan failed: ' + e.message, 'error'); }
+}
+
+// --- Inbox: Newsletter Monitor ---
+async function loadNewsletterPanel() {
+  try {
+    const res = await fetch('/api/proxy/newsletter/newsletters');
+    const newsletters = await res.json();
+    if (!Array.isArray(newsletters)) {
+      document.getElementById('nl-list').textContent = 'No newsletter data';
+      document.querySelector('.newsletter-sender-count').textContent = '0';
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const todayItems = newsletters.filter(n => (n.date || n.received || n.created_at || '').slice(0, 10) === today);
+    const archived = newsletters.filter(n => n.status === 'read' || n.status === 'archived');
+    const senders = new Set(newsletters.map(n => n.sender || n.from || n.email || 'Unknown'));
+
+    document.querySelector('.newsletter-sender-count').textContent = todayItems.length;
+    document.getElementById('nl-today').textContent = todayItems.length;
+    document.getElementById('nl-archived').textContent = archived.length;
+    document.getElementById('nl-total').textContent = senders.size;
+
+    const display = todayItems.slice(0, 10);
+    const container = document.getElementById('nl-list');
+    if (!display.length) { container.textContent = 'No newsletters today'; return; }
+
+    const sourceBadge = (src) => {
+      const s = (src || 'gmail').toLowerCase();
+      if (s.includes('growthworks')) return '<span style="background:#22c55e;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;">growthworks</span>';
+      if (s.includes('aloma')) return '<span style="background:#a855f7;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;">aloma</span>';
+      return '<span style="background:#3b82f6;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;">gmail</span>';
+    };
+
+    container.innerHTML = display.map(n => `
+      <div class="agent-card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:6px;cursor:default;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;">${esc(n.sender || n.from || 'Unknown')}</div>
+          <div style="font-size:11px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(n.subject || '')}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:12px;">
+          ${sourceBadge(n.source || n.account)}
+          ${(n.status !== 'read' && n.status !== 'archived') ? `<button class="btn-dismiss" style="font-size:11px;padding:4px 10px;" onclick="nlArchive('${esc(n.id || n._id || '')}')">Archive</button>` : '<span class="result-badge success" style="font-size:10px;">archived</span>'}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('nl-list').innerHTML = '<span style="color:#ef4444;">Newsletter Monitor not reachable</span>';
+    document.querySelector('.newsletter-sender-count').textContent = '!';
+  }
+}
+
+async function nlRunScan() {
+  try {
+    showToast('Starting Newsletter scan...');
+    const res = await fetch('/api/proxy/newsletter/run', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.message || 'Scan complete');
+    await loadNewsletterPanel();
+  } catch (e) { showToast('Newsletter scan failed: ' + e.message, 'error'); }
+}
+
+async function nlArchive(id) {
+  if (!id) return;
+  try {
+    const res = await fetch(`/api/proxy/newsletter/status/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'read' })
+    });
+    if (!res.ok) throw new Error('Status ' + res.status);
+    showToast('Newsletter archived');
+    await loadNewsletterPanel();
+  } catch (e) { showToast('Archive failed: ' + e.message, 'error'); }
 }
 </script>
 <script id="force-light-mode">

@@ -6,13 +6,17 @@ const path = require('path');
 const { getModel } = require('../shared/models.cjs');
 const fs = require('fs');
 
-const RESEARCH_GENERATOR_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../config/prompts/signal-research-generator.md'), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
+function _getResearchGeneratorPrompt() {
+  return fs.readFileSync(
+    path.join(__dirname, '../config/prompts/signal-research-generator.md'), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
 
-const SIGNAL_AUDIT_PROMPT = fs.readFileSync(
-  path.join(__dirname, '../config/prompts/signal-audit.md'), 'utf8'
-).replace(/^#[^\n]*\n/gm, '').trim();
+function _getSignalAuditPrompt() {
+  return fs.readFileSync(
+    path.join(__dirname, '../config/prompts/signal-audit.md'), 'utf8'
+  ).replace(/^#[^\n]*\n/gm, '').trim();
+}
 
 // Signal Scanner — UI server only.
 // The daily pipeline runs independently via: node pipeline/run.js
@@ -36,7 +40,7 @@ app.get('/api/signals/:id/generate-prompt', (req, res) => {
   const signal = signalDb.signals.getById(req.params.id);
   if (!signal) return res.status(404).json({ error: 'Signal not found' });
 
-  const prompt = RESEARCH_GENERATOR_PROMPT
+  const prompt = _getResearchGeneratorPrompt()
     .replace('{COMPANY_NAME}', signal.company_name)
     .replace('{SIGNAL_TYPE}', signal.signal_type)
     .replace('{SECTOR}', signal.sector)
@@ -58,14 +62,14 @@ app.post('/api/signals/:id/audit', async (req, res) => {
   const { perplexityOutput } = req.body;
   if (!perplexityOutput) return res.status(400).json({ error: 'perplexityOutput is required' });
 
-  const apiKey = process.env.CLAUDE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'CLAUDE_API_KEY not configured' });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
       model: getModel('synthesis'),
       max_tokens: 2048,
-      system: SIGNAL_AUDIT_PROMPT,
+      system: _getSignalAuditPrompt(),
       messages: [{
         role: 'user',
         content: `Company: ${signal.company_name}\nSignal: ${signal.ai_summary}\n\nPerplexity Research Output:\n${perplexityOutput}\n\nPlease audit this research for accuracy, completeness, and potential issues.`
@@ -103,8 +107,8 @@ app.get('/api/signals/:id/context', async (req, res) => {
     return res.json({ cached: true, context: signal.company_context, signalId: signal.id });
   }
 
-  const apiKey = process.env.CLAUDE_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'CLAUDE_API_KEY not configured' });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {

@@ -63,7 +63,7 @@ export async function runInterviewPrep(input, stage = 'recruiter_screen') {
   }
 
   // 3. Load template
-  const templatePath = process.env.INTERVIEW_PREP_TEMPLATE_PATH;
+  const templatePath = join(__dirname, '..', '..', 'config', 'prompts', 'research-interview-prep-template.md');
   let template = '';
   try {
     template = readFileSync(templatePath, 'utf8');
@@ -84,7 +84,7 @@ export async function runInterviewPrep(input, stage = 'recruiter_screen') {
   }
 
   // 5. Load system prompt from file and inject profile values
-  const systemPromptPath = join(__dirname, '..', 'prompts', 'system_interview_prep.txt');
+  const systemPromptPath = join(__dirname, '..', '..', 'config', 'prompts', 'research-interview-prep-system.md');
   let systemPrompt = '';
   try {
     const rawPrompt = readFileSync(systemPromptPath, 'utf8');
@@ -138,7 +138,7 @@ ${granolaNotes ? `## Granola Meeting Notes\n${granolaNotes}` : ''}
     },
     {
       headers: {
-        'x-api-key': process.env.CLAUDE_API_KEY,
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
       timeout: 360000  // 360s: Stage 1 (Perplexity, max 150s) + Stage 2 (Claude audit, max 180s) + 30s buffer

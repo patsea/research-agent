@@ -56,6 +56,10 @@
   .field-map-table th { text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
   .field-map-table td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
   .field-map-table select { width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: inherit; }
+  .tooltip-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #e5e7eb; color: #6b7280; font-size: 11px; font-style: normal; cursor: help; position: relative; margin-left: 4px; vertical-align: middle; }
+  .tooltip-icon:hover { background: #4f46e5; color: #fff; }
+  .tooltip-icon:hover::after { content: attr(data-tip); position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); background: #1f2937; color: #fff; font-size: 12px; font-weight: 400; padding: 6px 10px; border-radius: 6px; white-space: nowrap; max-width: 300px; white-space: normal; z-index: 50; pointer-events: none; line-height: 1.4; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .tooltip-icon:hover::before { content: ''; position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 2px); border: 4px solid transparent; border-top-color: #1f2937; z-index: 50; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -86,18 +90,18 @@
     <div class="card">
       <h3>Basic Information</h3>
       <div class="field-grid">
-        <div class="field"><label>Full Name</label><input type="text" id="up-name"></div>
-        <div class="field"><label>Current Title</label><input type="text" id="up-title"></div>
-        <div class="field"><label>Years of Experience</label><input type="number" id="up-years"></div>
-        <div class="field"><label>Degree</label><input type="text" id="up-degree"></div>
-        <div class="field"><label>School</label><input type="text" id="up-school"></div>
-        <div class="field"><label>Location</label><input type="text" id="up-location"></div>
+        <div class="field"><label>Full Name <span class="tooltip-icon" data-tip="Used in email signatures and system identification">&#8505;</span></label><input type="text" id="up-name"></div>
+        <div class="field"><label>Current Title <span class="tooltip-icon" data-tip="Appears in outreach context — keep concise (e.g. &quot;CPO / COO&quot;)">&#8505;</span></label><input type="text" id="up-title"></div>
+        <div class="field"><label>Years of Experience <span class="tooltip-icon" data-tip="Used in positioning statements">&#8505;</span></label><input type="number" id="up-years"></div>
+        <div class="field"><label>Degree <span class="tooltip-icon" data-tip="Used in bio and positioning">&#8505;</span></label><input type="text" id="up-degree"></div>
+        <div class="field"><label>School <span class="tooltip-icon" data-tip="Used in positioning — notable schools add credibility">&#8505;</span></label><input type="text" id="up-school"></div>
+        <div class="field"><label>Location <span class="tooltip-icon" data-tip="Used to filter relevant opportunities and set geographic context">&#8505;</span></label><input type="text" id="up-location"></div>
       </div>
     </div>
     <div class="card">
       <h3>Positioning Statement</h3>
       <div class="field-grid full">
-        <div class="field"><label>Your positioning / elevator pitch</label><textarea id="up-positioning" rows="4"></textarea></div>
+        <div class="field"><label>Your positioning / elevator pitch <span class="tooltip-icon" data-tip="Your elevator pitch — used as the opening context for all outreach drafts">&#8505;</span></label><textarea id="up-positioning" rows="4"></textarea></div>
       </div>
     </div>
     <div class="card">
@@ -106,17 +110,17 @@
       <button class="btn btn-outline btn-sm" onclick="addProofPoint()">+ Add Proof Point</button>
     </div>
     <div class="card">
-      <h3>Target Roles</h3>
+      <h3>Target Roles <span class="tooltip-icon" data-tip="Roles the system looks for in signals and outreach">&#8505;</span></h3>
       <div class="tags" id="tags-roles"></div>
       <div class="tag-input"><input type="text" id="input-roles" placeholder="Add a role..."><button onclick="addTag('roles')">Add</button></div>
     </div>
     <div class="card">
-      <h3>Target Sectors</h3>
+      <h3>Target Sectors <span class="tooltip-icon" data-tip="Sectors to prioritise in signal scanning">&#8505;</span></h3>
       <div class="tags" id="tags-sectors"></div>
       <div class="tag-input"><input type="text" id="input-sectors" placeholder="Add a sector..."><button onclick="addTag('sectors')">Add</button></div>
     </div>
     <div class="card">
-      <h3>Target Geographies</h3>
+      <h3>Target Geographies <span class="tooltip-icon" data-tip="Geographic filter for opportunities">&#8505;</span></h3>
       <div class="tags" id="tags-geographies"></div>
       <div class="tag-input"><input type="text" id="input-geographies" placeholder="Add a geography..."><button onclick="addTag('geographies')">Add</button></div>
     </div>
@@ -269,10 +273,10 @@
       <div class="proof-block">
         <button class="btn btn-danger btn-sm remove-proof" onclick="removeProofPoint(${i})">Remove</button>
         <div class="proof-grid">
-          <div class="field"><label>Company</label><input type="text" value="${esc(p.company)}" onchange="proofPoints[${i}].company=this.value"></div>
-          <div class="field"><label>Role</label><input type="text" value="${esc(p.role)}" onchange="proofPoints[${i}].role=this.value"></div>
-          <div class="field"><label>Highlight</label><input type="text" value="${esc(p.highlight)}" onchange="proofPoints[${i}].highlight=this.value"></div>
-          <div class="field"><label>Note</label><input type="text" value="${esc(p.note)}" onchange="proofPoints[${i}].note=this.value"></div>
+          <div class="field"><label>Company <span class="tooltip-icon" data-tip="Company where you delivered results. arago always leads.">&#8505;</span></label><input type="text" value="${esc(p.company)}" onchange="proofPoints[${i}].company=this.value"></div>
+          <div class="field"><label>Role <span class="tooltip-icon" data-tip="Your title at that company">&#8505;</span></label><input type="text" value="${esc(p.role)}" onchange="proofPoints[${i}].role=this.value"></div>
+          <div class="field"><label>Highlight <span class="tooltip-icon" data-tip="The specific metric or outcome (e.g. &quot;50% to 5% churn, 5x investor return&quot;)">&#8505;</span></label><input type="text" value="${esc(p.highlight)}" onchange="proofPoints[${i}].highlight=this.value"></div>
+          <div class="field"><label>Note <span class="tooltip-icon" data-tip="Internal note for the system (e.g. &quot;arago always leads proof point lists&quot;)">&#8505;</span></label><input type="text" value="${esc(p.note)}" onchange="proofPoints[${i}].note=this.value"></div>
         </div>
       </div>`).join('');
   }
@@ -527,27 +531,41 @@
       }
       const suggested = await res.json();
       window._rubricConfig = suggested;
-      const dims = suggested.dimensions || [];
-      statusEl.textContent = `Suggested ${dims.length} dimensions for ${type} rubric. Review and save.`;
-      statusEl.style.color = '#059669';
-      // Merge into rubricData
-      rubricData[type].dimensions = dims.map(d => ({
-        id: d.id || '',
-        name: d.name || '',
-        weight: d.weight || 0,
-        prompt: d.scoringPrompt || d.description || ''
-      }));
-      if (suggested.thresholds) {
-        rubricData[type].thresholds = suggested.thresholds;
-        if (type === 'company') {
-          document.getElementById('thresh-hot').value = suggested.thresholds.hot || '';
-          document.getElementById('thresh-warm').value = suggested.thresholds.warm || '';
-        } else {
-          document.getElementById('thresh-tier1').value = suggested.thresholds.tier1 || '';
-          document.getElementById('thresh-tier2').value = suggested.thresholds.tier2 || '';
+      if (suggested.markdown) {
+        // AI returned markdown suggestions — show in a readable panel
+        statusEl.innerHTML = '';
+        statusEl.style.color = '#059669';
+        const panel = document.createElement('div');
+        panel.style.cssText = 'margin-top:12px;padding:16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto';
+        panel.textContent = suggested.markdown;
+        statusEl.appendChild(panel);
+        const note = document.createElement('p');
+        note.style.cssText = 'margin-top:8px;font-size:12px;color:#6b7280';
+        note.textContent = 'Review the suggestions above, then manually update dimensions in the rubric editor.';
+        statusEl.appendChild(note);
+      } else if (suggested.dimensions) {
+        // Legacy: structured JSON response
+        const dims = suggested.dimensions;
+        statusEl.textContent = `Suggested ${dims.length} dimensions for ${type} rubric. Review and save.`;
+        statusEl.style.color = '#059669';
+        rubricData[type].dimensions = dims.map(d => ({
+          id: d.id || '',
+          name: d.name || '',
+          weight: d.weight || 0,
+          prompt: d.scoringPrompt || d.description || ''
+        }));
+        if (suggested.thresholds) {
+          rubricData[type].thresholds = suggested.thresholds;
+          if (type === 'company') {
+            document.getElementById('thresh-hot').value = suggested.thresholds.hot || '';
+            document.getElementById('thresh-warm').value = suggested.thresholds.warm || '';
+          } else {
+            document.getElementById('thresh-tier1').value = suggested.thresholds.tier1 || '';
+            document.getElementById('thresh-tier2').value = suggested.thresholds.tier2 || '';
+          }
         }
+        renderDims(type);
       }
-      renderDims(type);
     } catch (e) {
       statusEl.textContent = `Error: ${e.message}`;
       statusEl.style.color = '#ef4444';
@@ -557,7 +575,7 @@
   // --- Prompts ---
   async function loadPrompts() {
     try {
-      const res = await fetch('/api/config/prompts');
+      const res = await fetch('/api/config/prompts', { cache: 'no-cache' });
       if (!res.ok) return;
       const prompts = await res.json();
       const el = document.getElementById('prompts-list');
@@ -585,7 +603,7 @@
       // Load content for each prompt
       for (const p of prompts) {
         try {
-          const r = await fetch('/api/config/prompts/' + p.name);
+          const r = await fetch('/api/config/prompts/' + p.name, { cache: 'no-cache' });
           if (r.ok) {
             const d = await r.json();
             const ta = document.getElementById('prompt-' + p.name);
@@ -598,13 +616,28 @@
 
   async function savePrompt(name) {
     const ta = document.getElementById('prompt-' + name);
-    if (!ta) return;
-    const res = await fetch('/api/config/prompts/' + name, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: ta.value })
-    });
-    showToast(res.ok ? 'Prompt saved — restart agent to apply' : 'Save failed');
+    if (!ta) {
+      console.error('savePrompt: textarea not found with id "prompt-' + name + '"');
+      showToast('Error: prompt textarea not found for "' + name + '"');
+      return;
+    }
+    try {
+      console.log('savePrompt: saving prompt "' + name + '" (' + ta.value.length + ' chars)');
+      const res = await fetch('/api/config/prompts/' + name, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: ta.value })
+      });
+      if (res.ok) {
+        showToast('Prompt saved — restart agent to apply');
+      } else {
+        const detail = await res.text().catch(() => '');
+        showToast('Save failed: ' + (detail || res.status));
+      }
+    } catch (err) {
+      console.error('savePrompt error:', err);
+      showToast('Save error: ' + err.message);
+    }
   }
 
   // --- Models ---

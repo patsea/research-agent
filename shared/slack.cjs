@@ -47,10 +47,39 @@ function getWebhookUrl() {
   return null;
 }
 
+// --- Mock / test mode ---
+// When NODE_ENV=test or SLACK_MOCK=true, messages are logged to /tmp/slack-mock.log
+// instead of hitting the real webhook. Prevents ~200 real Slack messages per day
+// during TDD test runs and pipeline executions.
+
+const _mockMessages = [];
+
+function isTestMode() {
+  return process.env.NODE_ENV === 'test' || process.env.SLACK_MOCK === 'true' ||
+    fs.existsSync('/tmp/slack-test-mode');
+}
+
+function getMockMessages() {
+  return _mockMessages;
+}
+
+function clearMockMessages() {
+  _mockMessages.length = 0;
+}
+
 // --- Low-level poster ---
 
 function postToSlack(payload) {
   return new Promise((resolve, reject) => {
+    if (isTestMode()) {
+      _mockMessages.push(payload);
+      try {
+        fs.appendFileSync('/tmp/slack-mock.log',
+          new Date().toISOString() + ' ' + JSON.stringify(payload) + '\n');
+      } catch (_) {}
+      return resolve(true);
+    }
+
     const url = getWebhookUrl();
     if (!url) {
       console.log('[slack] No webhook URL configured — skipping notification');
@@ -266,9 +295,12 @@ function formatDuration(seconds) {
 async function sendPodcastDigest(items) {
   if (!items || items.length === 0) return;
   const top = items.slice(0, 3);
-  const lines = top.map((ep, i) =>
-    `${i+1}. *${(ep.title || 'Untitled').replace(/[<>|]/g, '')}* — ${ep.feed_name || ''} (score: ${ep.relevance_score ?? '?'})`
-  );
+  const lines = top.map((ep, i) => {
+    const title = (ep.title || 'Untitled').replace(/[<>|]/g, '');
+    const verdict = ep.episode_verdict ? ` [${ep.episode_verdict}]` : '';
+    const takeaway = ep.one_line_takeaway ? `\n   _${ep.one_line_takeaway.replace(/[<>|]/g, '')}_` : '';
+    return `${i+1}. *${title}* — ${ep.feed_name || ''} (score: ${ep.relevance_score ?? '?'})${verdict}${takeaway}`;
+  });
   const text = `:studio_microphone: *Daily Podcast Digest* — top ${top.length} from past 24h\n` +
     lines.join('\n') + `\n<http://localhost:3040|View all episodes>`;
   await postToSlack({ text });
@@ -285,4 +317,4 @@ async function sendNewsletterDigest(items) {
   await postToSlack({ text });
 }
 
-module.exports = { notifySignal, notifyNewsletter, notifyNewSender, notifyEpisode, notifyAlert, postToSlack, sendPodcastDigest, sendNewsletterDigest };
+module.exports = { notifySignal, notifyNewsletter, notifyNewSender, notifyEpisode, notifyAlert, postToSlack, sendPodcastDigest, sendNewsletterDigest, isTestMode, getMockMessages, clearMockMessages };
