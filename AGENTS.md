@@ -34,3 +34,6 @@ Base: /Users/pwilliamson/Dropbox/ALOMA/claude-code/job-search-agent/
 Panel: instructions/Project files/Job search agent/
 Upload: instructions/Project files/Job search agent/Upload/
 Findings: docs/findings/ (central — NOT per-project)
+| Safety & Governance | safety-governance/ | — | — | Pre-commit gate: credentials, CRM writes, Gmail writes, API calls |
+| QA Engineer | qa-engineer/ | — | — | Verification commands, test baselines, pipeline checks |
+| Code Reviewer | code-reviewer/ | — | — | Pre-commit: patterns, pitfalls, prompt loading, ESM/CJS |
