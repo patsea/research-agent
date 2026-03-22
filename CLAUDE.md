@@ -80,6 +80,17 @@ Without findings files, the next session re-investigates what is already known.
 
 ---
 
+## Notion Knowledge Base
+
+| Item | Value |
+|------|-------|
+| Notion: JSA Knowledge Base | ID: abf7e0ae-5ac1-4d67-8b65-2764b9320c2e |
+| Notion: JSA KB data_source | ID: 76a259b9-388e-40f1-9729-8a84a0aaf3e1 |
+
+FINDINGS and HANDOVER files sync to this database. See parent CLAUDE.md Rule 15 for sync protocol.
+
+---
+
 ## Known issues (not bugs — deferred work)
 
 - Signal Scanner forward_queue.jsonl has no consumer — forwarding a signal does not automatically trigger research
