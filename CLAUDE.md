@@ -1,3 +1,10 @@
+## ⛔ SCOPE DECLARATION — job-search-agent ONLY
+This CLAUDE.md governs job-search-agent ONLY.
+Do NOT inherit rules from parent DevOps CLAUDE.md.
+If working outside job-search-agent/, stop and load the correct CLAUDE.md.
+
+---
+
 ## Superpowers — always active
 
 The following superpowers skills are mandatory for all code changes in this project:
