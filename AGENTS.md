@@ -18,6 +18,7 @@ Signal Scanner → Research → Scorer → Contact Research → Outreach Drafter
 | Scorer | scorer/ | 3038 | — | MTOS+H company + FOAN firm scoring |
 | Gmail Hygiene | gmail-hygiene/ | 3039 | — | Labelling, dual account, cleanup |
 | Podcast Monitor | podcast-monitor/ | 3040 | — | RSS/YouTube digest |
+| AI Engineer | ai-engineer/ | — | — | Prompt governance, model config, evaluation |
 | Newsletter Monitor | newsletter-monitor/ | 3041 | — | Triple Gmail, JSON summariser |
 
 ## Invocation
