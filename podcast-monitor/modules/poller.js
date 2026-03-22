@@ -2,6 +2,17 @@ const Parser = require('rss-parser');
 const { getDb } = require('./db');
 // REMOVED digest-refactor-20Mar: const { notifyEpisode } = require('../../shared/slack.cjs');
 
+function extractYouTubeId(url) {
+  if (!url) return null;
+  let m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  return null;
+}
+
 const parser = new Parser({
   timeout: 30000,
   headers: { 'User-Agent': 'PodcastMonitor/1.0' }
@@ -49,7 +60,11 @@ async function pollFeed(feed) {
 
       const audioUrl = item.enclosure?.url || null;
       const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : null;
-      const thumbnail = item.itunes?.image || rss.image?.url || null;
+      let thumbnail = item.itunes?.image || rss.image?.url || null;
+      if (!thumbnail) {
+        const videoId = extractYouTubeId(sourceUrl);
+        if (videoId) thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      }
 
       // Extract duration (may be seconds number or HH:MM:SS string)
       let duration = null;

@@ -18,7 +18,8 @@ export function assembleContactCard({ identified, enriched, campaignType, contex
     context: context || '',
     status: 'pending',
     createdAt: new Date().toISOString(),
-    closelyExportReady: !!(enriched.emailStatus !== 'Verified' && (enriched.linkedinUrl || identified.linkedinUrl))
+    closelyExportReady: !!(enriched.emailStatus !== 'Verified' && (enriched.linkedinUrl || identified.linkedinUrl)),
+    role_rationale: identified.role_rationale || ''
   };
 
   contacts.insert(card);

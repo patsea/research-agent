@@ -10,7 +10,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function _getProfile() {
-  return JSON.parse(readFileSync(join(__dirname, '../../config/user-profile.json'), 'utf8'));
+  let config;
+  try {
+    config = JSON.parse(readFileSync(join(__dirname, '../../config/user-profile.json'), 'utf8'));
+  } catch (err) {
+    console.error('[audit] Failed to parse config file: user-profile.json', err.message);
+    throw err;
+  }
+  return config;
 }
 
 function _getAuditPrompt() {
@@ -29,14 +36,20 @@ export async function runAudit({ priorResearch, taskContext, explicitQuestions, 
     `## OUTPUT GOAL\nDecision-grade brief for ${_getProfile().name}'s job search. Research type: ${researchType || 'general'}.`
   ].filter(Boolean).join('\n\n');
 
-  const response = await client.messages.create({
-    model: getModel('synthesis'),
-    max_tokens: 4000,
-    system: AUDIT_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMsg }]
-  }, {
-    timeout: 180000
-  });
+  let response;
+  try {
+    response = await client.messages.create({
+      model: getModel('synthesis'),
+      max_tokens: 4000,
+      system: AUDIT_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMsg }]
+    }, {
+      timeout: 180000
+    });
+  } catch (err) {
+    console.error('[audit] LLM call failed:', err.message);
+    throw err;
+  }
 
   return response.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
 }

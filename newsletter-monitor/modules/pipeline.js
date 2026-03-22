@@ -4,6 +4,48 @@ const { fetchAllNewsletters } = require('./gmail');
 const { summariseNewsletter } = require('./summariser');
 const { notifyNewsletter, sendNewsletterDigest } = require('../../shared/slack.cjs');
 
+const SENDER_BLOCKLIST = new Set([
+  'jobalerts-noreply@linkedin.com',
+  'messages-noreply@linkedin.com',
+  'messaging-digest-noreply@linkedin.com',
+  'notifications-noreply@linkedin.com',
+  'groups-noreply@linkedin.com',
+  'notification@slack.com',
+  'noreply-location-sharing@google.com',
+  'cloudplatform-noreply@google.com',
+  'mailrobot@internations.org',
+  'noreply@fitbit.com',
+  'noreply@quironsalud.es',
+  'noreply@lovable.dev',
+  'notifications@zcal.co',
+]);
+
+const DOMAIN_BLOCKLIST = new Set([
+  'github.com',
+]);
+
+const ALOMA_BLOCK_PATTERNS = [
+  /\bDOWN\b/i,
+  /Monthly SMS Limit/i,
+  /payment unsuccessful/i,
+  /cron-health-check/i,
+];
+
+function shouldSkip(email) {
+  const sender = (email.sender_email || '').toLowerCase().trim();
+  const subject = email.subject || '';
+  const domain = sender.split('@')[1] || '';
+
+  if (SENDER_BLOCKLIST.has(sender)) return `blocklisted sender: ${sender}`;
+  if (DOMAIN_BLOCKLIST.has(domain)) return `blocklisted domain: ${domain}`;
+  if (sender === 'hello@aloma.io') {
+    for (const pattern of ALOMA_BLOCK_PATTERNS) {
+      if (pattern.test(subject)) return `aloma system alert: ${subject}`;
+    }
+  }
+  return null;
+}
+
 async function runPipeline(db, daysBack = 1) {
   const log = (msg) => console.log(`[newsletter-monitor] ${new Date().toISOString()} ${msg}`);
   const runId = Date.now();
@@ -20,6 +62,12 @@ async function runPipeline(db, daysBack = 1) {
       const existing = db.prepare('SELECT id FROM newsletters WHERE message_id = ?').get(nl.message_id);
       if (existing) { skipped++; continue; }
 
+      const skipReason = shouldSkip(nl);
+      if (skipReason) {
+        console.log(`[pipeline] Skipping "${nl.subject}" — ${skipReason}`);
+        continue;
+      }
+
       let summaryResult = null;
       try {
         summaryResult = await summariseNewsletter(nl);
@@ -30,17 +78,24 @@ async function runPipeline(db, daysBack = 1) {
         errors++;
       }
 
+      if (summaryResult && summaryResult.is_newsletter === false) {
+        console.log(`[pipeline] LLM flagged as non-newsletter: "${nl.subject}" — skipping insert`);
+        continue;
+      }
+
       const summaryText = typeof summaryResult === 'string' ? summaryResult : (summaryResult?.summary || null);
       const takeaway = summaryResult?.one_line_takeaway || '';
       const topTags = JSON.stringify(summaryResult?.top_tags || []);
       const keyPoints = JSON.stringify(summaryResult?.key_points || []);
       const bestSections = JSON.stringify(summaryResult?.best_sections || []);
       const followups = JSON.stringify(summaryResult?.actionable_followups || []);
+      const skipSections = JSON.stringify(summaryResult?.skip_sections ?? []);
+      const isNewsletter = summaryResult?.is_newsletter !== false ? 1 : 0;
 
       db.prepare(`
-        INSERT INTO newsletters (message_id, subject, sender_name, sender_email, account, snippet, body, summary, one_line_takeaway, top_tags_json, key_points_json, best_sections_json, actionable_followups_json, received_at, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'))
-      `).run(nl.message_id, nl.subject, nl.sender_name, nl.sender_email, nl.account, '', nl.body || '', summaryText, takeaway, topTags, keyPoints, bestSections, followups, nl.date || new Date().toISOString());
+        INSERT INTO newsletters (message_id, subject, sender_name, sender_email, account, snippet, body, summary, one_line_takeaway, top_tags, key_points, best_sections, actionable_followups, skip_sections, is_newsletter, received_at, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', datetime('now'))
+      `).run(nl.message_id, nl.subject, nl.sender_name, nl.sender_email, nl.account, '', nl.body || '', summaryText, takeaway, topTags, keyPoints, bestSections, followups, skipSections, isNewsletter, nl.date || new Date().toISOString());
       // REMOVED digest-refactor-20Mar: notifyNewsletter({ subject: nl.subject, sender_name: nl.sender_name, sender_email: nl.sender_email, account: nl.account, summary }).catch(() => {});
     }
 

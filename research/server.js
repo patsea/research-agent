@@ -14,7 +14,14 @@ import { buildSystemPrompt } from './modules/prompt-builder.js';
 
 const __dirname_server = dirname(fileURLToPath(import.meta.url));
 function getUserProfile() {
-  return JSON.parse(readFileSync(join(__dirname_server, '..', 'config', 'user-profile.json'), 'utf8'));
+  let config;
+  try {
+    config = JSON.parse(readFileSync(join(__dirname_server, '..', 'config', 'user-profile.json'), 'utf8'));
+  } catch (err) {
+    console.error('[research-server] Failed to parse config file: user-profile.json', err.message);
+    throw err;
+  }
+  return config;
 }
 
 const app = express();

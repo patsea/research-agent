@@ -28,6 +28,7 @@
     "better-sqlite3": "^9.0.0"
   },
   "devDependencies": {
+    "csv-parse": "^6.2.1",
     "jest": "^30.3.0",
     "playwright": "^1.58.2",
     "supertest": "^7.2.2"

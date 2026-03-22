@@ -53,7 +53,7 @@ async function fetchNewslettersFromAccount(accountConfig, daysBack) {
     const result = await client.callTool({
       name: 'search_emails',
       arguments: {
-        query: `after:${afterStr} label:inbox`,
+        query: `after:${afterStr} in:inbox`,
         maxResults: 50
       }
     });

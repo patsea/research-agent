@@ -4,10 +4,19 @@ const { getDb } = require('./db');
 
 const { getModel } = require('../../shared/models.cjs');
 
-function _getPodcastPrompt() {
-  return fs.readFileSync(
+function _getPodcastPrompt(episode, transcriptContent) {
+  let prompt = fs.readFileSync(
     path.join(__dirname, '../../config/prompts/podcast-summarisation.md'), 'utf8'
   ).replace(/^#[^\n]*\n/gm, '').trim();
+
+  // Inject episode metadata into prompt tokens
+  prompt = prompt.replace('{EPISODE_TITLE}', episode.title || 'Unknown');
+  prompt = prompt.replace('{PODCAST_NAME}', episode.channel_name || 'Unknown');
+  prompt = prompt.replace('{PUBLISHED_DATE}', episode.published_at || 'Unknown');
+  prompt = prompt.replace('{DESCRIPTION}', episode.description || '');
+  prompt = prompt.replace('{CONTENT}', transcriptContent);
+
+  return prompt;
 }
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const DOWNLOADS = path.join(__dirname, '..', 'downloads');
@@ -41,56 +50,34 @@ async function summarise(episodeId) {
     ? transcriptText.slice(0, MAX_CHARS) + '\n[transcript truncated]'
     : transcriptText;
 
-  const userPrompt = `Transcript (with timestamps in [HH:MM:SS] format):
-${truncated}
-
-Return ONLY valid JSON, no preamble, no markdown fences:
-{
-  "overview": "300-500 word summary of the full episode — key arguments, who said what, main conclusions",
-  "topic_tags": [
-    {
-      "topic": "2-5 word topic label",
-      "timestamp_start": "HH:MM:SS",
-      "timestamp_end": "HH:MM:SS",
-      "teaser": "One sentence: the specific argument or insight discussed in this section"
-    }
-  ],
-  "new_novel_contrarian": [
-    {
-      "type": "new|novel|contrarian",
-      "idea": "One sentence stating the idea",
-      "why": "One sentence: why this challenges or extends current thinking"
-    }
-  ]
-}
-
-Rules for topic_tags:
-- Maximum 10 tags
-- Order by timestamp ascending
-- Each tag must map to a real section of the transcript with a clear start and end time
-- Teaser must be specific and factual — what was actually said, not a vague description
-- Topic label must be specific (e.g. "Nvidia margin compression") not generic (e.g. "technology")
-- Only tag sections with substantive discussion (minimum 2 minutes of content)`;
+  const systemPrompt = _getPodcastPrompt(episode, truncated);
+  const userMessage = 'Summarise now.';
 
   if (!ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY not set');
   }
 
   const fetch = (await import('node-fetch')).default;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: getModel('podcast_summary'),
-      max_tokens: 2000,
-      system: _getPodcastPrompt(),
-      messages: [{ role: 'user', content: userPrompt }]
-    })
-  });
+  let response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: getModel('podcast_summary'),
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+  } catch (err) {
+    console.error('[summariser] LLM call failed:', err.message);
+    throw err;
+  }
 
   if (!response.ok) {
     const err = await response.text();
@@ -110,11 +97,15 @@ Rules for topic_tags:
     throw new Error(`Failed to parse Claude response as JSON: ${e.message}\nRaw: ${raw.slice(0, 500)}`);
   }
 
-  const overview = parsed.overview || '';
-  const topicTags = parsed.topic_tags || [];
-  const newNovelContrarian = parsed.new_novel_contrarian || [];
+  const summary = parsed.summary || '';
+  const one_line_takeaway = parsed.one_line_takeaway || '';
+  const top_tags_json = JSON.stringify(parsed.top_tags || []);
+  const key_points_json = JSON.stringify(parsed.key_points || []);
+  const best_sections_json = JSON.stringify(parsed.best_sections || []);
+  const skip_sections_json = JSON.stringify(parsed.skip_sections || []);
+  const actionable_followups_json = JSON.stringify(parsed.actionable_followups || []);
 
-  // Upsert into summaries
+  // Upsert into summaries (legacy table — store summary + top_tags for backward compat)
   const existing = db.prepare('SELECT id FROM summaries WHERE episode_id = ?').get(episodeId);
   if (existing) {
     db.prepare(`
@@ -124,20 +115,34 @@ Rules for topic_tags:
         transcript_path = ?,
         word_count = ?
       WHERE episode_id = ?
-    `).run(overview, JSON.stringify(topicTags), jsonPath, overview.split(/\s+/).length, episodeId);
+    `).run(summary, top_tags_json, jsonPath, summary.split(/\s+/).length, episodeId);
   } else {
     db.prepare(`
       INSERT INTO summaries (episode_id, summary_text, topic_tags, transcript_path, word_count)
       VALUES (?, ?, ?, ?, ?)
-    `).run(episodeId, overview, JSON.stringify(topicTags), jsonPath, overview.split(/\s+/).length);
+    `).run(episodeId, summary, top_tags_json, jsonPath, summary.split(/\s+/).length);
   }
 
-  // Update episode with transcript path and status
-  db.prepare('UPDATE episodes SET status = ?, transcript_path = ? WHERE id = ?')
-    .run('summarised', jsonPath, episodeId);
+  // Update episode with all rich summary fields
+  db.prepare(`UPDATE episodes SET
+    status = ?,
+    transcript_path = ?,
+    summary = ?,
+    one_line_takeaway = ?,
+    top_tags_json = ?,
+    key_points_json = ?,
+    best_sections_json = ?,
+    skip_sections_json = ?,
+    actionable_followups_json = ?
+  WHERE id = ?`).run(
+    'summarised', jsonPath,
+    summary, one_line_takeaway, top_tags_json,
+    key_points_json, best_sections_json, skip_sections_json,
+    actionable_followups_json, episodeId
+  );
 
-  console.log(`[summariser] Episode ${episodeId} summarised — ${topicTags.length} topic tags, ${newNovelContrarian.length} novel/contrarian items`);
-  return { overview, topicTags, newNovelContrarian };
+  console.log(`[summariser] Episode ${episodeId} summarised — ${(parsed.top_tags || []).length} tags, ${(parsed.best_sections || []).length} best sections, ${(parsed.actionable_followups || []).length} followups`);
+  return { summary, one_line_takeaway, top_tags_json, key_points_json, best_sections_json, skip_sections_json, actionable_followups_json };
 }
 
 module.exports = { summarise };

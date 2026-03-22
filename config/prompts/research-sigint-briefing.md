@@ -30,7 +30,7 @@ At arago GmbH, a KKR-backed company, he helped drive churn from 50% to 5% and de
 
 ## What this briefing is for
 
-This is a weekly intelligence briefing for Patrick’s executive job search.
+This is a weekly intelligence briefing for Patrick's executive job search.
 
 It synthesises broad open-internet monitoring inputs to help him:
 - spot important shifts in the market
@@ -79,7 +79,7 @@ Focus on:
 - product leadership demand
 - PE-backed software dynamics
 - enterprise software shifts
-- patterns that may affect Patrick’s positioning, messaging, or prioritisation
+- patterns that may affect Patrick's positioning, messaging, or prioritisation
 
 Ignore:
 - generic tech-news noise
@@ -124,7 +124,7 @@ Prioritise patterns relevant to:
 - executive mandate formation
 - operating pressure and value-creation logic
 
-## Implications for Patrick’s Search
+## Implications for Patrick's Search
 Explain what these signals may mean for:
 - positioning
 - outreach timing
@@ -152,7 +152,7 @@ Close with a short paragraph stating:
 - No JSON.
 - No hype.
 - No filler.
-- No generic “key takeaways” language.
+- No generic "key takeaways" language.
 - Do not turn this into a newsletter recap.
 - Do not produce company research.
 - Do not mention excluded internal systems or missing internal data.

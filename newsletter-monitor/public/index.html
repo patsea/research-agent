@@ -100,6 +100,15 @@
     .settings-section .save-bar button:hover { background: #0077ed; }
     .settings-section .save-bar .save-status { font-size: 12px; color: #86868b; }
 
+    /* Filter pills */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+    .pill { padding: 6px 16px; border-radius: 16px; border: 1px solid #d2d2d7; background: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+    .pill:hover { background: #f0f0f5; }
+    .pill.active { background: #0071e3; color: white; border-color: #0071e3; }
+    .secondary-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+    .secondary-filters select { padding: 6px 12px; border-radius: 8px; border: 1px solid #d2d2d7; font-size: 13px; background: white; cursor: pointer; }
+    .secondary-filters label { font-size: 12px; color: #86868b; margin-right: 2px; }
+
     .empty { text-align: center; padding: 60px 20px; color: #86868b; }
     .empty .icon { font-size: 48px; margin-bottom: 12px; }
 
@@ -133,10 +142,38 @@
         <span class="status" id="run-status">Ready</span>
       </div>
 
+      <div class="filter-bar">
+        <span class="pill active" data-status="new" onclick="setNlFilter('new')">New</span>
+        <span class="pill" data-status="archived" onclick="setNlFilter('archived')">Archived</span>
+        <span class="pill" data-status="all" onclick="setNlFilter('all')">All</span>
+        <span class="pill" data-status="unsubscribed" onclick="setNlFilter('unsubscribed')">Unsubscribed</span>
+      </div>
+
+      <div class="secondary-filters">
+        <label>Days:</label>
+        <select id="nl-days-select" onchange="setNlDays(this.value)">
+          <option value="7" selected>Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="all">All time</option>
+        </select>
+        <label>Sort:</label>
+        <select id="nl-sort-select" onchange="setNlSort(this.value)">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="sender">By sender</option>
+          <option value="alpha">A-Z subject</option>
+        </select>
+        <label>Sender:</label>
+        <select id="nl-sender-select" onchange="setNlSender(this.value)">
+          <option value="all">All senders</option>
+        </select>
+      </div>
+
       <div class="stats">
         <div class="stat-card received">
           <div class="value" id="stat-received">-</div>
-          <div class="label">Received</div>
+          <div class="label">Showing</div>
         </div>
         <div class="stat-card summarised">
           <div class="value" id="stat-summarised">-</div>
@@ -144,7 +181,7 @@
         </div>
         <div class="stat-card read">
           <div class="value" id="stat-read">-</div>
-          <div class="label">Read</div>
+          <div class="label">Archived</div>
         </div>
         <div class="stat-card unsub">
           <div class="value" id="stat-unsub">-</div>
@@ -181,12 +218,29 @@
 
     const TAB_NAMES = ['today', 'history', 'subscriptions', 'settings'];
 
+    // ── NEWSLETTER STATE ──
+    let nlFilter = 'new';
+    let nlSort = 'newest';
+    let nlDays = '7';
+    let nlSender = 'all';
+    let allNewsletters = [];
+
+    function setNlFilter(val) {
+      nlFilter = val;
+      document.querySelectorAll('.pill').forEach(p =>
+        p.classList.toggle('active', p.dataset.status === val));
+      loadNewsletters();
+    }
+    function setNlSort(val) { nlSort = val; renderNewsletters(); }
+    function setNlDays(val) { nlDays = val; loadNewsletters(); }
+    function setNlSender(val) { nlSender = val; loadNewsletters(); }
+
     function showTab(name) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
       document.getElementById(`${name}-tab`).classList.add('active');
-      if (name === 'today') loadToday();
+      if (name === 'today') loadNewsletters();
       else if (name === 'history') loadHistory();
       else if (name === 'subscriptions') loadSubscriptions();
       else if (name === 'settings') loadSettings();
@@ -194,23 +248,46 @@
 
     // ── TODAY ──
 
-    async function loadToday() {
+    async function loadNewsletters() {
       try {
-        const res = await fetch('/api/newsletters');
-        const items = await res.json();
-        // Filter: hide archived (read) and unsubscribed from Today stream
-        const visible = items.filter(i => i.status !== 'read' && i.status !== 'unsubscribed');
-        updateStats(items);
-        renderItems(visible);
+        const params = new URLSearchParams();
+        params.set('status', nlFilter);
+        if (nlDays !== 'all') params.set('daysBack', nlDays);
+        else params.set('daysBack', 'all');
+        if (nlSender !== 'all') params.set('senderEmail', nlSender);
+        params.set('limit', '200');
+
+        const res = await fetch('/api/newsletters?' + params.toString());
+        allNewsletters = await res.json();
+        renderNewsletters();
+        populateNlSenderDropdown();
+        updateStats(allNewsletters);
       } catch (err) {
+        console.error('loadNewsletters error:', err);
         document.getElementById('newsletter-list').innerHTML = `<div class="empty"><div class="icon">!</div><div>Error loading newsletters: ${esc(err.message)}</div></div>`;
       }
+    }
+
+    function populateNlSenderDropdown() {
+      const sel = document.getElementById('nl-sender-select');
+      if (!sel) return;
+      const currentVal = sel.value;
+      // Rebuild options
+      while (sel.options.length > 1) sel.remove(1);
+      const senders = [...new Map(allNewsletters.map(n =>
+        [n.sender_email, { email: n.sender_email, name: n.sender_name }]
+      )).values()];
+      senders.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
+      senders.forEach(s => {
+        sel.appendChild(new Option(s.name || s.email, s.email));
+      });
+      sel.value = currentVal || 'all';
     }
 
     function updateStats(items) {
       document.getElementById('stat-received').textContent = items.length;
       document.getElementById('stat-summarised').textContent = items.filter(i => i.summary).length;
-      document.getElementById('stat-read').textContent = items.filter(i => i.status === 'read').length;
+      document.getElementById('stat-read').textContent = items.filter(i => i.status === 'read' || i.status === 'skip').length;
       document.getElementById('stat-unsub').textContent = items.filter(i => i.status === 'unsubscribed').length;
     }
 
@@ -227,29 +304,108 @@
       return `https://mail.google.com/mail/u/0/#search/${q}`;
     }
 
-    function renderItems(items) {
-      const el = document.getElementById('newsletter-list');
-      if (!items.length) {
-        el.innerHTML = '<div class="empty"><div class="icon">&#9993;</div><div>No newsletters to show.<br>Click "Scan Now" to check your inbox.</div></div>';
+    function renderNewsletters() {
+      let nls = [...allNewsletters];
+
+      if (nlSort === 'newest') {
+        nls.sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
+      } else if (nlSort === 'oldest') {
+        nls.sort((a, b) => new Date(a.received_at) - new Date(b.received_at));
+      } else if (nlSort === 'sender') {
+        nls.sort((a, b) => (a.sender_name || a.sender_email || '').localeCompare(b.sender_name || b.sender_email || ''));
+      } else if (nlSort === 'alpha') {
+        nls.sort((a, b) => (a.subject || '').localeCompare(b.subject || ''));
+      }
+
+      const container = document.getElementById('newsletter-list');
+      if (!container) return;
+      if (nls.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="icon">&#9993;</div><div>No newsletters match this filter.<br>Try changing the date range or filter.</div></div>';
         return;
       }
-      el.innerHTML = items.map(item => `
-        <div class="newsletter-item" id="nl-${item.id}">
+      container.innerHTML = nls.map(nl => renderNlCard(nl)).join('');
+    }
+
+    function renderNlSummary(nl) {
+      // Try structured fields first
+      let takeaway = nl.one_line_takeaway || '';
+      let tags = [];
+      let points = [];
+      try { tags = JSON.parse(nl.top_tags || '[]'); } catch(e) {}
+      try { points = JSON.parse(nl.key_points || '[]'); } catch(e) {}
+
+      // If structured fields are empty, try parsing summary as JSON
+      if (!takeaway && nl.summary) {
+        const s = nl.summary.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        try {
+          const parsed = JSON.parse(s);
+          takeaway = parsed.one_line_takeaway || parsed.summary || '';
+          if (!tags.length && Array.isArray(parsed.top_tags)) tags = parsed.top_tags;
+          if (!points.length && Array.isArray(parsed.key_points)) points = parsed.key_points;
+        } catch(e) {
+          // Not JSON — render as plain text fallback
+          return nl.summary
+            ? `<div class="summary" style="white-space:pre-wrap">${esc(nl.summary)}</div>`
+            : '';
+        }
+      }
+
+      if (!takeaway && !tags.length && !points.length) return '';
+
+      return `
+        ${takeaway ? `<div class="summary" style="font-style:italic;margin-bottom:6px">${esc(takeaway)}</div>` : ''}
+        ${tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
+          ${tags.map(t => `<span style="background:#eef2ff;color:#4f46e5;font-size:11px;padding:2px 7px;border-radius:10px">${esc(t)}</span>`).join('')}
+        </div>` : ''}
+        ${points.length ? `<ul style="margin:0;padding-left:16px;font-size:12px;color:#444">
+          ${points.slice(0,4).map(p => `<li>${esc(p)}</li>`).join('')}
+        </ul>` : ''}
+        ${(() => {
+          let sections = [];
+          try { sections = JSON.parse(nl.best_sections || '[]'); } catch(_) {}
+          return sections.length ? `
+            <div style="margin-top:6px;font-size:12px;color:#555">
+              <span style="font-weight:500">Best sections:</span>
+              ${sections.slice(0,3).map(s => {
+                const title = typeof s === 'object' ? (s.section_title || s.title || '') : String(s);
+                return title ? `<span style="margin-left:6px;color:#4f46e5">${esc(title)}</span>` : '';
+              }).filter(Boolean).join(' &middot;')}
+            </div>` : '';
+        })()}
+        ${(() => {
+          let followups = [];
+          try { followups = JSON.parse(nl.actionable_followups || '[]'); } catch(_) {}
+          return followups.length ? `
+            <div style="margin-top:4px;font-size:12px;color:#555">
+              <span style="font-weight:500">Actions:</span>
+              ${followups.slice(0,2).map(f => `<span style="margin-left:6px">${esc(String(f))}</span>`).join(' &middot;')}
+            </div>` : '';
+        })()}
+      `;
+    }
+
+    function renderNlCard(nl) {
+      const isArchived = nl.status === 'read' || nl.status === 'skip';
+      const actionBtn = isArchived
+        ? `<button class="archive-btn" onclick="restoreNewsletter(${nl.id})" style="color:#34c759;border-color:#34c759;">Restore</button>`
+        : `<button class="archive-btn" onclick="archiveNewsletter(${nl.id})">Archive</button>`;
+      return `
+        <div class="newsletter-item" id="nl-${nl.id}">
           <div class="header">
             <div>
-              <div class="subject">${esc(item.subject)} <span class="status-badge ${item.status}">${item.status}</span></div>
-              <div class="sender">${esc(item.sender_name)} &lt;${esc(item.sender_email)}&gt;</div>
-              <span class="source-badge ${sourceBadgeClass(item.account)}">${esc(item.account)}</span>
+              <div class="subject">${esc(nl.subject)} <span class="status-badge ${nl.status}">${nl.status}</span></div>
+              <div class="sender">${esc(nl.sender_name)} &lt;${esc(nl.sender_email)}&gt; &middot; ${esc((nl.received_at || '').split('T')[0])}</div>
+              <span class="source-badge ${sourceBadgeClass(nl.account)}">${esc(nl.account)}</span>
             </div>
           </div>
-          ${item.summary ? `<div class="summary">${esc(item.summary)}</div>` : ''}
+          ${renderNlSummary(nl)}
           <div class="actions">
-            <button class="read-btn" onclick="openInGmail('${esc(item.subject).replace(/'/g, "\\'")}', '${esc(item.sender_email)}')">Read</button>
-            <button class="archive-btn" onclick="archiveItem(${item.id})">Archive</button>
-            <button class="unsub-btn" onclick="unsubItem(${item.id})">Unsubscribe</button>
+            <button class="read-btn" onclick="openInGmail('${esc(nl.subject).replace(/'/g, "\\'")}', '${esc(nl.sender_email)}')">Read</button>
+            ${actionBtn}
+            <button class="unsub-btn" onclick="unsubItem(${nl.id})">Unsubscribe</button>
           </div>
         </div>
-      `).join('');
+      `;
     }
 
     function openInGmail(subject, senderEmail) {
@@ -257,36 +413,60 @@
       window.open(url, '_blank');
     }
 
-    async function archiveItem(id) {
-      // Set status=read and hide card (optimistic UI)
-      const card = document.getElementById(`nl-${id}`);
-      if (card) card.style.display = 'none';
+    async function archiveNewsletter(id) {
       try {
-        await fetch(`/api/newsletters/${id}/status`, {
+        const res = await fetch(`/api/newsletters/${id}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'read' })
         });
-      } catch (err) {
-        console.error('Archive failed:', err);
-        if (card) card.style.display = '';
-      }
+        if (res.ok) {
+          if (nlFilter !== 'all' && nlFilter !== 'archived') {
+            allNewsletters = allNewsletters.filter(n => n.id !== id);
+          } else {
+            const nl = allNewsletters.find(n => n.id === id);
+            if (nl) nl.status = 'read';
+          }
+          renderNewsletters();
+          updateStats(allNewsletters);
+          setTimeout(loadNewsletters, 1500);
+        }
+      } catch (err) { console.error('archive error:', err); }
+    }
+
+    async function restoreNewsletter(id) {
+      try {
+        const res = await fetch(`/api/newsletters/${id}/restore`, { method: 'PATCH' });
+        if (res.ok) {
+          const nl = allNewsletters.find(n => n.id === id);
+          if (nl) nl.status = 'new';
+          if (nlFilter === 'archived') allNewsletters = allNewsletters.filter(n => n.id !== id);
+          renderNewsletters();
+          updateStats(allNewsletters);
+          setTimeout(loadNewsletters, 1500);
+        }
+      } catch (err) { console.error('restore error:', err); }
     }
 
     async function unsubItem(id) {
-      // Immediately hide card (optimistic UI)
-      const card = document.getElementById(`nl-${id}`);
-      if (card) card.style.display = 'none';
       try {
-        await fetch(`/api/newsletters/${id}/status`, {
+        const res = await fetch(`/api/newsletters/${id}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'unsubscribed' })
         });
-      } catch (err) {
-        console.error('Unsubscribe failed:', err);
-        if (card) card.style.display = '';
-      }
+        if (res.ok) {
+          if (nlFilter !== 'all' && nlFilter !== 'unsubscribed') {
+            allNewsletters = allNewsletters.filter(n => n.id !== id);
+          } else {
+            const nl = allNewsletters.find(n => n.id === id);
+            if (nl) nl.status = 'unsubscribed';
+          }
+          renderNewsletters();
+          updateStats(allNewsletters);
+          setTimeout(loadNewsletters, 1500);
+        }
+      } catch (err) { console.error('Unsubscribe failed:', err); }
     }
 
     async function runNow() {
@@ -302,7 +482,7 @@
         });
         statusEl.textContent = 'Scan triggered. Refreshing in 10s...';
         setTimeout(() => {
-          loadToday();
+          loadNewsletters();
           statusEl.textContent = 'Ready';
           btn.disabled = false;
         }, 10000);
@@ -369,7 +549,7 @@
                 <span class="source-badge ${sourceBadgeClass(item.account)}">${esc(item.account)}</span>
               </div>
             </div>
-            ${item.summary ? `<div class="summary">${esc(item.summary)}</div>` : ''}
+            ${renderNlSummary(item)}
           </div>
         `).join('');
       } catch (err) {
@@ -474,7 +654,8 @@
     }
 
     // Initial load
-    loadToday();
+    loadNewsletters();
+    setInterval(loadNewsletters, 60000);
   </script>
 </body>
 </html>

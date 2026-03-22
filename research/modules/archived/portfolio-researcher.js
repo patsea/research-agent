@@ -7,7 +7,14 @@ import { researchRuns } from '../db.js';
 
 const __dirname_pr = dirname(fileURLToPath(import.meta.url));
 function _getProfile() {
-  return JSON.parse(readFileSync(join(__dirname_pr, '../../config/user-profile.json'), 'utf8'));
+  let config;
+  try {
+    config = JSON.parse(readFileSync(join(__dirname_pr, '../../config/user-profile.json'), 'utf8'));
+  } catch (err) {
+    console.error('[portfolio-researcher] Failed to parse config file: user-profile.json', err.message);
+    throw err;
+  }
+  return config;
 }
 
 const ELNS_DIMENSIONS = [

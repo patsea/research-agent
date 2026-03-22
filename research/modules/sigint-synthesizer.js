@@ -13,7 +13,14 @@ const PROFILE_PATH = join(__dirname, '../../config/user-profile.json');
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function _getProfile() {
-  return JSON.parse(readFileSync(PROFILE_PATH, 'utf8'));
+  let config;
+  try {
+    config = JSON.parse(readFileSync(PROFILE_PATH, 'utf8'));
+  } catch (err) {
+    console.error('[sigint-synthesizer] Failed to parse config file:', PROFILE_PATH, err.message);
+    throw err;
+  }
+  return config;
 }
 
 async function fetchAgentDigest(url) {
@@ -93,11 +100,17 @@ export async function synthesizeBriefing(daysBack = 7) {
     .replace('{{CANDIDATE_SECTORS}}', (profile.targetSectors || []).join(', ') || 'PE/VC-backed tech companies, AI transformation')
     .replace('{{CANDIDATE_GEOGRAPHIES}}', (profile.targetGeographies || []).join(', ') || 'Europe');
 
-  const response = await client.messages.create({
-    model: getModel('synthesis'),
-    max_tokens: 4000,
-    messages: [{ role: 'user', content: prompt }]
-  }, { timeout: 180000 });
+  let response;
+  try {
+    response = await client.messages.create({
+      model: getModel('synthesis'),
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    }, { timeout: 180000 });
+  } catch (err) {
+    console.error('[sigint-synthesizer] LLM call failed:', err.message);
+    throw err;
+  }
 
   const content = response.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
   const weekStart = new Date(Date.now() - daysBack * 86400000).toISOString().split('T')[0];

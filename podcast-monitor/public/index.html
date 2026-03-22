@@ -18,15 +18,22 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
 .hidden{display:none!important}
 
 /* Cards */
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
-.card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s}
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s}
 .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.card-thumb{width:100%;height:120px;object-fit:cover;border-radius:6px;margin-bottom:10px;background:#eee}
-.card-thumb-placeholder{width:100%;height:120px;border-radius:6px;margin-bottom:10px;background:#eee;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:32px}
-.card-title{font-size:14px;font-weight:600;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card-meta{font-size:12px;color:#888;margin-bottom:8px}
+.card.status-processing{background-color:#fff3e0;border-color:#ff9800}
+.card.status-summarised{background-color:#ffeaea;border-color:#e53935}
+.card.status-dismissed{opacity:0.55}
+.card-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;display:block;margin-bottom:10px;background:#eee}
+.card-thumb-link .card-thumb{margin-bottom:0}
+.card-thumb-placeholder{width:100%;aspect-ratio:16/9;border-radius:6px;margin-bottom:10px;background:#eee;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:32px}
+.card-thumb-link{display:block;text-decoration:none;position:relative;margin-bottom:10px}
+.card-thumb-link:hover::after{content:'\25B6';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;background:rgba(0,0,0,0.35);border-radius:6px}
+.card-thumb-link img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px}
+.card-thumb-link .card-thumb-placeholder{margin-bottom:0}
+.card-title{font-size:0.875rem;font-weight:600;line-height:1.3;margin:8px 0 4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-meta{font-size:0.75rem;color:#888;margin-bottom:8px}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .badge-new{background:#e3f2fd;color:#1976d2}
 .badge-processing{background:#fff3e0;color:#f57c00}
@@ -40,11 +47,20 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
 .btn-primary:hover{background:#3a7bc8}
 .btn-danger{color:#e53935;border-color:#ffcdd2}
 .btn-danger:hover{background:#ffebee}
+.btn-secondary{background:#fff;color:#666;border:1px solid #e0e0e0}
+.btn-warning{background-color:#ff9800;color:#fff;cursor:not-allowed;opacity:0.85}
+.btn-done{background-color:#e53935;color:#fff;cursor:not-allowed;opacity:0.85}
+.btn-restore{background-color:#4caf50;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:0.8rem}
+.btn-icon{background:none;border:1px solid #ccc;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:1rem;color:#666}
+.btn-icon:hover{background-color:#f0f0f0;border-color:#999}
 
 /* Filters */
 .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .pill{padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid #e0e0e0;background:#fff;color:#666;transition:all .1s}
 .pill.active{background:#4a90d9;color:#fff;border-color:#4a90d9}
+.controls-row-secondary{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.controls-row-secondary select{padding:5px 10px;border-radius:6px;border:1px solid #e0e0e0;font-size:12px;background:#fff;color:#666;cursor:pointer}
+.controls-row-secondary select:focus{outline:none;border-color:#4a90d9}
 
 /* Summaries */
 .summary-row{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
@@ -138,18 +154,42 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
 <!-- QUEUE TAB -->
 <div class="content" id="tab-queue">
   <div class="toolbar">
-    <div class="pill active" data-filter="all">All</div>
-    <div class="pill" data-filter="new">New</div>
+    <div class="pill active" data-filter="new">New</div>
     <div class="pill" data-filter="summarised">Summarised</div>
+    <div class="pill" data-filter="all">All</div>
+    <div class="pill" data-filter="dismissed">Dismissed</div>
     <div style="margin-left:auto">
       <button class="btn btn-primary" onclick="showAddUrlModal()">+ Add URL</button>
     </div>
+  </div>
+  <div class="controls-row-secondary">
+    <select id="sort-select" onchange="setSort(this.value)">
+      <option value="newest">Latest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="channel">By channel</option>
+      <option value="alpha">Alphabetical</option>
+    </select>
+    <select id="days-select" onchange="setDays(this.value)">
+      <option value="7">Last 7 days</option>
+      <option value="14">Last 14 days</option>
+      <option value="30">Last month</option>
+      <option value="all">All time</option>
+    </select>
+    <select id="feed-select" onchange="setFeed(this.value)">
+      <option value="all">All subscriptions</option>
+    </select>
+    <button id="reset-stuck-btn" onclick="resetStuck()" style="display:none">Reset Stuck</button>
   </div>
   <div class="grid" id="episodes-grid"></div>
 </div>
 
 <!-- SUMMARIES TAB -->
 <div class="content hidden" id="tab-summaries">
+  <div class="controls-row-secondary">
+    <select id="summary-feed-select" onchange="setSummaryFeed(this.value)">
+      <option value="all">All subscriptions</option>
+    </select>
+  </div>
   <div id="summaries-list"></div>
 </div>
 
@@ -160,9 +200,20 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
     <div id="feeds-list"></div>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid #eee">
       <h4 style="font-size:13px;font-weight:600;margin:0 0 10px">Add RSS Feed</h4>
+      <div class="form-row" style="margin-bottom:8px">
+        <input class="input" id="feed-name" placeholder="Podcast name" style="flex:1">
+        <button class="btn btn-secondary" onclick="searchItunesFeed()" id="itunes-search-btn">Search</button>
+      </div>
+      <div id="itunes-status" style="font-size:12px;color:#555;margin-bottom:6px;min-height:16px"></div>
+      <div id="itunes-alternatives" style="display:none;margin-bottom:8px">
+        <div style="font-size:11px;color:#888;margin-bottom:4px">Alternatives — click to select:</div>
+        <div id="itunes-alternatives-list"></div>
+      </div>
       <div class="form-row">
-        <input class="input" id="feed-name" placeholder="Feed name">
-        <input class="input" id="feed-url" placeholder="RSS feed URL">
+        <input class="input" id="feed-url" placeholder="RSS feed URL (auto-filled or paste manually)" style="flex:1;min-width:0">
+        <input type="number" id="feed-backfill" value="0" min="0" max="99"
+          title="Episodes to backfill (0 = new only)"
+          style="width:48px;padding:6px 4px;text-align:center;border:1px solid #ddd;border-radius:4px;font-size:13px;flex-shrink:0;">
         <button class="btn btn-primary" onclick="addFeed()">Add Feed</button>
       </div>
     </div>
@@ -170,11 +221,10 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
       <h4 style="font-size:13px;font-weight:600;margin:0 0 10px">Subscribe to YouTube Channel</h4>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="yt-channel-input" type="text" placeholder="@handle or youtube.com/@channel or channel ID"
-          class="input" style="flex:1;min-width:200px">
-        <input id="yt-backfill" type="number" min="0" max="50" value="0"
-          placeholder="Backfill"
-          class="input" style="width:80px"
-          title="Enter a number to load the last N episodes on first subscribe. 0 = new episodes only.">
+          class="input" style="flex:1;min-width:0">
+        <input id="yt-backfill" type="number" min="0" max="99" value="0"
+          title="Episodes to backfill (0 = new only)"
+          style="width:48px;padding:6px 4px;text-align:center;border:1px solid #ddd;border-radius:4px;font-size:13px;flex-shrink:0;">
         <button id="yt-add-btn" class="btn btn-primary" onclick="addYouTubeChannel()"
           style="background:#ff0000;border-color:#ff0000">
           Subscribe
@@ -208,8 +258,14 @@ body{background:#f5f5f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFo
 <script>
 const API = '';
 let currentTab = 'queue';
-let statusFilter = 'all';
+let statusFilter = 'new';
 let expandedSummary = null;
+let currentSort = 'newest';
+let currentSummaryFeedId = 'all';
+let allSummaries = [];
+let currentDays = '7';
+let currentFeedId = 'all';
+let allEpisodes = [];
 
 // --- Tabs ---
 document.querySelectorAll('.tab').forEach(t => {
@@ -236,47 +292,186 @@ document.querySelectorAll('.pill').forEach(p => {
   });
 });
 
+function setSort(val) { currentSort = val; renderQueue(); }
+function setDays(val) { currentDays = val; loadEpisodes(); }
+function setFeed(val) { currentFeedId = val; loadEpisodes(); }
+
 // --- Episodes ---
 async function loadEpisodes() {
-  const url = statusFilter === 'all' ? '/api/episodes' : `/api/episodes?status=${statusFilter}`;
-  const data = await fetch(url).then(r => r.json());
-  const grid = document.getElementById('episodes-grid');
-  if (!data.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 0;color:#888"><h3>No episodes</h3><p>Add an RSS feed or paste a URL to get started.</p></div>';
-    return;
+  try {
+    const params = new URLSearchParams();
+    params.set('status', statusFilter);
+    if (currentDays !== 'all') params.set('daysBack', currentDays);
+    if (currentFeedId !== 'all') params.set('feedId', currentFeedId);
+
+    const res = await fetch('/api/episodes?' + params.toString());
+    allEpisodes = await res.json();
+    renderQueue();
+    populateFeedDropdown();
+    updateResetButton();
+  } catch (err) {
+    console.error('loadEpisodes error:', err);
   }
-  grid.innerHTML = data.map(ep => {
-    const thumb = ep.thumbnail
-      ? `<img class="card-thumb" src="${esc(ep.thumbnail)}" onerror="this.outerHTML='<div class=card-thumb-placeholder>&#127911;</div>'">`
-      : '<div class="card-thumb-placeholder">&#127911;</div>';
-    const badgeClass = 'badge-' + ep.status;
-    const disableSummarise = ep.status === 'processing' || ep.status === 'summarised';
-    return `<div class="card">
-      ${thumb}
-      <div class="card-title" title="${esc(ep.title)}">${esc(ep.title)}</div>
-      <div class="card-meta">${esc(ep.feed_name || 'Manual')} &middot; ${fmtDate(ep.published_at)}${ep.duration ? ' &middot; ' + Math.round(ep.duration/60) + ' min' : ''}</div>
-      ${ep.description ? '<div class="desc-text" style="margin:4px 0 8px;max-height:60px;overflow:hidden;font-size:12px">' + esc(ep.description).slice(0,200) + (ep.description.length > 200 ? '...' : '') + '</div>' : ''}
-      ${ep.episode_verdict ? '<div style="margin:4px 0;font-size:12px;font-weight:600;color:#4a5568">' + esc(ep.episode_verdict) + (ep.relevance_score != null ? ' &middot; Score: ' + ep.relevance_score : '') + '</div>' : ''}
-      ${ep.one_line_takeaway ? '<div style="margin:2px 0 6px;font-size:11px;font-style:italic;color:#666">' + esc(ep.one_line_takeaway) + '</div>' : ''}
-      ${(() => { try { const tags = JSON.parse(ep.top_tags_json || '[]'); return tags.length ? '<div style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:4px">' + tags.map(t => '<span style="background:#edf2f7;border-radius:4px;padding:1px 6px;font-size:10px;color:#4a5568">' + esc(t) + '</span>').join('') + '</div>' : ''; } catch { return ''; } })()}
-      <span class="badge ${badgeClass}">${ep.status}</span>
-      <div class="card-actions">
-        <button class="btn" onclick="dismiss(${ep.id})" ${ep.status==='dismissed'?'disabled':''}>Dismiss</button>
-        <button class="btn btn-primary" onclick="summariseEp(${ep.id})" ${disableSummarise?'disabled':''}>${ep.status==='processing'?'Processing...':'Summarise'}</button>
-      </div>
-    </div>`;
-  }).join('');
 }
 
-async function dismiss(id) {
-  await fetch(`/api/episodes/${id}/dismiss`, { method: 'PATCH' });
-  loadEpisodes();
+async function populateFeedDropdown() {
+  const sel = document.getElementById('feed-select');
+  if (!sel || sel.options.length > 1) return;
+  try {
+    const feeds = await fetch('/api/feeds').then(r => r.json());
+    feeds.forEach(f => sel.appendChild(new Option(f.name, f.id)));
+    if (allEpisodes.some(e => !e.feed_id)) {
+      sel.appendChild(new Option('Other (manually added)', '0'));
+    }
+  } catch (err) { console.error('populateFeedDropdown error:', err); }
+}
+
+function updateResetButton() {
+  const btn = document.getElementById('reset-stuck-btn');
+  if (!btn) return;
+  const stuck = allEpisodes.filter(e => e.status === 'processing').length;
+  btn.style.display = stuck > 0 ? 'inline-block' : 'none';
+  if (stuck > 0) btn.textContent = `Reset ${stuck} Stuck`;
+}
+
+async function resetStuck() {
+  const res = await fetch('/api/episodes/reset-stuck', { method: 'POST' });
+  if (res.ok) loadEpisodes();
+}
+
+function renderQueue() {
+  let eps = [...allEpisodes];
+
+  if (currentSort === 'newest') {
+    eps.sort((a, b) =>
+      new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+  } else if (currentSort === 'oldest') {
+    eps.sort((a, b) =>
+      new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at));
+  } else if (currentSort === 'channel') {
+    eps.sort((a, b) =>
+      (a.channel_name || a.feed_name || '').localeCompare(b.channel_name || b.feed_name || ''));
+  } else if (currentSort === 'alpha') {
+    eps.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  }
+
+  if (statusFilter === 'all') {
+    eps.sort((a, b) => {
+      const aD = a.status === 'dismissed' ? 1 : 0;
+      const bD = b.status === 'dismissed' ? 1 : 0;
+      return aD - bD;
+    });
+  }
+
+  const grid = document.getElementById('episodes-grid');
+  if (!grid) return;
+  if (eps.length === 0) {
+    grid.innerHTML = '<p class="empty-state" style="grid-column:1/-1;text-align:center;padding:60px 0;color:#888">No episodes match this filter.</p>';
+    return;
+  }
+  grid.innerHTML = eps.map(ep => renderCard(ep)).join('');
+}
+
+function renderCard(ep) {
+  const thumbHtml = ep.thumbnail
+    ? `<img src="${esc(ep.thumbnail)}" alt="" class="card-thumb" loading="lazy" onerror="this.outerHTML='<div class=card-thumb-placeholder>&#127911;</div>'">`
+    : '<div class="card-thumb-placeholder">&#127911;</div>';
+  const thumb = ep.source_url
+    ? `<a href="${esc(ep.source_url)}" target="_blank" rel="noopener noreferrer" class="card-thumb-link" title="Open source">${thumbHtml}</a>`
+    : thumbHtml;
+  const badgeClass = 'badge-' + ep.status;
+  const isSummarised = ep.status === 'summarised';
+  const isProcessing = ep.status === 'processing';
+  const isDismissed = ep.status === 'dismissed';
+
+  const summariseBtn = isSummarised
+    ? `<button class="btn btn-done" disabled>Complete</button>`
+    : isProcessing
+    ? `<button class="btn btn-warning" disabled>In Progress</button>`
+    : `<button class="btn btn-primary" onclick="summariseEp(${ep.id})">Summarise</button>`;
+
+  const dismissBtn = isDismissed
+    ? `<button class="btn btn-restore" onclick="restore(${ep.id})">Restore</button>`
+    : `<button class="btn btn-secondary" onclick="dismiss(${ep.id})">Dismiss</button>`;
+
+  const refreshBtn = `<button class="btn btn-icon" onclick="refreshCard(${ep.id})" title="Refresh metadata">&#8635;</button>`;
+
+  return `<div class="card status-${ep.status}">
+    ${thumb}
+    <div class="card-title" title="${esc(ep.title)}">${esc(ep.title)}</div>
+    <div class="card-meta">${esc(ep.feed_name || 'Manual')} &middot; ${fmtDate(ep.published_at)}${ep.duration ? ' &middot; ' + Math.round(ep.duration/60) + ' min' : ''}</div>
+    ${ep.description ? '<div class="desc-text" style="margin:4px 0 8px;max-height:60px;overflow:hidden;font-size:12px">' + stripHtml(ep.description).slice(0,200) + (ep.description.length > 200 ? '...' : '') + '</div>' : ''}
+    ${ep.episode_verdict ? '<div style="margin:4px 0;font-size:12px;font-weight:600;color:#4a5568">' + esc(ep.episode_verdict) + (ep.relevance_score != null ? ' &middot; Score: ' + ep.relevance_score : '') + '</div>' : ''}
+    ${ep.one_line_takeaway ? '<div style="margin:2px 0 6px;font-size:11px;font-style:italic;color:#666">' + esc(ep.one_line_takeaway) + '</div>' : ''}
+    ${(() => { try { const tags = JSON.parse(ep.top_tags_json || '[]'); return tags.length ? '<div style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:4px">' + tags.map(t => '<span style="background:#edf2f7;border-radius:4px;padding:1px 6px;font-size:10px;color:#4a5568">' + esc(t) + '</span>').join('') + '</div>' : ''; } catch { return ''; } })()}
+    <span class="badge ${badgeClass}">${ep.status}</span>
+    <div class="card-actions">
+      ${dismissBtn}
+      ${summariseBtn}
+      ${refreshBtn}
+    </div>
+  </div>`;
 }
 
 async function summariseEp(id) {
-  await fetch(`/api/episodes/${id}/summarise`, { method: 'POST' });
-  toast('Processing started — this may take a few minutes');
-  loadEpisodes();
+  try {
+    const res = await fetch(`/api/episodes/${id}/summarise`, { method: 'POST' });
+    if (res.ok) {
+      const ep = allEpisodes.find(e => e.id === id);
+      if (ep) ep.status = 'processing';
+      renderQueue();
+      setTimeout(async () => {
+        await loadEpisodes();
+      }, 2000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      console.error('Summarise error:', err);
+    }
+  } catch (err) { console.error('summariseEp error:', err); }
+}
+
+async function dismiss(id) {
+  try {
+    const res = await fetch(`/api/episodes/${id}/dismiss`, { method: 'PATCH' });
+    if (res.ok) {
+      if (statusFilter !== 'all' && statusFilter !== 'dismissed') {
+        allEpisodes = allEpisodes.filter(e => e.id !== id);
+      } else {
+        const ep = allEpisodes.find(e => e.id === id);
+        if (ep) ep.status = 'dismissed';
+      }
+      renderQueue();
+      setTimeout(loadEpisodes, 2000);
+    }
+  } catch (err) { console.error('dismiss error:', err); }
+}
+
+async function restore(id) {
+  try {
+    const res = await fetch(`/api/episodes/${id}/restore`, { method: 'PATCH' });
+    if (res.ok) {
+      const data = await res.json();
+      const ep = allEpisodes.find(e => e.id === id);
+      if (ep) ep.status = data.status;
+      if (statusFilter === 'dismissed') {
+        allEpisodes = allEpisodes.filter(e => e.id !== id);
+      }
+      renderQueue();
+      setTimeout(loadEpisodes, 1500);
+    }
+  } catch (err) { console.error('restore error:', err); }
+}
+
+async function refreshCard(id) {
+  try {
+    const ep = allEpisodes.find(e => e.id === id);
+    if (ep) ep._refreshing = true;
+    renderQueue();
+    const res = await fetch(`/api/episodes/${id}/fetch-metadata`, { method: 'POST' });
+    if (res.ok) {
+      setTimeout(loadEpisodes, 1000);
+    }
+  } catch (err) { console.error('refreshCard error:', err); }
 }
 
 // --- Add URL Modal ---
@@ -354,8 +549,18 @@ async function loadDeepSummary(summaryId, topicIndex, btnEl, containerEl) {
 }
 
 function renderTopicTags(summaryId, tags, sourceUrl) {
-  if (!tags || !tags.length) return '<p style="color:#999">No topic tags generated</p>';
+  // Normalise: flat strings → minimal objects (handles older summariser output)
+  tags = (tags || []).map(t => typeof t === 'string' ? { topic: t } : t);
+  if (!tags.length) return '<p style="color:#999">No topic tags generated</p>';
   return tags.map((tag, i) => {
+    // Simple pill rendering for tags without timestamp data (flat string origin)
+    if (!tag.timestamp_start) {
+      return `<div class="topic-tag-block">
+        <div class="topic-tag-header">
+          <span class="topic-label">${esc(tag.topic || '').toUpperCase()}</span>
+        </div>
+      </div>`;
+    }
     const tsLink = timestampLink(sourceUrl, tag.timestamp_start);
     const containerId = 'ds-content-' + summaryId + '-' + i;
     const btnId = 'ds-btn-' + summaryId + '-' + i;
@@ -382,9 +587,35 @@ function renderTopicTags(summaryId, tags, sourceUrl) {
 }
 
 // --- Summaries ---
+function setSummaryFeed(val) { currentSummaryFeedId = val; renderSummaries(); }
+
 async function loadSummaries() {
-  const data = await fetch('/api/summaries').then(r => r.json());
+  allSummaries = await fetch('/api/summaries').then(r => r.json());
+  populateSummaryFeedDropdown();
+  renderSummaries();
+}
+
+function populateSummaryFeedDropdown() {
+  const sel = document.getElementById('summary-feed-select');
+  if (!sel) return;
+  const feeds = new Map();
+  allSummaries.forEach(s => {
+    if (s.feed_id && s.feed_name) feeds.set(String(s.feed_id), s.feed_name);
+  });
+  sel.innerHTML = '<option value="all">All subscriptions</option>';
+  feeds.forEach((name, id) => {
+    sel.appendChild(new Option(name, id));
+  });
+  sel.value = currentSummaryFeedId;
+}
+
+function renderSummaries() {
   const list = document.getElementById('summaries-list');
+  let data = [...allSummaries];
+  if (currentSummaryFeedId !== 'all') {
+    data = data.filter(s => String(s.feed_id) === currentSummaryFeedId);
+  }
+  data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   if (!data.length) {
     list.innerHTML = '<div style="text-align:center;padding:60px 0;color:#888"><h3>No summaries yet</h3><p>Summarise an episode from the Queue tab.</p></div>';
     return;
@@ -412,12 +643,11 @@ async function loadSummaries() {
 
 function toggleSummary(id) {
   expandedSummary = expandedSummary === id ? null : id;
-  loadSummaries().then(() => {
-    if (expandedSummary !== null) {
-      const container = document.getElementById('suggested-tags-' + expandedSummary);
-      if (container) renderSuggestedTags(expandedSummary, container);
-    }
-  });
+  renderSummaries();
+  if (expandedSummary !== null) {
+    const container = document.getElementById('suggested-tags-' + expandedSummary);
+    if (container) renderSuggestedTags(expandedSummary, container);
+  }
 }
 
 // --- Feeds (Subscriptions tab) ---
@@ -488,17 +718,71 @@ async function addYouTubeChannel() {
   }
 }
 
+async function searchItunesFeed() {
+  const name = (document.getElementById('feed-name').value || '').trim();
+  if (!name) return;
+  const btn = document.getElementById('itunes-search-btn');
+  const statusEl = document.getElementById('itunes-status');
+  const altContainer = document.getElementById('itunes-alternatives');
+  const altList = document.getElementById('itunes-alternatives-list');
+
+  btn.disabled = true; btn.textContent = 'Searching\u2026';
+  statusEl.textContent = ''; altContainer.style.display = 'none'; altList.innerHTML = '';
+
+  try {
+    const res = await fetch(`/api/feeds/search?q=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    if (!res.ok || !data.results?.length) {
+      statusEl.textContent = 'No results found \u2014 paste the RSS URL manually.';
+      return;
+    }
+    const top = data.results[0];
+    document.getElementById('feed-url').value = top.feedUrl;
+    statusEl.textContent = `\u2713 ${top.name}${top.artist ? ' \u00b7 ' + top.artist : ''}`;
+
+    const alts = data.results.slice(1);
+    if (alts.length) {
+      alts.forEach(r => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;';
+        row.onmouseover = () => row.style.background = '#f5f5f5';
+        row.onmouseout  = () => row.style.background = '';
+        row.onclick = () => {
+          document.getElementById('feed-url').value = r.feedUrl;
+          document.getElementById('feed-name').value = r.name;
+          statusEl.textContent = `\u2713 ${r.name}${r.artist ? ' \u00b7 ' + r.artist : ''}`;
+        };
+        row.innerHTML = `
+          ${r.artwork ? `<img src="${r.artwork}" style="width:28px;height:28px;border-radius:3px;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+          <div style="min-width:0">
+            <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</div>
+            <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.feedUrl}</div>
+          </div>`;
+        altList.appendChild(row);
+      });
+      altContainer.style.display = 'block';
+    }
+  } catch(err) {
+    statusEl.textContent = 'Search error \u2014 paste the RSS URL manually.';
+    console.error('[itunes-search]', err);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Search';
+  }
+}
+
 async function addFeed() {
   const name = document.getElementById('feed-name').value.trim();
   const url = document.getElementById('feed-url').value.trim();
+  const backfill = parseInt(document.getElementById('feed-backfill')?.value || '0', 10) || 0;
   if (!url) return;
   await fetch('/api/feeds', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name || undefined, url })
+    body: JSON.stringify({ name: name || undefined, url, backfill })
   });
   document.getElementById('feed-name').value = '';
   document.getElementById('feed-url').value = '';
+  document.getElementById('feed-backfill').value = '0';
   toast('Feed added and polled');
   loadFeeds(); loadEpisodes();
 }
@@ -637,6 +921,14 @@ async function savePrompt(name) {
 }
 
 // --- Helpers ---
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim();
+}
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function fmtDate(d) { if (!d) return '—'; try { return new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); } catch(_) { return d; } }
 function toast(msg) {
@@ -650,8 +942,13 @@ function toast(msg) {
 // --- Auto-refresh ---
 setInterval(() => { if (currentTab === 'queue') loadEpisodes(); }, 30000);
 
+// Enter-key triggers iTunes search from feed-name input
+document.getElementById('feed-name')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchItunesFeed();
+});
+
 // --- Init ---
-loadEpisodes();
+loadEpisodes(); // statusFilter defaults to 'new'
 </script>
 </body>
 </html>

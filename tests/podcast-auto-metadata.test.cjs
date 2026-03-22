@@ -77,10 +77,10 @@ describe('Podcast Monitor — YouTube auto-metadata (port 3040)', () => {
   test('Episode has thumbnail populated within 10s of add', async () => {
     if (!serverRunning) return;
     await new Promise(r => setTimeout(r, 10000));
-    const res = await get(3040, `/api/episodes?limit=5`);
+    const res = await get(3040, `/api/episodes?status=all&daysBack=all`);
     const ep = res.body.find(e => e.id === episodeId);
     expect(ep).toBeDefined();
-    const hasMeta = ep?.thumbnail_url || ep?.channel_name || ep?.title;
+    const hasMeta = ep?.thumbnail || ep?.channel_name || ep?.title;
     expect(hasMeta).toBeTruthy();
   }, 20000);
 });

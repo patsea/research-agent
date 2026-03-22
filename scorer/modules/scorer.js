@@ -6,7 +6,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { getModel } = require('../../shared/models.cjs');
 
-const SIGNAL_VALUES = { High: 1.0, Medium: 0.5, Low: 0.0, Unknown: 0.0 };
+const SIGNAL_VALUES = { High: 1.0, Medium: 0.5, Unknown: 0.3, Low: 0.0 };
 
 export async function scoreItem({ name, scoringType, researchContext, rubric, manualInputs = {} }) {
   const PROMPT_TEMPLATE = readFileSync(
@@ -20,7 +20,7 @@ export async function scoreItem({ name, scoringType, researchContext, rubric, ma
 
   // Build LLM scoring prompt from template
   const dimPrompts = autoDimensions.map(d => `${d.id}: ${d.prompt}`).join('\n');
-  const jsonSchema = autoDimensions.map(d => `  "${d.id}": { "signal": "High|Medium|Low", "evidence": "one sentence", "confidence": "High|Medium|Low" }`).join(',\n');
+  const jsonSchema = autoDimensions.map(d => `  "${d.id}": { "signal": "High|Medium|Low|Unknown", "evidence": "one sentence", "confidence": "High|Medium|Low" }`).join(',\n');
   const prompt = PROMPT_TEMPLATE
     .replace('{{NAME}}', name)
     .replace('{{DIMENSIONS}}', dimPrompts)
@@ -35,7 +35,11 @@ export async function scoreItem({ name, scoringType, researchContext, rubric, ma
     : getModel('synthesis');
 
   let llmResults = {};
+  let scorerError = null;
   try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY not set in environment');
+    }
     const requestBody = {
       model,
       max_tokens: hasResearch ? 1500 : 4000,
@@ -70,7 +74,9 @@ export async function scoreItem({ name, scoringType, researchContext, rubric, ma
       llmResults = JSON.parse(jsonMatch[0]);
     }
   } catch (err) {
-    console.error('[scorer] LLM scoring error:', err.message);
+    const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    console.error('[scorer] LLM scoring error:', detail);
+    scorerError = detail;
   }
 
   // Build dimension results
@@ -124,6 +130,7 @@ export async function scoreItem({ name, scoringType, researchContext, rubric, ma
     id: randomUUID(),
     name,
     scoringType,
+    model,
     rawScore: Math.round(rawScore * 1000) / 1000,
     connectionMultiplier: multiplier,
     finalScore: Math.round(finalScore * 1000) / 1000,
@@ -134,6 +141,7 @@ export async function scoreItem({ name, scoringType, researchContext, rubric, ma
     hSignal: manualInputs.hSignal || null,
     hSignalEvidence: manualInputs.hSignalEvidence || null,
     connectionDegree: connectionDegree,
-    connectionName: manualInputs.connectionName || null
+    connectionName: manualInputs.connectionName || null,
+    ...(scorerError && { scorerError })
   };
 }

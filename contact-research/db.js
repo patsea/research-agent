@@ -34,8 +34,8 @@ db.exec(`
 export const contacts = {
   insert(card) {
     db.prepare(
-      "INSERT INTO contacts(id, name, email, title, company, linkedin_url, email_verified, confidence, source, campaign_type, status, notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run(card.id, card.name, card.email, card.title, card.company, card.linkedinUrl, card.emailStatus, card.confidence, card.source, card.campaignType, card.status || 'pending', card.context || '');
+      "INSERT INTO contacts(id, name, email, title, company, linkedin_url, email_verified, confidence, source, campaign_type, status, notes, role_rationale) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(card.id, card.name, card.email, card.title, card.company, card.linkedinUrl, card.emailStatus, card.confidence, card.source, card.campaignType, card.status || 'pending', card.context || '', card.role_rationale || '');
     return card.id;
   },
   get(id) {

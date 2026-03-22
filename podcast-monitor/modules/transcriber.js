@@ -52,7 +52,8 @@ async function transcribe(episodeId) {
         '--model', process.env.WHISPER_MODEL || 'small',
         '--language', 'en',
         '--output_format', 'json',
-        '--output_dir', DOWNLOADS
+        '--output_dir', DOWNLOADS,
+        '--fp16', 'False'
       ], { timeout: 600000 });
     } catch (err) {
       console.error('[transcriber] whisper error:', err.stderr?.slice(0, 500));

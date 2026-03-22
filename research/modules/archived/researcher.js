@@ -62,13 +62,37 @@ export async function runInterviewPrep(input, stage = 'recruiter_screen') {
     console.log('Granola search skipped:', err.message);
   }
 
-  // 3. Load template
+  // 3. Load template and inject single-brace tokens
   const templatePath = join(__dirname, '..', '..', 'config', 'prompts', 'research-interview-prep-template.md');
   let template = '';
   try {
     template = readFileSync(templatePath, 'utf8');
-    // Replace template variables with profile values
-    template = template.replace(/\{\{CANDIDATE_NAME\}\}/g, CV.name);
+
+    // Build research context from web search results
+    const researchCtx = allResults.map(r =>
+      `[${r.query}] ${r.title}\n${r.url}\n${r.snippet}`
+    ).join('\n\n');
+
+    // Build source material from granola notes + job description
+    const sourceParts = [];
+    if (jobDescriptionText) sourceParts.push(`## Job Description\n${jobDescriptionText}`);
+    if (granolaNotes) sourceParts.push(`## Granola Meeting Notes\n${granolaNotes}`);
+    const sourceMaterial = sourceParts.join('\n\n') || '';
+
+    // Replace all 12 single-brace tokens
+    template = template
+      .replace(/{MEETING_TYPE}/g, stage || '')
+      .replace(/{COMPANY_NAME}/g, companyName || '')
+      .replace(/{FIRM_NAME}/g, '')
+      .replace(/{PERSON_NAME}/g, recruiterName || '')
+      .replace(/{ROLE_NAME}/g, roleTitle || '')
+      .replace(/{USER_OBJECTIVE}/g, '')
+      .replace(/{USER_ANGLE}/g, '')
+      .replace(/{WHY_IT_MATTERS}/g, '')
+      .replace(/{KNOWN_CONTEXT}/g, notes || '')
+      .replace(/{RESEARCH_CONTEXT}/g, researchCtx)
+      .replace(/{ADDITIONAL_NOTES}/g, '')
+      .replace(/{SOURCE_MATERIAL}/g, sourceMaterial);
   } catch (err) {
     console.log('Template not found at', templatePath, '— using system prompt only');
   }
@@ -129,21 +153,27 @@ ${granolaNotes ? `## Granola Meeting Notes\n${granolaNotes}` : ''}
 
   console.log(`Calling Claude claude-sonnet-4-6 for synthesis (${userMessage.length} chars input)...`);
 
-  const r = await axios.post('https://api.anthropic.com/v1/messages',
-    {
-      model: getModel('synthesis'),
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    },
-    {
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+  let r;
+  try {
+    r = await axios.post('https://api.anthropic.com/v1/messages',
+      {
+        model: getModel('synthesis'),
+        max_tokens: 8000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
       },
-      timeout: 360000  // 360s: Stage 1 (Perplexity, max 150s) + Stage 2 (Claude audit, max 180s) + 30s buffer
-    }
-  );
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 360000  // 360s: Stage 1 (Perplexity, max 150s) + Stage 2 (Claude audit, max 180s) + 30s buffer
+      }
+    );
+  } catch (err) {
+    console.error('[researcher] LLM call failed:', err.message);
+    throw err;
+  }
 
   const markdown = r.data.content?.[0]?.text || '';
   console.log(`Claude response: ${markdown.length} chars`);

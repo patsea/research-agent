@@ -5,7 +5,7 @@ touch "$LOCK"
 
 LOG="/tmp/podcast-digest.log"
 echo "[digest] $(date) — starting" >> "$LOG"
-node -e "
+/usr/local/bin/node -e "
 const slack = require('/Users/pwilliamson/Dropbox/ALOMA/claude-code/job-search-agent/shared/slack.cjs');
 fetch('http://localhost:3040/api/digest/podcast')
   .then(r => r.json())

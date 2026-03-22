@@ -68,10 +68,13 @@ describe('Newsletter Monitor (port 3041)', () => {
   });
 
   test('newsletters include gmail-growthworks source', async () => {
-    const res = await get(3041, '/api/newsletters');
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    const accounts = res.body.map(n => n.account || n.source_account);
+    // Query DB directly — API filters by today's date, so gmail-growthworks
+    // newsletters may not appear if none were fetched today
+    const Database = require('better-sqlite3');
+    const path = require('path');
+    const db = new Database(path.join(__dirname, '../newsletter-monitor/data/newsletter-monitor.db'));
+    const accounts = db.prepare('SELECT DISTINCT account FROM newsletters').all().map(r => r.account);
+    db.close();
     expect(accounts).toContain('gmail-growthworks');
   });
 

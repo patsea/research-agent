@@ -46,7 +46,7 @@ Do not guess beyond the evidence.
 
 1. Return exactly one category.
 2. Prioritise explicit evidence over inference.
-3. Use the sender’s role, not the email’s emotional tone.
+3. Use the sender's role, not the email's emotional tone.
 4. If a person appears to be recruiting or discussing a role in an official hiring capacity, use "recruiter" even if they hold an operating title.
 5. If the sender is clearly from an investor or fund context, use "investor".
 6. If the sender is clearly a founder contacting directly, use "founder".

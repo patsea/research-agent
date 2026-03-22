@@ -9,7 +9,14 @@ const { getModel } = require('../../shared/models.cjs');
 
 const __dirname_drafter = dirname(fileURLToPath(import.meta.url));
 function _getDrafterProfile() {
-  return JSON.parse(readFileSync(join(__dirname_drafter, '..', '..', 'config', 'user-profile.json'), 'utf8'));
+  let config;
+  try {
+    config = JSON.parse(readFileSync(join(__dirname_drafter, '..', '..', 'config', 'user-profile.json'), 'utf8'));
+  } catch (err) {
+    console.error('[drafter] Failed to parse config file: user-profile.json', err.message);
+    throw err;
+  }
+  return config;
 }
 
 function _getSystemPromptTemplate() {
@@ -64,21 +71,27 @@ ${templatePrompt || 'Opening: 1-2 sentences referencing a specific challenge or 
 
 Generate the outreach email now.`;
 
-  const r = await axios.post('https://api.anthropic.com/v1/messages',
-    {
-      model: getModel('synthesis'),
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }]
-    },
-    {
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+  let r;
+  try {
+    r = await axios.post('https://api.anthropic.com/v1/messages',
+      {
+        model: getModel('synthesis'),
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
       },
-      timeout: 30000
-    }
-  );
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 30000
+      }
+    );
+  } catch (err) {
+    console.error('[drafter] LLM call failed:', err.message);
+    throw err;
+  }
 
   let textContent = '';
   for (const block of r.data.content || []) {
@@ -92,7 +105,8 @@ Generate the outreach email now.`;
     const cleaned = textContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     parsed = JSON.parse(cleaned);
   } catch (err) {
-    throw new Error(`Failed to parse draft response as JSON: ${textContent.substring(0, 200)}`);
+    console.error('[drafter] JSON.parse failed. Raw response:', textContent?.slice(0, 200));
+    throw new Error('LLM returned non-JSON response');
   }
 
   const body = parsed.body || '';
@@ -142,29 +156,41 @@ ${positioning}
 Return ONLY a JSON object: { "body": "..." } with the full rewritten email body.
 No preamble, no explanation, no markdown fences.`;
 
-  const r = await axios.post('https://api.anthropic.com/v1/messages',
-    {
-      model: getModel('synthesis'),
-      max_tokens: 2000,
-      system: _buildSystemPrompt(wordCountTarget),
-      messages: [{ role: 'user', content: userPrompt }]
-    },
-    {
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+  let r2;
+  try {
+    r2 = await axios.post('https://api.anthropic.com/v1/messages',
+      {
+        model: getModel('synthesis'),
+        max_tokens: 2000,
+        system: _buildSystemPrompt(wordCountTarget),
+        messages: [{ role: 'user', content: userPrompt }]
       },
-      timeout: 30000
-    }
-  );
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        timeout: 30000
+      }
+    );
+  } catch (err) {
+    console.error('[drafter] LLM call failed (regenerateSection):', err.message);
+    throw err;
+  }
 
   let textContent = '';
-  for (const block of r.data.content || []) {
+  for (const block of r2.data.content || []) {
     if (block.type === 'text') textContent += block.text;
   }
 
   const cleaned = textContent.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-  const parsed = JSON.parse(cleaned);
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    console.error('[drafter] JSON.parse failed (regenerateSection). Raw response:', cleaned?.slice(0, 200));
+    throw new Error('LLM returned non-JSON response');
+  }
   const body = parsed.body || currentBody;
   const wordCount = body.split(/\s+/).filter(w => w.length > 0).length;
 

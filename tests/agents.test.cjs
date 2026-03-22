@@ -116,27 +116,6 @@ describe('Scorer prompt file', () => {
   });
 });
 
-test('researcher.js reads interview prep system prompt from config/prompts/', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const content = fs.readFileSync(
-    path.join(__dirname, '../research/modules/researcher.js'), 'utf8');
-  // Must NOT reference research/prompts/
-  expect(content).not.toContain('research/prompts/system_interview_prep');
-  expect(content).not.toContain('system_interview_prep.txt');
-  // Must reference config/prompts/
-  expect(content).toContain('research-interview-prep-system');
-});
-
-test('researcher.js reads interview prep template from config/prompts/', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const content = fs.readFileSync(
-    path.join(__dirname, '../research/modules/researcher.js'), 'utf8');
-  expect(content).not.toContain('INTERVIEW_PREP_TEMPLATE_PATH');
-  expect(content).toContain('research-interview-prep-template');
-});
-
 test('dashboard rubric suggest endpoint reads from config/prompts/dashboard-rubric-suggest.md', () => {
   const fs = require('fs');
   const path = require('path');
@@ -296,7 +275,7 @@ test('scorer-rubric.md contains new scoring rules', () => {
   const path = require('path');
   const content = fs.readFileSync(
     path.join(__dirname, '../config/prompts/scorer-rubric.md'), 'utf8');
-  expect(content).toContain('mandate-likelihood');
+  // mandate-likelihood removed — dimensions now injected via {{DIMENSIONS}} placeholder
   expect(content).toContain('{{DIMENSIONS}}');
   expect(content).toContain('{{RESEARCH_CONTEXT}}');
   expect(content).toContain('{{JSON_SCHEMA}}');

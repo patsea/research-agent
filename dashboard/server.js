@@ -301,16 +301,28 @@ app.post('/api/config/scoring-rubric/suggest', async (req, res) => {
 
   // Load prompt from config/prompts/dashboard-rubric-suggest.md
   const suggestPromptRaw = readFileSync(resolve(__dirname, '..', 'config', 'prompts', 'dashboard-rubric-suggest.md'), 'utf-8');
-  const firmSection = suggestPromptRaw.split('## Firm Rubric')[1] || '';
-  const companySection = (suggestPromptRaw.split('## Company Rubric')[1] || '').split('## Firm Rubric')[0] || '';
-  const firmPrompt = firmSection.trim().replace('{{PROFILE_CONTEXT}}', profileContext);
-  const companyPrompt = companySection.trim().replace('{{PROFILE_CONTEXT}}', profileContext);
+
+  // Read scoring rubric for context
+  let scoringContext = '';
+  const rubricPath = resolve(CONFIG_DIR, 'scoring-rubric.json');
+  if (existsSync(rubricPath)) {
+    try {
+      const rubric = JSON.parse(readFileSync(rubricPath, 'utf-8'));
+      const section = rubricType === 'firm' ? rubric.firm : rubric.company;
+      scoringContext = section ? JSON.stringify(section, null, 2) : '';
+    } catch {}
+  }
+
+  const prompt = suggestPromptRaw
+    .replace('{CONTEXT}', profileContext)
+    .replace('{WORKFLOW_NOTES}', `Rubric type requested: ${rubricType}`)
+    .replace('{SCORING_CONTEXT}', scoringContext);
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
       model: getModel('synthesis'),
       max_tokens: 2000,
-      messages: [{ role: 'user', content: rubricType === 'firm' ? firmPrompt : companyPrompt }]
+      messages: [{ role: 'user', content: prompt }]
     }, {
       headers: {
         'x-api-key': apiKey,

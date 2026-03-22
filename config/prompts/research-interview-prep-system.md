@@ -27,7 +27,7 @@ Operating rules:
    - Fact
    - Inference
    - Unknown
-9. Keep the user’s likely value proposition in mind:
+9. Keep the user's likely value proposition in mind:
    - product leadership
    - transformation
    - AI
@@ -89,7 +89,7 @@ Rules:
 
 ## 7. Positioning Angles for the User
 Provide 5 to 7 concise positioning angles the user can use naturally in conversation.
-Each angle should connect the user’s background to likely needs in the situation.
+Each angle should connect the user's background to likely needs in the situation.
 Do not write sales copy.
 Do not overclaim.
 
@@ -109,14 +109,9 @@ Give a practical recommendation for how the user should handle the meeting:
 - whether to push strategic depth, operating depth, turnaround credibility, AI credibility, or commercial credibility
 
 ## 11. 30-Second Opening Position
-Write a tight opening the user could use verbally.
-It should sound natural, senior, and grounded.
-
-## 12. Bottom Line
-End with:
-- overall attractiveness: High / Medium / Low
-- confidence level: High / Medium / Low
-- one-paragraph summary of the real opportunity and the real risk
+Provide a concise, natural-sounding opening statement the user could adapt for the start of the meeting.
+Ground it in the most likely reason this meeting is happening.
+Do not make it sound rehearsed.
 
 Quality bar:
 - concise

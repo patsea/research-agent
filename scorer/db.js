@@ -90,10 +90,20 @@ if (rubricCount.c === 0) {
   );
 }
 
+function safeParseJson(value, label) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    console.error(`[scorer-db] Failed to parse DB column value (${label}):`, err.message);
+    return null;
+  }
+}
+
 export const rubrics = {
-  list() { return db.prepare('SELECT * FROM rubrics ORDER BY created_at').all().map(r => ({ ...r, dimensions: JSON.parse(r.dimensions), thresholds: JSON.parse(r.thresholds) })); },
-  get(id) { const r = db.prepare('SELECT * FROM rubrics WHERE id=?').get(id); return r ? { ...r, dimensions: JSON.parse(r.dimensions), thresholds: JSON.parse(r.thresholds) } : null; },
-  getDefault(scoringType) { const r = db.prepare('SELECT * FROM rubrics WHERE scoring_type=? AND is_default=1').get(scoringType); return r ? { ...r, dimensions: JSON.parse(r.dimensions), thresholds: JSON.parse(r.thresholds) } : null; },
+  list() { return db.prepare('SELECT * FROM rubrics ORDER BY created_at').all().map(r => ({ ...r, dimensions: safeParseJson(r.dimensions, 'rubrics.dimensions'), thresholds: safeParseJson(r.thresholds, 'rubrics.thresholds') })); },
+  get(id) { const r = db.prepare('SELECT * FROM rubrics WHERE id=?').get(id); return r ? { ...r, dimensions: safeParseJson(r.dimensions, 'rubrics.dimensions'), thresholds: safeParseJson(r.thresholds, 'rubrics.thresholds') } : null; },
+  getDefault(scoringType) { const r = db.prepare('SELECT * FROM rubrics WHERE scoring_type=? AND is_default=1').get(scoringType); return r ? { ...r, dimensions: safeParseJson(r.dimensions, 'rubrics.dimensions'), thresholds: safeParseJson(r.thresholds, 'rubrics.thresholds') } : null; },
   insert(rubric) {
     const id = randomUUID();
     db.prepare("INSERT INTO rubrics(id, name, scoring_type, dimensions, thresholds, is_default) VALUES(?, ?, ?, ?, ?, ?)").run(id, rubric.name, rubric.scoringType, JSON.stringify(rubric.dimensions), JSON.stringify(rubric.thresholds), rubric.isDefault ? 1 : 0);
@@ -118,15 +128,15 @@ export const scores = {
     ).run(score.id, score.runId || null, score.name, score.scoringType, score.rawScore, score.connectionMultiplier, score.finalScore, score.overallBadge, score.confidence, score.recommendedAction, JSON.stringify(score.dimensions), score.hSignal || null, score.hSignalEvidence || null, score.connectionDegree || null, score.connectionName || null, 'pending', score.notes || null);
     return score.id;
   },
-  get(id) { const r = db.prepare('SELECT * FROM scores WHERE id=?').get(id); return r ? { ...r, dimensions: JSON.parse(r.dimensions) } : null; },
-  getByName(name, scoringType) { const r = db.prepare('SELECT * FROM scores WHERE name=? AND scoring_type=? ORDER BY created_at DESC LIMIT 1').get(name, scoringType); return r ? { ...r, dimensions: JSON.parse(r.dimensions) } : null; },
+  get(id) { const r = db.prepare('SELECT * FROM scores WHERE id=?').get(id); return r ? { ...r, dimensions: safeParseJson(r.dimensions, 'scores.dimensions') } : null; },
+  getByName(name, scoringType) { const r = db.prepare('SELECT * FROM scores WHERE name=? AND scoring_type=? ORDER BY created_at DESC LIMIT 1').get(name, scoringType); return r ? { ...r, dimensions: safeParseJson(r.dimensions, 'scores.dimensions') } : null; },
   list(filters = {}) {
     let q = 'SELECT * FROM scores WHERE 1=1';
     const params = [];
     if (filters.status) { q += ' AND status=?'; params.push(filters.status); }
     if (filters.scoringType) { q += ' AND scoring_type=?'; params.push(filters.scoringType); }
     q += ' ORDER BY final_score DESC';
-    return db.prepare(q).all(...params).map(r => ({ ...r, dimensions: JSON.parse(r.dimensions) }));
+    return db.prepare(q).all(...params).map(r => ({ ...r, dimensions: safeParseJson(r.dimensions, 'scores.dimensions') }));
   },
   update(id, fields) {
     const sets = [];

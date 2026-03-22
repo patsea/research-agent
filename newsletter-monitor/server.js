@@ -26,7 +26,13 @@ db.exec(`
     summary TEXT,
     received_at TEXT,
     status TEXT DEFAULT 'new',
-    created_at TEXT
+    created_at TEXT,
+    is_newsletter INTEGER DEFAULT 1,
+    top_tags TEXT DEFAULT '[]',
+    key_points TEXT DEFAULT '[]',
+    best_sections TEXT DEFAULT '[]',
+    actionable_followups TEXT DEFAULT '[]',
+    skip_sections TEXT DEFAULT '[]'
   );
   CREATE TABLE IF NOT EXISTS run_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +45,18 @@ db.exec(`
   );
 `);
 
+const colMigrations = [
+  "ALTER TABLE newsletters ADD COLUMN is_newsletter INTEGER DEFAULT 1",
+  "ALTER TABLE newsletters ADD COLUMN top_tags TEXT DEFAULT '[]'",
+  "ALTER TABLE newsletters ADD COLUMN key_points TEXT DEFAULT '[]'",
+  "ALTER TABLE newsletters ADD COLUMN best_sections TEXT DEFAULT '[]'",
+  "ALTER TABLE newsletters ADD COLUMN actionable_followups TEXT DEFAULT '[]'",
+  "ALTER TABLE newsletters ADD COLUMN skip_sections TEXT DEFAULT '[]'",
+];
+for (const sql of colMigrations) {
+  try { db.prepare(sql).run(); } catch(e) { /* column exists */ }
+}
+
 let logActivity;
 try {
   logActivity = require('../shared/activityLogger').logActivity;
@@ -49,16 +67,61 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/newsletters', (req, res) => {
-  const { date, limit = 50, status } = req.query;
-  const targetDate = date || new Date().toISOString().split('T')[0];
-  let query = `SELECT * FROM newsletters WHERE date(received_at) = ? OR date(created_at) = ?`;
-  const params = [targetDate, targetDate];
-  if (status) { query += ` AND status = ?`; params.push(status); }
-  query += ` ORDER BY received_at DESC LIMIT ?`;
-  params.push(parseInt(limit));
   try {
-    res.json(db.prepare(query).all(...params));
-  } catch(err) {
+    const { status, daysBack, senderEmail, limit, date } = req.query;
+    const conditions = [];
+    const params = [];
+
+    // Legacy date param support (used by history tab)
+    if (date) {
+      conditions.push("(date(n.received_at) = ? OR date(n.created_at) = ?)");
+      params.push(date, date);
+      if (status) {
+        conditions.push("n.status = ?");
+        params.push(status);
+      }
+    } else {
+      // New filter logic
+      if (status === 'all') {
+        // no filter
+      } else if (status === 'archived') {
+        conditions.push("n.status IN ('read', 'skip')");
+      } else if (status) {
+        conditions.push("n.status = ?");
+        params.push(status);
+      } else {
+        conditions.push("n.status = 'new'");
+      }
+
+      const days = daysBack && daysBack !== 'all' ? parseInt(daysBack, 10) : 7;
+      if (!isNaN(days) && daysBack !== 'all') {
+        conditions.push("n.received_at >= datetime('now', ?)");
+        params.push(`-${days} days`);
+      }
+
+      if (senderEmail && senderEmail !== 'all') {
+        conditions.push("n.sender_email = ?");
+        params.push(senderEmail);
+      }
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const maxRows = parseInt(limit, 10) || 200;
+
+    const rows = db.prepare(`
+      SELECT id, message_id, subject, sender_name, sender_email, account,
+             snippet, body, summary, received_at, status, created_at, relevance_score,
+             one_line_takeaway, top_tags, key_points,
+             best_sections, actionable_followups, skip_sections
+      FROM newsletters n
+      ${where}
+      ORDER BY n.received_at DESC
+      LIMIT ?
+    `).all(...params, maxRows);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/newsletters error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -87,6 +150,15 @@ app.patch('/api/newsletters/:id/status', (req, res) => {
     logActivity({ agent: 'newsletter-monitor', action: 'status-update', detail: `Newsletter ${req.params.id} → ${status}` });
     res.json({ ok: true });
   } catch(err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/newsletters/:id/restore', (req, res) => {
+  try {
+    db.prepare("UPDATE newsletters SET status = 'new' WHERE id = ?").run(req.params.id);
+    res.json({ restored: true, status: 'new' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/run', async (req, res) => {
@@ -121,22 +193,29 @@ app.get('/api/digest/newsletter', async (req, res) => {
 
     const unscored = rows.filter(r => !r.relevance_score);
     if (unscored.length > 0 && ANTHROPIC_API_KEY) {
-      const scoringInstruction = fs.readFileSync(
+      const scoringTemplate = fs.readFileSync(
         path.join(__dirname, '../config/prompts/newsletter-digest-scoring.md'), 'utf8').trim();
-      const prompt = scoringInstruction + `\nNewsletters:\n` +
-        unscored.map(n => `ID:${n.id} Subject:"${n.subject}" From:${n.sender_name||''} Summary:${(n.summary||'').slice(0,150)}`).join('\n');
-      try {
-        const r = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: getModel('classification'), max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
-        });
-        const data = await r.json();
-        const text = (data?.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim();
-        const scores = JSON.parse(text);
-        const stmt = db.prepare('UPDATE newsletters SET relevance_score = ? WHERE id = ?');
-        for (const { id, score } of scores) stmt.run(score, id);
-      } catch (e) { console.error('[digest/newsletter] scoring error:', e.message); }
+      const stmt = db.prepare('UPDATE newsletters SET relevance_score = ? WHERE id = ?');
+      for (const n of unscored) {
+        try {
+          const prompt = scoringTemplate
+            .replace('{ID}', String(n.id))
+            .replace('{SUBJECT}', n.subject || '')
+            .replace('{SENDER}', n.sender_name || '')
+            .replace('{DATE}', n.received_at || '')
+            .replace('{SUMMARY}', n.summary || '')
+            .replace('{BODY_PREVIEW}', (n.body || '').slice(0, 500));
+          const r = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: getModel('classification'), max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+          });
+          const data = await r.json();
+          const text = (data?.content?.[0]?.text || '{}').replace(/```json|```/g, '').trim();
+          const parsed = JSON.parse(text);
+          if (parsed.score) stmt.run(parsed.score, parsed.id || n.id);
+        } catch (e) { console.error(`[digest/newsletter] scoring error for ${n.id}:`, e.message); }
+      }
     }
     const ranked = db.prepare(`
       SELECT id, subject, sender_name, sender_email, summary, relevance_score, received_at, account

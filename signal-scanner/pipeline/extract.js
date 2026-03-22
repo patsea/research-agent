@@ -13,10 +13,16 @@ function _getExtractionPrompt() {
 async function extract(content, sourceName, method, customPrompt) {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set in .env');
   if (!content || content.trim().length < 50) return [];
-  const r = await axios.post('https://api.anthropic.com/v1/messages',
-    { model: getModel('classification'), max_tokens: 2000,
-      messages: [{ role: 'user', content: `${customPrompt || _getExtractionPrompt()}\n\nSource: ${sourceName}\nMethod: ${method}\n\n---\n\n${content.slice(0, 8000)}` }] },
-    { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }, timeout: 30000 });
+  let r;
+  try {
+    r = await axios.post('https://api.anthropic.com/v1/messages',
+      { model: getModel('classification'), max_tokens: 2000,
+        messages: [{ role: 'user', content: `${customPrompt || _getExtractionPrompt()}\n\nSource: ${sourceName}\nMethod: ${method}\n\n---\n\n${content.slice(0, 8000)}` }] },
+      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }, timeout: 30000 });
+  } catch (err) {
+    console.error('[extract] LLM call failed:', err.message);
+    throw err;
+  }
   try {
     const raw = r.data.content[0].text.trim()
       .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();

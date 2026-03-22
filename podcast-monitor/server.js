@@ -9,6 +9,17 @@ const { resolveChannelId } = require('./modules/youtube');
 const { summarise } = require('./modules/summariser');
 const { fetchChannelVideos, fetchVideoDates } = require('./modules/youtube-backfill');
 
+function extractYouTubeId(url) {
+  if (!url) return null;
+  let m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  return null;
+}
+
 const app = express();
 const PORT = 3040;
 
@@ -76,19 +87,66 @@ app.delete('/api/feeds/:id', (req, res) => {
 
 // --- Episodes ---
 app.get('/api/episodes', (req, res) => {
-  const { status, limit = 100 } = req.query;
-  let sql = 'SELECT e.*, f.name as feed_name FROM episodes e LEFT JOIN feeds f ON e.feed_id = f.id';
+  const db = getDb();
+  const { status, daysBack, feedId, limit } = req.query;
+
+  const conditions = [];
   const params = [];
 
-  if (status) {
-    sql += ' WHERE e.status = ?';
+  if (status === 'all') {
+    // no status filter — return everything including dismissed
+  } else if (status) {
+    conditions.push("e.status = ?");
     params.push(status);
+  } else {
+    // default: hide dismissed
+    conditions.push("e.status != 'dismissed'");
   }
-  sql += ' ORDER BY e.created_at DESC LIMIT ?';
-  params.push(Number(limit));
 
-  const episodes = getDb().prepare(sql).all(...params);
-  res.json(episodes);
+  if (daysBack && daysBack !== 'all') {
+    const days = parseInt(daysBack, 10);
+    if (!isNaN(days)) {
+      conditions.push(
+        `(COALESCE(e.published_at, e.created_at) >= datetime('now', '-${days} days'))`
+      );
+    }
+  }
+
+  if (feedId !== undefined) {
+    if (feedId === '0') {
+      conditions.push("e.feed_id IS NULL");
+    } else {
+      const fid = parseInt(feedId, 10);
+      if (!isNaN(fid)) {
+        conditions.push("e.feed_id = ?");
+        params.push(fid);
+      }
+    }
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  try {
+    const rows = db.prepare(`
+      SELECT e.*, f.name as feed_name
+      FROM episodes e
+      LEFT JOIN feeds f ON e.feed_id = f.id
+      ${where}
+      ORDER BY COALESCE(e.published_at, e.created_at) DESC
+      ${limit ? 'LIMIT ' + parseInt(limit, 10) : ''}
+    `).all(...params);
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /api/episodes error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/episodes/reset-stuck', (req, res) => {
+  const db = getDb();
+  const result = db.prepare(
+    "UPDATE episodes SET status = 'new' WHERE status = 'processing'"
+  ).run();
+  res.json({ reset: result.changes });
 });
 
 app.post('/api/episodes/url', async (req, res) => {
@@ -108,7 +166,7 @@ app.post('/api/episodes/url', async (req, res) => {
       url,
       (meta && meta.published_at) || null,
       (meta && meta.duration)     || null,
-      (meta && meta.thumbnail)    || null
+      (meta && meta.thumbnail)    || (() => { const vid = extractYouTubeId(url); return vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : null; })()
     );
     const episode = db.prepare('SELECT * FROM episodes WHERE id = ?').get(result.lastInsertRowid);
     logAct('url_added', url);
@@ -133,6 +191,23 @@ app.patch('/api/episodes/:id/dismiss', (req, res) => {
   }
   db.prepare('UPDATE episodes SET status = \'dismissed\' WHERE id = ?').run(req.params.id);
   res.json({ dismissed: true, archived: true });
+});
+
+app.patch('/api/episodes/:id/restore', (req, res) => {
+  const db = getDb();
+  try {
+    const id = req.params.id;
+    db.prepare('UPDATE summaries SET archived = 0 WHERE episode_id = ?').run(id);
+    const summary = db.prepare(
+      'SELECT id FROM summaries WHERE episode_id = ? LIMIT 1'
+    ).get(id);
+    const targetStatus = summary ? 'summarised' : 'new';
+    db.prepare('UPDATE episodes SET status = ? WHERE id = ?').run(targetStatus, id);
+    res.json({ restored: true, status: targetStatus });
+  } catch (err) {
+    console.error('restore error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/episodes/:id/fetch-metadata — pre-fetch YouTube thumbnail + channel name
@@ -169,9 +244,16 @@ app.post('/api/episodes/:id/fetch-metadata', async (req, res) => {
 
 app.post('/api/episodes/:id/summarise', (req, res) => {
   const id = Number(req.params.id);
-  const episode = getDb().prepare('SELECT * FROM episodes WHERE id = ?').get(id);
-  if (!episode) return res.status(404).json({ error: 'Episode not found' });
+  const existing = getDb().prepare('SELECT status FROM episodes WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Episode not found' });
+  if (existing.status === 'processing') {
+    return res.status(409).json({ error: 'Already processing', status: 'processing' });
+  }
+  if (existing.status === 'summarised') {
+    return res.status(409).json({ error: 'Already summarised', status: 'summarised' });
+  }
 
+  const episode = getDb().prepare('SELECT * FROM episodes WHERE id = ?').get(id);
   getDb().prepare('UPDATE episodes SET status = \'processing\' WHERE id = ?').run(id);
   res.status(202).json({ status: 'processing', episodeId: id });
 
@@ -203,7 +285,7 @@ function parseSummary(s) {
 app.get('/api/summaries', (req, res) => {
   const summaries = getDb().prepare(`
     SELECT s.*, e.title, e.source_url, e.thumbnail, e.published_at, e.channel_name,
-           f.name as feed_name
+           e.feed_id, f.name as feed_name
     FROM summaries s
     JOIN episodes e ON s.episode_id = e.id
     LEFT JOIN feeds f ON e.feed_id = f.id
@@ -748,6 +830,54 @@ app.post('/api/proxy/prompts/:name', async (req, res) => {
     res.json(data);
   } catch (e) {
     res.status(503).json({ error: 'Dashboard unavailable', message: e.message });
+  }
+});
+
+// Podcast Index search — GET /api/feeds/search?q=PODCAST+NAME
+// Auth: SHA-1(apiKey + apiSecret + unixTimestamp) per request
+const crypto = require('crypto');
+
+app.get('/api/feeds/search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q parameter required' });
+
+  const apiKey = process.env.PODCASTINDEX_KEY;
+  const apiSecret = process.env.PODCASTINDEX_SECRET;
+  if (!apiKey || !apiSecret) {
+    return res.status(500).json({ error: 'PODCASTINDEX_KEY/SECRET not configured' });
+  }
+
+  try {
+    const epoch = Math.floor(Date.now() / 1000);
+    const hash = crypto.createHash('sha1')
+      .update(apiKey + apiSecret + epoch)
+      .digest('hex');
+
+    const url = `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(q)}&max=8&clean`;
+    const response = await fetch(url, {
+      headers: {
+        'X-Auth-Key': apiKey,
+        'X-Auth-Date': String(epoch),
+        'Authorization': hash,
+        'User-Agent': 'JobSearchAgent/1.0',
+      }
+    });
+    if (!response.ok) throw new Error(`Podcast Index error: ${response.status}`);
+    const data = await response.json();
+
+    const results = (data.feeds || [])
+      .filter(f => f.url)
+      .map(f => ({
+        name: f.title,
+        artist: f.author,
+        feedUrl: f.url,
+        artwork: f.image || null
+      }));
+
+    res.json({ results });
+  } catch (err) {
+    console.error('[podcast-search]', err.message);
+    res.status(502).json({ error: 'Search failed', detail: err.message });
   }
 });
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 import axios from 'axios';
 import 'dotenv/config';
 import { scoreItem } from './modules/scorer.js';
@@ -8,6 +9,21 @@ import { rubrics, scores, agent4Queue } from './db.js';
 import { logActivity } from '../shared/activityLogger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load active rubric from config file at call time (not module scope)
+function getActiveRubric(scoringType) {
+  const rubricPath = join(__dirname, '..', 'config', 'scoring-rubric.json');
+  let rubric;
+  try {
+    rubric = JSON.parse(readFileSync(rubricPath, 'utf8'));
+  } catch (err) {
+    console.error('[scorer] Failed to parse config file:', rubricPath, err.message);
+    throw err;
+  }
+  if (scoringType === 'company') return rubric.companyRubric;
+  if (scoringType === 'firm') return rubric.firmRubric;
+  throw new Error(`Unknown scoringType: ${scoringType}`);
+}
 const app = express();
 const PORT = process.env.PORT || 3038;
 
@@ -42,7 +58,7 @@ app.post('/api/score', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'name required' });
 
   const type = scoringType || 'company';
-  const rubric = rubricId ? rubrics.get(rubricId) : rubrics.getDefault(type);
+  const rubric = rubricId ? rubrics.get(rubricId) : getActiveRubric(type);
   if (!rubric) return res.status(400).json({ error: 'No rubric found for this scoring type' });
 
   // Deduplication: check if already scored recently
@@ -80,7 +96,7 @@ app.post('/api/score/batch', async (req, res) => {
   const results = [];
   for (const item of items) {
     const type = item.scoringType || 'company';
-    const rubric = rubricId ? rubrics.get(rubricId) : rubrics.getDefault(type);
+    const rubric = rubricId ? rubrics.get(rubricId) : getActiveRubric(type);
     if (!rubric) { results.push({ name: item.name, error: 'No rubric found' }); continue; }
 
     try {
@@ -112,7 +128,7 @@ app.patch('/api/scores/:id/manual', async (req, res) => {
   const { hSignal, hSignalEvidence, connectionDegree, connectionName, networkSignal } = req.body;
 
   // Get the rubric for recalculation
-  const rubric = rubrics.getDefault(existing.scoring_type);
+  const rubric = getActiveRubric(existing.scoring_type);
   if (!rubric) return res.status(400).json({ error: 'No rubric found' });
 
   // Update manual dimension in existing dimensions

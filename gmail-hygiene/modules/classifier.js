@@ -24,19 +24,27 @@ const TAXONOMY = [
   'Review & Unsubscribe'
 ];
 
-export async function classifySender({ emailAddress, displayName, subjects }) {
+export async function classifySender({ emailAddress, displayName, subjects, subject, body }) {
   const GMAIL_CLASSIFIER_PROMPT = _getClassifierPrompt();
-  const response = await client.messages.create({
-    model: getModel('classification'),
-    max_tokens: 50,
-    messages: [{
-      role: 'user',
-      content: GMAIL_CLASSIFIER_PROMPT
-        .replace('{EMAIL_ADDRESS}', emailAddress)
-        .replace('{DISPLAY_NAME}', displayName || 'unknown')
-        .replace('{SUBJECTS}', subjects.slice(0, 3).join(', ') || 'none')
-    }]
-  });
+  let response;
+  try {
+    response = await client.messages.create({
+      model: getModel('classification'),
+      max_tokens: 50,
+      messages: [{
+        role: 'user',
+        content: GMAIL_CLASSIFIER_PROMPT
+          .replace('{{EMAIL_ADDRESS}}', emailAddress)
+          .replace('{{DISPLAY_NAME}}', displayName || 'unknown')
+          .replace('{{SUBJECT}}', subject || '')
+          .replace('{{RECENT_SUBJECTS}}', (subjects || []).slice(0, 3).join(', ') || 'none')
+          .replace('{{BODY}}', body || '')
+      }]
+    });
+  } catch (err) {
+    console.error('[classifier] LLM call failed:', err.message);
+    throw err;
+  }
 
   const raw = response.content[0]?.text?.trim() || '';
   let category = 'Review & Unsubscribe';
