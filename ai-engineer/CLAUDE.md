@@ -38,3 +38,9 @@ All models via getModel(slot) from shared/models.cjs — 4 slots, all claude-son
 - Prompt changes: update config/prompts/*.md + verify output schema unchanged
 - Output schema changes require all consumers updated in same instruction
 - Model slot changes require live scorer test before merging
+
+
+## Model Configuration
+- Claude Code sessions (Patrick's interactive work): claude-opus-4-6
+- Pipeline/sub-agent API calls (background processing): claude-sonnet-4-6
+- All model selection config-driven — never hardcoded in source
