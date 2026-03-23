@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Status — Contact Research</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; }
+
+  /* Top nav — matches index.html and eval.html */
+  .top-nav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#1d4ed8; color:#fff; position:sticky; top:0; z-index:100; }
+  .top-nav-brand { font-weight:700; font-size:16px; color:#fff; letter-spacing:-0.01em; }
+  .top-nav-links { display:flex; gap:8px; }
+  .top-nav-link { color:rgba(255,255,255,0.8); text-decoration:none; font-size:14px; padding:6px 14px; border-radius:6px; transition:background 0.15s; }
+  .top-nav-link:hover { background:rgba(255,255,255,0.15); color:#fff; }
+  .top-nav-link.active { background:rgba(255,255,255,0.2); color:#fff; font-weight:600; }
+
+  /* Page */
+  .page { max-width:1100px; margin:0 auto; padding:24px; }
+
+  /* Tab bar */
+  .tab-bar { display:flex; gap:0; border-bottom:2px solid #e5e7eb; margin-bottom:24px; }
+  .tab-btn { padding:10px 20px; font-size:14px; font-weight:500; color:#6b7280; background:none; border:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; }
+  .tab-btn:hover { color:#374151; }
+  .tab-btn.active { color:#1d4ed8; border-bottom-color:#1d4ed8; font-weight:600; }
+
+  /* Section cards */
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:20px; margin-bottom:20px; }
+  .card h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .card .desc { font-size:13px; color:#6b7280; margin-bottom:16px; }
+
+  /* Form elements */
+  .form-group { margin-bottom:14px; }
+  .form-group label { display:block; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#6b7280; font-weight:600; margin-bottom:4px; }
+  .form-group input[type="text"], .form-group select { width:100%; max-width:400px; padding:8px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; color:#111827; background:#fff; }
+  .form-group input:focus, .form-group select:focus { outline:none; border-color:#1d4ed8; box-shadow:0 0 0 2px rgba(29,78,216,.15); }
+  .form-group input[type="file"] { font-size:14px; color:#374151; }
+
+  /* Buttons */
+  .btn { padding:8px 20px; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer; border:none; transition:background 0.15s; }
+  .btn-primary { background:#1d4ed8; color:#fff; }
+  .btn-primary:hover { background:#1e40af; }
+  .btn-primary:disabled { background:#93c5fd; cursor:not-allowed; }
+  .btn-secondary { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+  .btn-secondary:hover { background:#e5e7eb; }
+
+  /* Tables */
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:8px 10px; background:#f9fafb; border-bottom:1px solid #e5e7eb; font-weight:600; color:#6b7280; font-size:11px; text-transform:uppercase; }
+  td { padding:8px 10px; border-bottom:1px solid #f3f4f6; color:#374151; }
+  tr.clickable { cursor:pointer; }
+  tr.clickable:hover { background:#f0f9ff; }
+
+  /* Badges */
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .badge-pending { background:#f3f4f6; color:#6b7280; }
+  .badge-exported { background:#eff6ff; color:#1d4ed8; }
+  .badge-matched { background:#f0fdf4; color:#16a34a; }
+  .badge-not-found { background:#fffbeb; color:#d97706; }
+  .badge-error { background:#fef2f2; color:#dc2626; }
+  .badge-active { background:#f0fdf4; color:#16a34a; }
+  .badge-complete { background:#eff6ff; color:#1d4ed8; }
+
+  /* Results / warnings */
+  .result-panel { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:16px; margin-top:16px; font-size:14px; }
+  .warning-box { background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:12px 16px; margin-top:12px; color:#92400e; font-size:13px; }
+  .success-box { background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px 16px; margin-top:12px; color:#166534; font-size:13px; }
+
+  /* Summary stats */
+  .stats-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px; }
+  .stat { font-size:14px; }
+  .stat strong { font-weight:600; }
+
+  /* Collapsible */
+  .collapsible-toggle { cursor:pointer; color:#1d4ed8; font-size:13px; font-weight:500; }
+  .collapsible-toggle:hover { text-decoration:underline; }
+  .collapsible-content { display:none; margin-top:8px; font-size:13px; color:#374151; }
+  .collapsible-content.open { display:block; }
+
+  /* Batch detail inline */
+  .batch-detail { background:#f9fafb; padding:16px; border-top:1px solid #e5e7eb; }
+
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <div class="top-nav-brand">Contact Research</div>
+  <div class="top-nav-links">
+    <a href="/" class="top-nav-link">Contact Research</a>
+    <a href="/eval" class="top-nav-link">Contact Eval</a>
+    <a href="/pipeline" class="top-nav-link active">Pipeline Status</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="batches" onclick="switchTab('batches')">Batches</button>
+    <button class="tab-btn" data-tab="source" onclick="switchTab('source')">Source</button>
+    <button class="tab-btn" data-tab="import" onclick="switchTab('import')">Import</button>
+    <button class="tab-btn" data-tab="closely" onclick="switchTab('closely')">Closely</button>
+    <button class="tab-btn" data-tab="fullenrich" onclick="switchTab('fullenrich')">FullEnrich</button>
+    <button class="tab-btn" data-tab="evalqueue" onclick="switchTab('evalqueue')">Eval Queue</button>
+  </div>
+
+  <!-- TAB 0: Source -->
+  <div id="tab-source" class="tab-content hidden">
+    <!-- Section: Attio Pull -->
+    <div class="card">
+      <h3>Pull from Attio</h3>
+      <div class="desc">Fetches all contacts in Attio where "Queue for Eval" is checked. After import, the flag is automatically reset.</div>
+      <button class="btn btn-primary" onclick="pullAttioQueued()">Pull Queued Contacts</button>
+      <div id="attio-pull-status" style="margin-top:12px;"></div>
+      <div id="attio-pull-results" class="hidden" style="margin-top:16px;">
+        <table class="data-table" style="width:100%;">
+          <thead><tr>
+            <th style="width:30px;"><input type="checkbox" id="attio-select-all" checked onchange="document.querySelectorAll('.attio-row-cb').forEach(c=>c.checked=this.checked)"></th>
+            <th>Name</th><th>Job Title</th><th>Company</th><th>Email</th>
+          </tr></thead>
+          <tbody id="attio-results-body"></tbody>
+        </table>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Batch Label</label>
+          <input type="text" id="attio-batch-label" style="max-width:400px;">
+        </div>
+        <button class="btn btn-primary" onclick="importAttioResults()">Import Selected to Pipeline</button>
+        <span id="attio-import-status" style="font-size:13px; color:#16a34a; margin-left:12px;"></span>
+      </div>
+    </div>
+
+    <!-- Section A: Prompt Builder -->
+    <div class="card">
+      <h3>Step 1 — Build Perplexity Prompt</h3>
+      <div class="desc">Fill in the parameters below to generate a structured prompt for Perplexity Deep Research. The output format is fixed so the results can be parsed automatically.</div>
+      <div class="form-group">
+        <label>Geography / Market</label>
+        <input type="text" id="prompt-geography" placeholder="e.g. Portugal, Spain, DACH, Nordics" required>
+      </div>
+      <div class="form-group">
+        <label>Company Type and Stage</label>
+        <input type="text" id="prompt-criteria" placeholder="e.g. tech startups that have raised Series A or above, 2020–2025" required>
+      </div>
+      <div class="form-group">
+        <label>Sectors (optional — leave blank for all tech)</label>
+        <input type="text" id="prompt-sectors" placeholder="e.g. SaaS, fintech, healthtech, AI, cybersecurity">
+      </div>
+      <div class="form-group">
+        <label>Exclude (optional)</label>
+        <input type="text" id="prompt-exclusions" placeholder="e.g. pre-seed and seed only, companies outside the region">
+      </div>
+      <div class="form-group">
+        <label>Target Number of Companies</label>
+        <input type="number" id="prompt-target" value="40" min="10" max="100" style="width:100px;">
+      </div>
+      <button class="btn btn-primary" onclick="generatePrompt()">Generate Prompt</button>
+
+      <div id="prompt-output" class="hidden" style="margin-top:16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <label style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#6b7280; font-weight:600; margin:0;">Generated Prompt</label>
+          <button class="btn btn-secondary" style="padding:4px 12px; font-size:12px;" onclick="copyPrompt()">Copy to clipboard</button>
+          <span id="prompt-copy-status" style="font-size:12px; color:#16a34a;"></span>
+        </div>
+        <textarea id="prompt-text" rows="8" readonly style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; font-family:monospace; color:#374151; background:#f9fafb; resize:vertical;"></textarea>
+      </div>
+    </div>
+
+    <!-- Section B: Paste & Parse (hidden until prompt generated) -->
+    <div class="card hidden" id="source-paste-card">
+      <h3>Step 2 — Paste Perplexity Output</h3>
+      <div class="desc">Run the prompt above in Perplexity Deep Research, then paste the full output here. The table will be parsed automatically.</div>
+      <div class="form-group">
+        <textarea id="source-perplexity-output" rows="12" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; font-family:inherit; color:#111827; resize:vertical;" placeholder="Paste the full Perplexity output here..."></textarea>
+      </div>
+      <button class="btn btn-secondary" onclick="parseCompanies()">Parse Companies</button>
+      <div id="parse-warning" class="hidden" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- Section C: Search params + mode toggle -->
+    <div class="card hidden" id="source-checklist-card">
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Search Mode</label>
+        <div style="display:flex; gap:16px; margin-top:4px;">
+          <label style="font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <input type="radio" name="source-mode" value="company_list" checked onchange="toggleSearchMode()"> Company list search
+          </label>
+          <label style="font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <input type="radio" name="source-mode" value="filter_search" onchange="toggleSearchMode()"> Direct filter search
+          </label>
+        </div>
+      </div>
+
+      <!-- Company list mode fields -->
+      <div id="source-company-mode">
+        <h3>Parsed Companies (<span id="source-company-count">0</span> selected)</h3>
+        <div style="margin-bottom:8px;">
+          <a href="#" class="collapsible-toggle" onclick="toggleAllCompanies(event)">Select all / Deselect all</a>
+        </div>
+        <div id="source-checklist"></div>
+      </div>
+
+      <!-- Filter search mode fields -->
+      <div id="source-filter-mode" class="hidden">
+        <div class="form-group">
+          <label>Title Keywords (required, comma-separated)</label>
+          <input type="text" id="filter-keywords" value="Operating Partner, Partner, Managing Director" style="max-width:500px;">
+        </div>
+        <div class="form-group">
+          <label>Schools (optional, comma-separated)</label>
+          <input type="text" id="filter-schools" placeholder="e.g. INSEAD, HEC Paris" style="max-width:500px;">
+        </div>
+        <div class="form-group">
+          <label>Geography (optional, comma-separated)</label>
+          <input type="text" id="filter-geography" placeholder="e.g. Europe, United Kingdom">
+        </div>
+        <div class="form-group">
+          <label>Seniority Level (optional, comma-separated)</label>
+          <input type="text" id="filter-seniority" placeholder="e.g. C-Suite, Director, VP">
+        </div>
+        <div class="form-group">
+          <label>Max Total Results</label>
+          <input type="number" id="filter-max-results" value="200" min="10" max="1000" style="width:100px;">
+        </div>
+      </div>
+
+      <div style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:16px;">
+        <div class="form-group">
+          <label>Batch Label</label>
+          <input type="text" id="source-label" placeholder="e.g. Portugal Series A — March 2026">
+        </div>
+        <!-- Company list mode: shared params -->
+        <div id="source-company-params">
+          <div class="form-group">
+            <label>Title Keywords (comma-separated)</label>
+            <input type="text" id="source-keywords" value="CEO, Founder, Co-Founder, Chief Executive" style="max-width:500px;">
+          </div>
+          <div class="form-group">
+            <label>Geography Filter for Sales Navigator</label>
+            <input type="text" id="source-geography" placeholder="e.g. Portugal or Spain">
+          </div>
+          <div class="form-group">
+            <label>Max Results Per Company</label>
+            <input type="number" id="source-max" value="5" min="1" max="10" style="width:80px;">
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
+          <button class="btn btn-primary" id="source-run-btn" onclick="runSalesNavSearch()">Run Sales Navigator Search</button>
+          <span id="chrome-status-indicator" style="font-size:13px;"></span>
+        </div>
+        <div id="chrome-not-ready-banner" class="hidden" style="margin-top:12px; padding:16px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:14px; color:#991b1b;">
+          <div style="font-weight:600; margin-bottom:8px;">Chrome not ready for automation</div>
+          <div style="margin-bottom:8px;">Sales Navigator search requires Chrome to be running with remote debugging enabled.</div>
+          <ol style="margin:0 0 12px 20px; padding:0;">
+            <li>Quit Chrome completely (Cmd+Q)</li>
+            <li>Open Terminal and run the command below</li>
+            <li>Log into Sales Navigator in the Chrome window that opens</li>
+            <li>Come back here and click Run Sales Navigator Search again</li>
+          </ol>
+          <code id="chrome-launch-cmd" style="display:block; padding:8px 12px; background:#fff; border:1px solid #e5e7eb; border-radius:4px; font-size:12px; word-break:break-all; margin-bottom:8px;">/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --profile-directory="Default"</code>
+          <button class="btn btn-secondary" style="font-size:12px; padding:4px 12px;" onclick="navigator.clipboard.writeText(document.getElementById('chrome-launch-cmd').textContent)">Copy command</button>
+          <button class="btn btn-secondary" style="font-size:12px; padding:4px 12px; margin-left:8px;" onclick="runSalesNavSearch()">Try again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section D: Job status + results (hidden until search started) -->
+    <div class="card hidden" id="source-status-card">
+      <h3>Job Status</h3>
+      <div id="source-status-bar" style="font-size:14px; font-weight:600; color:#6b7280; margin-bottom:8px;">Idle</div>
+      <div id="source-progress-bar" class="hidden" style="margin-bottom:8px;">
+        <div style="background:#e5e7eb; border-radius:4px; height:8px; overflow:hidden;">
+          <div id="source-progress-fill" style="background:#1d4ed8; height:100%; width:0%; transition:width 0.3s;"></div>
+        </div>
+        <div id="source-progress-pct" style="font-size:12px; color:#6b7280; margin-top:2px;"></div>
+      </div>
+      <div id="source-current-company" class="hidden" style="font-size:13px; color:#374151; margin-bottom:8px;"></div>
+      <div id="source-activity-log" class="hidden" style="max-height:200px; overflow-y:auto; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:8px 12px; font-size:13px; font-family:monospace; line-height:1.8; margin-bottom:12px;"></div>
+      <div id="source-complete-banner" class="hidden"></div>
+      <div id="source-not-found" class="hidden"></div>
+      <table id="source-results-table" class="hidden">
+        <thead>
+          <tr>
+            <th style="width:30px"><input type="checkbox" id="source-select-all" checked onchange="toggleAllResults(this.checked)"></th>
+            <th>Name</th><th>Title</th><th>Company</th><th>Link</th>
+          </tr>
+        </thead>
+        <tbody id="source-results-body"></tbody>
+      </table>
+      <div id="source-import-section" class="hidden" style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="importSourceResults()">Import Selected to Pipeline</button>
+        <span id="source-import-status" style="font-size:13px; color:#16a34a; margin-left:12px;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: Import -->
+  <div id="tab-import" class="tab-content hidden">
+    <div class="card">
+      <h3>Import Contacts</h3>
+      <div class="desc">Upload a CSV with columns: first_name, last_name, company_name, job_title (required). Optional: geography, source, network_tag, sales_nav_url, linkedin_url, notes</div>
+      <div class="form-group">
+        <label>Batch Label</label>
+        <input type="text" id="import-label" placeholder="e.g. Portugal Series A — March 2026">
+      </div>
+      <div class="form-group">
+        <label>Source</label>
+        <input type="text" id="import-source" value="SalesNavigator">
+      </div>
+      <div class="form-group">
+        <label>Choose CSV File</label>
+        <input type="file" id="import-file" accept=".csv">
+      </div>
+      <button class="btn btn-primary" id="import-btn" onclick="doImport()">Import</button>
+      <div id="import-result" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Batches -->
+  <div id="tab-batches" class="tab-content">
+    <div class="card">
+      <h3>All Batches</h3>
+      <div id="batches-loading" class="desc">Loading...</div>
+      <table id="batches-table" class="hidden">
+        <thead>
+          <tr><th>Label</th><th>Source</th><th>Total</th><th>Created</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="batches-body"></tbody>
+      </table>
+      <div id="batch-detail" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Closely -->
+  <div id="tab-closely" class="tab-content hidden">
+    <div class="card">
+      <h3>Closely Integration</h3>
+      <div class="form-group">
+        <label>Select Batch</label>
+        <select id="closely-batch"></select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Step 1 — Export for Closely</h3>
+      <div class="desc">Downloads a CSV of contacts without LinkedIn URLs. Upload this to a new Closely campaign.</div>
+      <button class="btn btn-primary" onclick="closelyExport()">Download Closely Import CSV</button>
+      <div id="closely-export-result" class="hidden"></div>
+    </div>
+
+    <div class="card">
+      <h3>Step 2 — Import Closely Results</h3>
+      <div class="desc">After the Closely campaign completes, export results from Closely and upload here.</div>
+      <div class="form-group">
+        <label>Choose Closely Export CSV</label>
+        <input type="file" id="closely-file" accept=".csv">
+      </div>
+      <button class="btn btn-primary" onclick="closelyImport()">Import Results</button>
+      <div id="closely-import-result" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- TAB 4: FullEnrich -->
+  <div id="tab-fullenrich" class="tab-content hidden">
+    <div class="card">
+      <h3>FullEnrich Integration</h3>
+      <div class="form-group">
+        <label>Select Batch</label>
+        <select id="fe-batch"></select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Step 1 — Export for FullEnrich</h3>
+      <div class="desc">Downloads a CSV with LinkedIn URLs for enrichment. Upload to FullEnrich.</div>
+      <button class="btn btn-primary" onclick="feExport()">Download FullEnrich Import CSV</button>
+      <div id="fe-export-result" class="hidden"></div>
+    </div>
+
+    <div class="card">
+      <h3>Step 2 — Import FullEnrich Results</h3>
+      <div class="form-group">
+        <label>Choose FullEnrich Export CSV</label>
+        <input type="file" id="fe-file" accept=".csv">
+      </div>
+      <button class="btn btn-primary" onclick="feImport()">Import Results</button>
+      <div id="fe-import-result" class="hidden"></div>
+    </div>
+
+    <div class="card">
+      <h3>Enrichment Status</h3>
+      <button class="btn btn-secondary" onclick="feStatus()">Refresh Status</button>
+      <div id="fe-status-result" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Eval Queue -->
+  <div id="tab-evalqueue" class="tab-content hidden">
+    <div class="card">
+      <h3>Eval Queue</h3>
+      <div class="form-group">
+        <label>Select Batch</label>
+        <select id="eq-batch"></select>
+      </div>
+      <div id="eq-status" class="hidden"></div>
+      <button class="btn btn-primary" id="eq-send-btn" onclick="sendToEval()" disabled>Send to Eval</button>
+      <div id="eq-result" class="hidden"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let batchesCache = [];
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+
+  if (name === 'batches') loadBatches();
+  if (name === 'closely' || name === 'fullenrich' || name === 'evalqueue') loadBatchSelectors();
+  if (name === 'source') startChromeStatusPolling();
+  else stopChromeStatusPolling();
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+function badgeFor(status) {
+  if (!status) return '<span class="badge badge-pending">pending</span>';
+  const cls = { pending:'pending', exported:'exported', matched:'matched', not_found:'not-found', error:'error', active:'active', complete:'complete' };
+  return `<span class="badge badge-${cls[status] || 'pending'}">${esc(status)}</span>`;
+}
+
+// ========== Batches ==========
+
+async function loadBatches() {
+  const resp = await fetch('/api/pipeline/batches').then(r => r.json());
+  batchesCache = resp.batches || [];
+  document.getElementById('batches-loading').classList.add('hidden');
+  const table = document.getElementById('batches-table');
+  table.classList.remove('hidden');
+  const body = document.getElementById('batches-body');
+  body.innerHTML = '';
+  document.getElementById('batch-detail').classList.add('hidden');
+
+  for (const b of batchesCache) {
+    const tr = document.createElement('tr');
+    tr.className = 'clickable';
+    tr.innerHTML = `<td>${esc(b.label)}</td><td>${esc(b.source)}</td><td>${b.total_contacts || 0}</td><td>${esc(b.created_at)}</td><td>${badgeFor(b.status || 'active')}</td><td style="text-align:right"><button class="btn" style="padding:3px 10px; font-size:11px; color:#dc2626; border:1px solid #dc2626; background:#fff; border-radius:4px; cursor:pointer;" onclick="event.stopPropagation(); deleteBatch('${b.batch_id}', '${esc(b.label).replace(/'/g, "\\'")}', ${b.total_contacts || 0})">Delete</button></td>`;
+    tr.onclick = () => showBatchDetail(b.batch_id);
+    body.appendChild(tr);
+  }
+}
+
+async function deleteBatch(batchId, label, count) {
+  if (!confirm(`Delete batch '${label}' and all ${count} contacts? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch(`/api/pipeline/batch/${batchId}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.ok) {
+      batchesCache = [];
+      loadBatches();
+    } else {
+      alert(data.error || 'Delete failed');
+    }
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+}
+
+async function showBatchDetail(batchId) {
+  const detail = document.getElementById('batch-detail');
+  detail.classList.remove('hidden');
+  detail.innerHTML = '<div class="batch-detail"><em>Loading...</em></div>';
+
+  const resp = await fetch(`/api/pipeline/batch/${batchId}`).then(r => r.json());
+  const batch = resp.batch || {};
+  const contacts = resp.contacts || [];
+
+  if (contacts.length === 0) {
+    const totalStored = batch.total_contacts || 0;
+    let msg = '<div class="batch-detail"><div style="color:#6b7280; font-size:14px; padding:12px 0;">No pipeline contacts in this batch.';
+    if (totalStored > 0) msg += ` (${totalStored} contacts tracked via eval, not pipeline import)`;
+    msg += '</div></div>';
+    detail.innerHTML = msg;
+    return;
+  }
+
+  let matched = 0, notFound = 0, pending = 0;
+  for (const c of contacts) {
+    if (c.fullenrich_status === 'matched') matched++;
+    else if (c.fullenrich_status === 'not_found') notFound++;
+    else pending++;
+  }
+
+  let html = `<div class="batch-detail">`;
+  html += `<div class="stats-row"><span class="stat"><strong>${matched}</strong> matched</span><span class="stat"><strong>${notFound}</strong> not found</span><span class="stat"><strong>${pending}</strong> pending</span></div>`;
+  html += `<table><thead><tr><th>Name</th><th>Company</th><th>Closely</th><th>FullEnrich</th><th>Email</th></tr></thead><tbody>`;
+
+  for (const c of contacts) {
+    const name = esc((c.first_name || '') + ' ' + (c.last_name || ''));
+    const email = c.email ? esc(c.email) : '<span style="color:#d97706">\u2014</span>';
+    html += `<tr><td>${name}</td><td>${esc(c.company_name)}</td><td>${badgeFor(c.closely_status)}</td><td>${badgeFor(c.fullenrich_status)}</td><td>${email}</td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+  detail.innerHTML = html;
+}
+
+// ========== Batch selectors ==========
+
+async function loadBatchSelectors() {
+  if (batchesCache.length === 0) {
+    const resp = await fetch('/api/pipeline/batches').then(r => r.json());
+    batchesCache = resp.batches || [];
+  }
+  for (const selId of ['closely-batch', 'fe-batch', 'eq-batch']) {
+    const sel = document.getElementById(selId);
+    if (!sel) continue;
+    const currentVal = sel.value;
+    sel.innerHTML = '';
+    const filtered = selId === 'eq-batch'
+      ? batchesCache.filter(b => b.fullenrich_imported_at)
+      : batchesCache;
+    for (const b of filtered) {
+      const opt = document.createElement('option');
+      opt.value = b.batch_id;
+      opt.textContent = `${b.label} (${b.total_contacts || 0} contacts)`;
+      sel.appendChild(opt);
+    }
+    if (currentVal) sel.value = currentVal;
+  }
+  loadEvalQueueStatus();
+}
+
+// ========== Import ==========
+
+async function doImport() {
+  const file = document.getElementById('import-file').files[0];
+  if (!file) return alert('Please select a CSV file');
+  const label = document.getElementById('import-label').value;
+  const source = document.getElementById('import-source').value;
+
+  const btn = document.getElementById('import-btn');
+  btn.disabled = true;
+  btn.textContent = 'Importing...';
+
+  const fd = new FormData();
+  fd.append('csv', file);
+  fd.append('label', label);
+  fd.append('source', source);
+
+  try {
+    const resp = await fetch('/api/pipeline/import', { method: 'POST', body: fd });
+    const data = await resp.json();
+    const panel = document.getElementById('import-result');
+    panel.classList.remove('hidden');
+
+    if (data.error) {
+      panel.innerHTML = `<div class="warning-box">${esc(data.error)}</div>`;
+    } else {
+      let html = `<div class="result-panel">`;
+      html += `<div class="stat"><strong>${data.total_contacts || 0}</strong> contacts imported</div>`;
+      html += `<div class="stat"><strong>${data.companies_found || 0}</strong> companies found in Attio</div>`;
+      if (data.companies_not_found && data.companies_not_found.length > 0) {
+        html += `</div><div class="warning-box"><strong>${data.companies_not_found.length} companies not found:</strong><br>${data.companies_not_found.map(esc).join(', ')}</div>`;
+      } else {
+        html += `</div>`;
+      }
+      if (data.batch_id) {
+        html += `<div style="margin-top:12px"><a href="#" onclick="switchTab('batches');showBatchDetail('${data.batch_id}');return false" style="color:#1d4ed8; font-weight:500;">View batch &rarr;</a></div>`;
+      }
+      panel.innerHTML = html;
+      batchesCache = []; // force reload
+    }
+  } catch (err) {
+    document.getElementById('import-result').classList.remove('hidden');
+    document.getElementById('import-result').innerHTML = `<div class="warning-box">Network error: ${esc(err.message)}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = 'Import';
+}
+
+// ========== Closely ==========
+
+async function closelyExport() {
+  const batchId = document.getElementById('closely-batch').value;
+  if (!batchId) return alert('Select a batch');
+  try {
+    const resp = await fetch(`/api/pipeline/closely-export?batch_id=${batchId}`);
+    const contentType = resp.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      const data = await resp.json();
+      const panel = document.getElementById('closely-export-result');
+      panel.classList.remove('hidden');
+      panel.innerHTML = `<div class="warning-box">${esc(data.error || data.message || JSON.stringify(data))}</div>`;
+    } else {
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `closely-import-${batchId}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      const panel = document.getElementById('closely-export-result');
+      panel.classList.remove('hidden');
+      panel.innerHTML = `<div class="success-box">CSV downloaded.</div>`;
+    }
+  } catch (err) {
+    const panel = document.getElementById('closely-export-result');
+    panel.classList.remove('hidden');
+    panel.innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+async function closelyImport() {
+  const batchId = document.getElementById('closely-batch').value;
+  const file = document.getElementById('closely-file').files[0];
+  if (!batchId || !file) return alert('Select a batch and CSV file');
+
+  const fd = new FormData();
+  fd.append('csv', file);
+  fd.append('batch_id', batchId);
+
+  try {
+    const resp = await fetch('/api/pipeline/closely-import', { method: 'POST', body: fd });
+    const data = await resp.json();
+    const panel = document.getElementById('closely-import-result');
+    panel.classList.remove('hidden');
+    if (data.error) {
+      panel.innerHTML = `<div class="warning-box">${esc(data.error)}</div>`;
+    } else {
+      panel.innerHTML = `<div class="result-panel"><div class="stat"><strong>${data.rows_in_csv || 0}</strong> rows in CSV</div><div class="stat"><strong>${data.matched || 0}</strong> matched</div><div class="stat"><strong>${data.not_found || 0}</strong> not found</div></div>`;
+    }
+  } catch (err) {
+    document.getElementById('closely-import-result').classList.remove('hidden');
+    document.getElementById('closely-import-result').innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+// ========== FullEnrich ==========
+
+async function feExport() {
+  const batchId = document.getElementById('fe-batch').value;
+  if (!batchId) return alert('Select a batch');
+  try {
+    const resp = await fetch(`/api/pipeline/fullenrich-export?batch_id=${batchId}`);
+    const contentType = resp.headers.get('content-type') || '';
+    if (contentType.includes('json')) {
+      const data = await resp.json();
+      const panel = document.getElementById('fe-export-result');
+      panel.classList.remove('hidden');
+      // Could be a warning with contacts_without_linkedin
+      if (data.contacts_without_linkedin && data.contacts_without_linkedin.length > 0) {
+        const names = data.contacts_without_linkedin.map(c => `${c.first_name} ${c.last_name} (${c.company_name})`).map(esc).join('<br>');
+        panel.innerHTML = `<div class="warning-box"><strong>${data.contacts_without_linkedin.length} contacts without LinkedIn URL:</strong><br>${names}</div>`;
+        if (data.csv_content) {
+          // Also trigger download if CSV was included
+          const blob = new Blob([data.csv_content], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = `fullenrich-import-${batchId}.csv`; a.click();
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        panel.innerHTML = `<div class="warning-box">${esc(data.error || data.message || JSON.stringify(data))}</div>`;
+      }
+    } else {
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `fullenrich-import-${batchId}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      const panel = document.getElementById('fe-export-result');
+      panel.classList.remove('hidden');
+      panel.innerHTML = `<div class="success-box">CSV downloaded.</div>`;
+    }
+  } catch (err) {
+    document.getElementById('fe-export-result').classList.remove('hidden');
+    document.getElementById('fe-export-result').innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+async function feImport() {
+  const batchId = document.getElementById('fe-batch').value;
+  const file = document.getElementById('fe-file').files[0];
+  if (!batchId || !file) return alert('Select a batch and CSV file');
+
+  const fd = new FormData();
+  fd.append('csv', file);
+  fd.append('batch_id', batchId);
+
+  try {
+    const resp = await fetch('/api/pipeline/fullenrich-import', { method: 'POST', body: fd });
+    const data = await resp.json();
+    const panel = document.getElementById('fe-import-result');
+    panel.classList.remove('hidden');
+    if (data.error) {
+      panel.innerHTML = `<div class="warning-box">${esc(data.error)}</div>`;
+    } else {
+      let html = `<div class="result-panel"><div class="stat"><strong>${data.matched || 0}</strong> matched</div><div class="stat"><strong>${data.not_found || 0}</strong> not found</div>`;
+      if (data.not_found_list && data.not_found_list.length > 0) {
+        html += `<div style="margin-top:8px"><span class="collapsible-toggle" onclick="this.nextElementSibling.classList.toggle('open')">Show not found (${data.not_found_list.length})</span><div class="collapsible-content">${data.not_found_list.map(esc).join('<br>')}</div></div>`;
+      }
+      html += `</div>`;
+      panel.innerHTML = html;
+    }
+  } catch (err) {
+    document.getElementById('fe-import-result').classList.remove('hidden');
+    document.getElementById('fe-import-result').innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+async function feStatus() {
+  const batchId = document.getElementById('fe-batch').value;
+  if (!batchId) return alert('Select a batch');
+  try {
+    const resp = await fetch(`/api/pipeline/fullenrich-status?batch_id=${batchId}`).then(r => r.json());
+    const panel = document.getElementById('fe-status-result');
+    panel.classList.remove('hidden');
+    if (resp.error) {
+      panel.innerHTML = `<div class="warning-box">${esc(resp.error)}</div>`;
+      return;
+    }
+    const s = resp.summary || {};
+    let html = `<div class="result-panel">`;
+    html += `<div class="stats-row">`;
+    html += `<span class="stat"><strong>${s.total || 0}</strong> total</span>`;
+    html += `<span class="stat"><strong>${s.matched || 0}</strong> matched</span>`;
+    html += `<span class="stat"><strong>${s.not_found || 0}</strong> not found</span>`;
+    html += `<span class="stat"><strong>${s.has_email || 0}</strong> have email</span>`;
+    html += `</div>`;
+    html += `<div class="stats-row">`;
+    html += `<span class="stat"><strong>${s.email_verified || 0}</strong> verified</span>`;
+    html += `<span class="stat"><strong>${s.email_probably_valid || 0}</strong> probably valid</span>`;
+    html += `<span class="stat"><strong>${s.email_catch_all || 0}</strong> catch-all</span>`;
+    html += `</div>`;
+    if (resp.not_found_contacts && resp.not_found_contacts.length > 0) {
+      const names = resp.not_found_contacts.map(c => `${c.first_name} ${c.last_name} (${c.company_name})`).map(esc);
+      html += `<div style="margin-top:8px"><span class="collapsible-toggle" onclick="this.nextElementSibling.classList.toggle('open')">Show not found (${names.length})</span><div class="collapsible-content">${names.join('<br>')}</div></div>`;
+    }
+    html += `</div>`;
+    panel.innerHTML = html;
+  } catch (err) {
+    document.getElementById('fe-status-result').classList.remove('hidden');
+    document.getElementById('fe-status-result').innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+// ========== Eval Queue ==========
+
+async function loadEvalQueueStatus() {
+  const batchId = document.getElementById('eq-batch').value;
+  const statusEl = document.getElementById('eq-status');
+  const sendBtn = document.getElementById('eq-send-btn');
+
+  if (!batchId) {
+    statusEl.classList.add('hidden');
+    sendBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const [batchResp, sessionResp] = await Promise.all([
+      fetch(`/api/pipeline/batch/${batchId}`).then(r => r.json()),
+      fetch('/api/eval/session').then(r => r.json()).catch(() => ({ state: 'active', verdict_count: 0 })),
+    ]);
+
+    statusEl.classList.remove('hidden');
+    const batch = batchResp.batch || {};
+    const contacts = batchResp.contacts || [];
+    const enriched = contacts.filter(c => c.fullenrich_status === 'matched').length;
+
+    let html = `<div class="result-panel" style="margin-bottom:12px">`;
+    html += `<div class="stat"><strong>${esc(batch.label)}</strong></div>`;
+    html += `<div class="stats-row" style="margin-top:8px">`;
+    html += `<span class="stat"><strong>${contacts.length}</strong> total contacts</span>`;
+    html += `<span class="stat"><strong>${enriched}</strong> enriched</span>`;
+    html += `<span class="stat">Session: ${badgeFor(sessionResp.state)} (${sessionResp.verdict_count || 0} verdicts)</span>`;
+    html += `</div>`;
+
+    if (sessionResp.state === 'complete') {
+      html += `<div class="success-box">Session complete — run write-back to sync to Attio.</div>`;
+      sendBtn.disabled = true;
+    } else {
+      sendBtn.disabled = enriched === 0;
+    }
+
+    html += `</div>`;
+    statusEl.innerHTML = html;
+  } catch (err) {
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+}
+
+async function sendToEval() {
+  const btn = document.getElementById('eq-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  try {
+    const resp = await fetch('/api/eval/reload-contacts', { method: 'POST' });
+    const data = await resp.json();
+    const panel = document.getElementById('eq-result');
+    panel.classList.remove('hidden');
+    if (data.ok) {
+      panel.innerHTML = `<div class="success-box">Contacts loaded into eval. <a href="/eval" style="color:#166534; font-weight:500;">Go to Contact Eval &rarr;</a></div>`;
+    } else {
+      panel.innerHTML = `<div class="warning-box">${esc(data.error || 'Failed')}</div>`;
+    }
+  } catch (err) {
+    document.getElementById('eq-result').classList.remove('hidden');
+    document.getElementById('eq-result').innerHTML = `<div class="warning-box">${esc(err.message)}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = 'Send to Eval';
+}
+
+// Change handler for eval queue batch selector
+document.getElementById('eq-batch').addEventListener('change', loadEvalQueueStatus);
+
+// ========== Source Tab ==========
+
+let parsedCompanies = [];
+let sourcePollingTimer = null;
+let chromeStatusTimer = null;
+
+async function checkChromeStatus() {
+  try {
+    const resp = await fetch('/api/pipeline/source/chrome-status');
+    const data = await resp.json();
+    const indicator = document.getElementById('chrome-status-indicator');
+    const btn = document.getElementById('source-run-btn');
+    if (data.chrome_ready) {
+      indicator.innerHTML = '<span style="color:#16a34a;">&#10003; Chrome ready</span>';
+      btn.disabled = false;
+      document.getElementById('chrome-not-ready-banner').classList.add('hidden');
+    } else {
+      indicator.innerHTML = '<span style="color:#dc2626;">&#10007; Chrome not ready</span>';
+    }
+  } catch {}
+}
+
+// Start Chrome status polling when source tab visible
+function startChromeStatusPolling() {
+  if (chromeStatusTimer) clearInterval(chromeStatusTimer);
+  checkChromeStatus();
+  chromeStatusTimer = setInterval(checkChromeStatus, 5000);
+}
+function stopChromeStatusPolling() {
+  if (chromeStatusTimer) { clearInterval(chromeStatusTimer); chromeStatusTimer = null; }
+}
+
+function generatePrompt() {
+  const geography = document.getElementById('prompt-geography').value.trim();
+  const criteria = document.getElementById('prompt-criteria').value.trim();
+  const sectors = document.getElementById('prompt-sectors').value.trim();
+  const exclusions = document.getElementById('prompt-exclusions').value.trim();
+  const target = document.getElementById('prompt-target').value || '40';
+
+  if (!geography) return alert('Geography / Market is required');
+  if (!criteria) return alert('Company type and stage is required');
+
+  const sectorsLine = sectors
+    ? `- Sectors to include: ${sectors}`
+    : '- Include all tech sectors';
+  const exclusionsLine = exclusions
+    ? `- Exclude: ${exclusions}`
+    : '';
+  const exampleLines = `1. Company Alpha\n2. Company Beta\n3. Company Gamma`;
+
+  const prompt = `You are a research assistant. Your task is to identify company names only.
+
+Task: List the names of ${criteria} in ${geography}.
+
+Criteria:
+- Headquarters in ${geography} only
+- ${criteria}
+${sectorsLine}
+${exclusionsLine ? exclusionsLine + '\n' : ''}Output format rules (strictly enforced):
+- Return ONLY a numbered list of company names
+- One company name per line, nothing else on that line
+- No descriptions, URLs, funding amounts, sectors, or commentary
+- No introduction, no summary, no closing remarks
+- If uncertain whether a company qualifies, omit it — do not guess
+
+Example of the required output format:
+${exampleLines}
+
+Return exactly ${target} company names in this format. Nothing else.`;
+
+  document.getElementById('prompt-text').value = prompt;
+  document.getElementById('prompt-output').classList.remove('hidden');
+  document.getElementById('source-paste-card').classList.remove('hidden');
+
+  // Pre-fill downstream fields
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('source-label').value = `${geography} ${criteria} — ${today}`;
+  document.getElementById('source-geography').value = geography;
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').value;
+  navigator.clipboard.writeText(text).then(() => {
+    const status = document.getElementById('prompt-copy-status');
+    status.textContent = 'Copied!';
+    setTimeout(() => { status.textContent = ''; }, 2000);
+  });
+}
+
+function parseCompanies() {
+  const text = document.getElementById('source-perplexity-output').value;
+  const lines = text.split('\n');
+  const names = [];
+  const warningEl = document.getElementById('parse-warning');
+
+  // Check if any line contains "|" — if so, fall back to table parser
+  const hasTable = lines.some(l => l.includes('|') && /\bCompany\b/i.test(l));
+
+  if (hasTable) {
+    // Table fallback — find header row with "Company" column
+    let companyColIdx = -1;
+    let dataStartLine = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.includes('|') && /\bCompany\b/i.test(line)) {
+        const cells = line.split('|').map(c => c.trim());
+        companyColIdx = cells.findIndex(c => /^Company$/i.test(c));
+        if (companyColIdx === -1) companyColIdx = cells.findIndex(c => /Company/i.test(c));
+        dataStartLine = i + 1;
+        if (dataStartLine < lines.length && lines[dataStartLine].trim().match(/^[\s|:-]+$/)) {
+          dataStartLine++;
+        }
+        break;
+      }
+    }
+    if (companyColIdx >= 0) {
+      for (let i = dataStartLine; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || !line.includes('|')) continue;
+        if (line.match(/^[\s|:-]+$/)) continue;
+        const cells = line.split('|').map(c => c.trim());
+        const company = cells[companyColIdx];
+        if (company && company.length > 1 && !/^[-=]+$/.test(company) && !/^Company$/i.test(company)) {
+          const cleaned = company.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+          if (cleaned) names.push(cleaned);
+        }
+      }
+    }
+  } else {
+    // Primary parser: numbered list (1. Company Name)
+    for (const line of lines) {
+      let cleaned = line.trim();
+      if (!cleaned) continue;
+      // Strip leading number + period/paren/dash + space
+      cleaned = cleaned.replace(/^\d+[\.\)\-]\s*/, '');
+      // Strip bullet markers
+      cleaned = cleaned.replace(/^[\-\*\u2022\u2023\u25E6]\s*/, '');
+      // Strip markdown bold/italic
+      cleaned = cleaned.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1');
+      cleaned = cleaned.replace(/_{1,3}([^_]+)_{1,3}/g, '$1');
+      // Strip markdown links [name](url) → name
+      cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+      cleaned = cleaned.trim();
+      if (cleaned && cleaned.length > 1) names.push(cleaned);
+    }
+  }
+
+  // Deduplicate
+  parsedCompanies = [...new Set(names)];
+
+  if (parsedCompanies.length === 0) {
+    warningEl.classList.remove('hidden');
+    warningEl.innerHTML = '<div class="warning-box">No companies found. Make sure you copied the full Perplexity output (numbered list or table).</div>';
+    document.getElementById('source-checklist-card').classList.add('hidden');
+    return;
+  }
+  warningEl.classList.add('hidden');
+
+  const card = document.getElementById('source-checklist-card');
+  card.classList.remove('hidden');
+  const list = document.getElementById('source-checklist');
+  list.innerHTML = '';
+  for (const name of parsedCompanies) {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:block; padding:4px 0; font-size:14px; cursor:pointer;';
+    label.innerHTML = `<input type="checkbox" class="source-company-cb" value="${esc(name)}" checked style="margin-right:8px;"> ${esc(name)}`;
+    list.appendChild(label);
+  }
+  updateCompanyCount();
+  list.querySelectorAll('.source-company-cb').forEach(cb => cb.addEventListener('change', updateCompanyCount));
+}
+
+function updateCompanyCount() {
+  const checked = document.querySelectorAll('.source-company-cb:checked').length;
+  document.getElementById('source-company-count').textContent = checked;
+}
+
+function toggleAllCompanies(e) {
+  e.preventDefault();
+  const cbs = document.querySelectorAll('.source-company-cb');
+  const allChecked = [...cbs].every(cb => cb.checked);
+  cbs.forEach(cb => cb.checked = !allChecked);
+  updateCompanyCount();
+}
+
+function toggleSearchMode() {
+  const mode = document.querySelector('input[name="source-mode"]:checked').value;
+  document.getElementById('source-company-mode').classList.toggle('hidden', mode !== 'company_list');
+  document.getElementById('source-filter-mode').classList.toggle('hidden', mode !== 'filter_search');
+  document.getElementById('source-company-params').classList.toggle('hidden', mode !== 'company_list');
+}
+
+async function runSalesNavSearch() {
+  const mode = document.querySelector('input[name="source-mode"]:checked').value;
+  const label = document.getElementById('source-label').value || `Search ${new Date().toISOString().split('T')[0]}`;
+
+  let payload;
+  if (mode === 'filter_search') {
+    const kw = document.getElementById('filter-keywords').value.split(',').map(k => k.trim()).filter(Boolean);
+    if (kw.length === 0) return alert('Enter at least one title keyword');
+    const schools = document.getElementById('filter-schools').value.split(',').map(k => k.trim()).filter(Boolean);
+    const geography = document.getElementById('filter-geography').value.split(',').map(k => k.trim()).filter(Boolean);
+    const seniority = document.getElementById('filter-seniority').value.split(',').map(k => k.trim()).filter(Boolean);
+    const maxResults = parseInt(document.getElementById('filter-max-results').value) || 200;
+    payload = { mode: 'filter_search', label, max_results: maxResults, filters: { title_keywords: kw, schools, geography, seniority, company_keywords: [] } };
+  } else {
+    const checked = [...document.querySelectorAll('.source-company-cb:checked')].map(cb => cb.value);
+    const kwText = document.getElementById('source-keywords').value;
+    const keywords = kwText.split(',').map(k => k.trim()).filter(Boolean);
+    if (checked.length === 0) return alert('Select at least one company');
+    if (keywords.length === 0) return alert('Enter at least one title keyword');
+    const geography = document.getElementById('source-geography').value.trim();
+    const maxPer = parseInt(document.getElementById('source-max').value) || 5;
+    payload = { mode: 'company_list', companies: checked, title_keywords: keywords, geography, label, max_per_company: maxPer };
+  }
+
+  const btn = document.getElementById('source-run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
+  activityLog = [];
+  lastSeenCompany = '';
+  lastSeenResultCount = 0;
+
+  try {
+    const resp = await fetch('/api/pipeline/source/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      document.getElementById('chrome-not-ready-banner').classList.add('hidden');
+      document.getElementById('source-status-card').classList.remove('hidden');
+      document.getElementById('source-status-bar').textContent = 'Starting...';
+      document.getElementById('source-progress-bar').classList.remove('hidden');
+      document.getElementById('source-activity-log').classList.remove('hidden');
+      document.getElementById('source-complete-banner').classList.add('hidden');
+      startSourcePolling();
+    } else if (data.error === 'chrome_not_ready') {
+      document.getElementById('chrome-not-ready-banner').classList.remove('hidden');
+    } else {
+      alert(data.error || 'Failed to start');
+    }
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Run Sales Navigator Search';
+}
+
+function startSourcePolling() {
+  if (sourcePollingTimer) clearInterval(sourcePollingTimer);
+  sourcePollingTimer = setInterval(pollSourceStatus, 3000);
+  pollSourceStatus();
+}
+
+let activityLog = [];
+let lastSeenCompany = '';
+let lastSeenResultCount = 0;
+
+async function pollSourceStatus() {
+  try {
+    const resp = await fetch('/api/pipeline/source/status').then(r => r.json());
+    const bar = document.getElementById('source-status-bar');
+    const p = resp.progress || {};
+    const results = resp.results || [];
+    const pct = p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+
+    // Update progress bar
+    document.getElementById('source-progress-fill').style.width = pct + '%';
+    document.getElementById('source-progress-pct').textContent = pct + '%';
+
+    const isFilterMode = document.querySelector('input[name="source-mode"]:checked')?.value === 'filter_search';
+
+    if (resp.status === 'starting') {
+      bar.textContent = 'Starting...';
+    } else if (resp.status === 'running') {
+      if (isFilterMode) {
+        bar.textContent = `SEARCH IN PROGRESS — ${results.length} of ~${p.total} results collected`;
+      } else {
+        bar.textContent = `SEARCH IN PROGRESS — ${p.current} of ${p.total} companies completed`;
+      }
+      // Update current company
+      const curEl = document.getElementById('source-current-company');
+      if (p.current_company) {
+        curEl.classList.remove('hidden');
+        curEl.innerHTML = `&#9656; Currently searching: <strong>${esc(p.current_company)}</strong>`;
+      }
+      // Activity log: detect when a company finishes
+      if (p.current_company && p.current_company !== lastSeenCompany && lastSeenCompany) {
+        const contactsForLast = results.filter(r => r.source_company === lastSeenCompany).length;
+        if (contactsForLast > 0) {
+          activityLog.push(`✓ ${lastSeenCompany} — ${contactsForLast} contacts found`);
+        } else {
+          activityLog.push(`✗ ${lastSeenCompany} — no results`);
+        }
+      }
+      if (p.current_company) {
+        lastSeenCompany = p.current_company;
+      }
+      lastSeenResultCount = results.length;
+    } else if (resp.status === 'complete') {
+      // Final log entry for last company
+      if (lastSeenCompany && !isFilterMode) {
+        const contactsForLast = results.filter(r => r.source_company === lastSeenCompany).length;
+        activityLog.push(contactsForLast > 0 ? `✓ ${lastSeenCompany} — ${contactsForLast} contacts found` : `✗ ${lastSeenCompany} — no results`);
+      }
+      document.getElementById('source-progress-fill').style.width = '100%';
+      document.getElementById('source-progress-pct').textContent = '100%';
+      const nf = (resp.not_found || []).length;
+      const banner = document.getElementById('source-complete-banner');
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<div class="success-box"><strong>Search complete</strong> — ${results.length} contacts found` + (nf > 0 ? ` (${nf} companies had no results)` : '') + `</div>`;
+      bar.textContent = 'COMPLETE';
+      bar.style.color = '#16a34a';
+      document.getElementById('source-current-company').classList.add('hidden');
+      clearInterval(sourcePollingTimer);
+      document.getElementById('source-import-section').classList.remove('hidden');
+    } else if (resp.status === 'error') {
+      const banner = document.getElementById('source-complete-banner');
+      banner.classList.remove('hidden');
+      banner.innerHTML = `<div class="warning-box"><strong>Error</strong> — ${esc((resp.errors || [])[0] || 'unknown')}</div>`;
+      bar.textContent = 'ERROR';
+      bar.style.color = '#dc2626';
+      clearInterval(sourcePollingTimer);
+    } else if (resp.status === 'idle') {
+      bar.textContent = 'Idle';
+      return;
+    }
+
+    // Render activity log
+    const logEl = document.getElementById('source-activity-log');
+    if (activityLog.length > 0 || (resp.status === 'running' && lastSeenCompany)) {
+      const lines = [...activityLog];
+      if (resp.status === 'running' && lastSeenCompany) {
+        lines.push(`⟳ ${lastSeenCompany} — searching...`);
+      }
+      logEl.innerHTML = lines.map(l => `<div>${esc(l)}</div>`).join('');
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Render results table
+    if (results.length > 0) {
+      const table = document.getElementById('source-results-table');
+      table.classList.remove('hidden');
+      const body = document.getElementById('source-results-body');
+      body.innerHTML = '';
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        const name = esc((r.first_name || '') + ' ' + (r.last_name || ''));
+        const link = r.sales_nav_url ? `<a href="${esc(r.sales_nav_url)}" target="_blank" style="color:#1d4ed8;">&#8599;</a>` : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><input type="checkbox" class="source-result-cb" data-idx="${i}" checked></td><td>${name}</td><td>${esc(r.job_title)}</td><td>${esc(r.company_name)}</td><td>${link}</td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    // Not found
+    const notFound = resp.not_found || [];
+    const nfEl = document.getElementById('source-not-found');
+    if (notFound.length > 0) {
+      nfEl.classList.remove('hidden');
+      nfEl.innerHTML = `<div class="warning-box" style="margin-bottom:12px;">No results found for: ${notFound.map(esc).join(', ')}</div>`;
+    } else {
+      nfEl.classList.add('hidden');
+    }
+  } catch {}
+}
+
+function toggleAllResults(checked) {
+  document.querySelectorAll('.source-result-cb').forEach(cb => cb.checked = checked);
+}
+
+async function importSourceResults() {
+  const statusResp = await fetch('/api/pipeline/source/status').then(r => r.json());
+  const results = statusResp.results || [];
+  const checkedIdxs = new Set([...document.querySelectorAll('.source-result-cb:checked')].map(cb => parseInt(cb.dataset.idx)));
+  const selected = results.filter((_, i) => checkedIdxs.has(i));
+
+  if (selected.length === 0) return alert('No contacts selected');
+
+  const label = document.getElementById('source-label').value || `Search ${new Date().toISOString().split('T')[0]}`;
+
+  // Build CSV string
+  const header = 'first_name,last_name,job_title,company_name,linkedin_url,source\n';
+  const rows = selected.map(r => {
+    const csvEsc = (s) => `"${(s || '').replace(/"/g, '""')}"`;
+    return [csvEsc(r.first_name), csvEsc(r.last_name), csvEsc(r.job_title), csvEsc(r.company_name), csvEsc(r.sales_nav_url), '"SalesNavigator"'].join(',');
+  }).join('\n');
+  const csvContent = header + rows;
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const fd = new FormData();
+  fd.append('csv', blob, 'salesnav-import.csv');
+  fd.append('label', label);
+  fd.append('source', 'SalesNavigator');
+
+  try {
+    const resp = await fetch('/api/pipeline/import', { method: 'POST', body: fd });
+    const data = await resp.json();
+    const statusEl = document.getElementById('source-import-status');
+    if (data.error) {
+      statusEl.textContent = 'Error: ' + data.error;
+      statusEl.style.color = '#dc2626';
+    } else {
+      statusEl.innerHTML = `${data.total_contacts || selected.length} contacts imported. <a href="#" onclick="switchTab('batches');return false" style="color:#1d4ed8; font-weight:500;">View batch &rarr;</a>`;
+      statusEl.style.color = '#16a34a';
+      batchesCache = [];
+    }
+  } catch (err) {
+    document.getElementById('source-import-status').textContent = 'Network error';
+  }
+}
+
+// ========== Attio Pull ==========
+
+let attioPulledRecords = [];
+
+async function pullAttioQueued() {
+  const statusEl = document.getElementById('attio-pull-status');
+  const resultsEl = document.getElementById('attio-pull-results');
+  statusEl.innerHTML = '<span style="color:#6b7280;">Pulling from Attio...</span>';
+  resultsEl.classList.add('hidden');
+
+  try {
+    const resp = await fetch('/api/pipeline/attio/pull-queued');
+    const data = await resp.json();
+
+    if (data.error) {
+      statusEl.innerHTML = `<div class="warning-box">Error: ${esc(data.error)}</div>`;
+      return;
+    }
+
+    if (data.count === 0) {
+      statusEl.innerHTML = '<div class="warning-box">No contacts are queued for eval. Check the "Queue for Eval" box in Attio.</div>';
+      return;
+    }
+
+    statusEl.innerHTML = `<span style="color:#16a34a; font-weight:500;">${data.count} contacts found.</span>`;
+    attioPulledRecords = data.records;
+
+    const tbody = document.getElementById('attio-results-body');
+    tbody.innerHTML = '';
+    for (const r of data.records) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input type="checkbox" class="attio-row-cb" data-record-id="${esc(r.attio_record_id)}" checked></td>
+        <td>${esc(r.first_name)} ${esc(r.last_name)}</td>
+        <td>${esc(r.job_title)}</td>
+        <td>${esc(r.company_name)}</td>
+        <td>${esc(r.email)}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('attio-batch-label').value = `Attio pull — ${today}`;
+    resultsEl.classList.remove('hidden');
+  } catch (err) {
+    statusEl.innerHTML = `<div class="warning-box">Network error: ${esc(err.message)}</div>`;
+  }
+}
+
+async function importAttioResults() {
+  const checked = [...document.querySelectorAll('.attio-row-cb:checked')];
+  if (checked.length === 0) return alert('No contacts selected');
+
+  const selectedIds = new Set(checked.map(cb => cb.dataset.recordId));
+  const selected = attioPulledRecords.filter(r => selectedIds.has(r.attio_record_id));
+
+  const label = document.getElementById('attio-batch-label').value || `Attio pull — ${new Date().toISOString().split('T')[0]}`;
+
+  // Build CSV
+  const header = 'first_name,last_name,job_title,company_name,email,linkedin_url,geography,source\n';
+  const rows = selected.map(r => {
+    const csvEsc = (s) => `"${(s || '').replace(/"/g, '""')}"`;
+    return [csvEsc(r.first_name), csvEsc(r.last_name), csvEsc(r.job_title), csvEsc(r.company_name), csvEsc(r.email), csvEsc(r.linkedin), csvEsc(r.geography), '"Attio"'].join(',');
+  }).join('\n');
+
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const fd = new FormData();
+  fd.append('csv', blob, 'attio-import.csv');
+  fd.append('label', label);
+  fd.append('source', 'Attio');
+
+  const statusEl = document.getElementById('attio-import-status');
+  try {
+    const resp = await fetch('/api/pipeline/import', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (data.error) {
+      statusEl.textContent = 'Error: ' + data.error;
+      statusEl.style.color = '#dc2626';
+      return;
+    }
+
+    // Reset queue_for_eval in Attio
+    const recordIds = selected.map(r => r.attio_record_id).filter(Boolean);
+    if (recordIds.length > 0) {
+      await fetch('/api/pipeline/attio/reset-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record_ids: recordIds }),
+      });
+    }
+
+    statusEl.innerHTML = `${selected.length} contacts imported and queue flag reset in Attio. <a href="#" onclick="switchTab('batches');return false" style="color:#1d4ed8; font-weight:500;">View batch &rarr;</a>`;
+    statusEl.style.color = '#16a34a';
+    batchesCache = [];
+  } catch (err) {
+    statusEl.textContent = 'Network error';
+    statusEl.style.color = '#dc2626';
+  }
+}
+
+// Init — load batches on page load
+loadBatches();
+</script>
+</body>
+</html>

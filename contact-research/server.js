@@ -484,6 +484,24 @@ app.get('/api/pipeline/batch/:batch_id', (req, res) => {
   }
 });
 
+// DELETE BATCH — added 22 Mar 2026
+app.delete('/api/pipeline/batch/:batch_id', (req, res) => {
+  try {
+    const { batch_id } = req.params;
+    if (!batch_id) return res.status(400).json({ error: 'batch_id required' });
+    const db = new Database(join(__dirname, 'data', 'agent4.db'));
+    const batch = db.prepare('SELECT * FROM pipeline_batches WHERE batch_id = ?').get(batch_id);
+    if (!batch) { db.close(); return res.status(404).json({ error: 'Batch not found' }); }
+    const contactCount = db.prepare('SELECT COUNT(*) as n FROM pipeline_contacts WHERE batch_id = ?').get(batch_id).n;
+    db.prepare('DELETE FROM pipeline_contacts WHERE batch_id = ?').run(batch_id);
+    db.prepare('DELETE FROM pipeline_batches WHERE batch_id = ?').run(batch_id);
+    db.close();
+    res.json({ ok: true, contacts_deleted: contactCount });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // CLOSELY EXPORT — GAP-3 — added 22 Mar 2026
 app.get('/api/pipeline/closely-export', (req, res) => {
   try {
@@ -944,6 +962,116 @@ app.get('/api/pipeline/fullenrich-status', (req, res) => {
   }
 });
 
+// PIPELINE SOURCE — Sales Navigator search — added 22 Mar 2026
+app.post('/api/pipeline/source/start', express.json(), async (req, res) => {
+  try {
+    const { companies, title_keywords, geography, label, max_per_company, mode, filters, max_results } = req.body;
+
+    // Validate based on mode
+    if (mode === 'filter_search') {
+      if (!filters || !Array.isArray(filters.title_keywords) || filters.title_keywords.length === 0)
+        return res.status(400).json({ error: 'filters.title_keywords required for filter_search mode' });
+    } else {
+      // company_list mode (default)
+      if (!Array.isArray(companies) || companies.length === 0)
+        return res.status(400).json({ error: 'companies array required for company_list mode' });
+      if (!Array.isArray(title_keywords) || title_keywords.length === 0)
+        return res.status(400).json({ error: 'title_keywords array required' });
+    }
+
+    // Pre-flight: check Chrome is running with CDP on port 9222
+    const net = _reqPipeline('net');
+    const cdpAvailable = await new Promise(resolve => {
+      const socket = net.createConnection(9222, '127.0.0.1');
+      socket.setTimeout(1500);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('error', () => resolve(false));
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    });
+
+    if (!cdpAvailable) {
+      return res.status(503).json({
+        error: 'chrome_not_ready',
+        message: 'Chrome is not running with remote debugging enabled.',
+        fix: 'Quit Chrome, then run this command in Terminal:\n/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --profile-directory="Default"',
+      });
+    }
+
+    const { spawn } = _reqPipeline('child_process');
+    const path = _reqPipeline('path');
+
+    const jobId = `job-${Date.now()}`;
+    const jobFile = '/tmp/salesnav-job.json';
+    const resultsFile = '/tmp/salesnav-results.json';
+
+    const jobSpec = {
+      job_id: jobId,
+      label: label || `Search ${new Date().toISOString().split('T')[0]}`,
+      mode: mode || 'company_list',
+      companies: companies || [],
+      title_keywords: title_keywords || [],
+      geography: geography || '',
+      max_results_per_company: max_per_company || 5,
+      filters: filters || {},
+      max_results: max_results || 200,
+      created_at: new Date().toISOString(),
+    };
+
+    const totalForProgress = mode === 'filter_search' ? (max_results || 200) : (companies || []).length;
+
+    fs.writeFileSync(jobFile, JSON.stringify(jobSpec, null, 2));
+    fs.writeFileSync(resultsFile, JSON.stringify({
+      job_id: jobId,
+      status: 'starting',
+      progress: { current: 0, total: totalForProgress, current_company: '' },
+      results: [],
+      not_found: [],
+      errors: [],
+    }));
+
+    const scriptPath = path.join(__dirname, '..', 'tests', 'ui', 'salesnav-search.spec.js');
+    const proc = spawn('node', [scriptPath], {
+      env: { ...process.env, JOB_FILE: jobFile, RESULTS_FILE: resultsFile, HEADLESS: 'false' },
+      cwd: path.join(__dirname, '..'),
+      detached: true,
+      stdio: 'ignore',
+    });
+    proc.unref();
+
+    res.json({ ok: true, job_id: jobId, company_count: totalForProgress, mode: mode || 'company_list' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/pipeline/source/status', (req, res) => {
+  try {
+    if (!fs.existsSync('/tmp/salesnav-results.json'))
+      return res.json({ status: 'idle', results: [], progress: null });
+    const data = JSON.parse(fs.readFileSync('/tmp/salesnav-results.json', 'utf8'));
+    res.json(data);
+  } catch (e) {
+    res.json({ status: 'idle', results: [], error: e.message });
+  }
+});
+
+app.get('/api/pipeline/source/chrome-status', async (req, res) => {
+  const net = _reqPipeline('net');
+  const available = await new Promise(resolve => {
+    const socket = net.createConnection(9222, '127.0.0.1');
+    socket.setTimeout(1500);
+    socket.on('connect', () => { socket.destroy(); resolve(true); });
+    socket.on('error', () => resolve(false));
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+  });
+  res.json({ chrome_ready: available });
+});
+
+// PIPELINE UI — added 22 Mar 2026
+app.get('/pipeline', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'pipeline.html'));
+});
+
 // EVAL ROUTES — added 22 Mar 2026
 app.get('/eval', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'eval.html'));
@@ -960,15 +1088,35 @@ app.get('/api/eval/contacts', (req, res) => {
 
 app.post('/api/eval/verdict', (req, res) => {
   try {
-    const { record_id, name, verdict, correct_company, notes } = req.body;
-    if (!record_id || !verdict) return res.status(400).json({ error: 'record_id and verdict required' });
+    const { record_id, name, verdict, correct_company, notes, corrections } = req.body;
+    if (!record_id) return res.status(400).json({ error: 'record_id required' });
     const db = new Database(join(__dirname, 'data', 'agent4.db'));
     db.prepare(`INSERT OR REPLACE INTO eval_verdicts
-      (record_id, name, verdict, correct_company, notes, reviewed_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))`)
-      .run(record_id, name, verdict, correct_company || null, notes || null);
+      (record_id, name, verdict, correct_company, notes, corrections, reviewed_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`)
+      .run(record_id, name||null, verdict||null, correct_company||null, notes||null, JSON.stringify(corrections||{}));
     db.close();
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/eval/verdict-batch', express.json(), (req, res) => {
+  try {
+    const { verdicts } = req.body;
+    if (!Array.isArray(verdicts) || verdicts.length === 0) {
+      return res.status(400).json({ error: 'verdicts array required' });
+    }
+    const db = new Database(join(__dirname, 'data', 'agent4.db'));
+    const stmt = db.prepare(`INSERT OR REPLACE INTO eval_verdicts
+      (record_id, name, verdict, correct_company, notes, corrections, reviewed_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`);
+    for (const v of verdicts) {
+      stmt.run(v.record_id, v.name||null, v.verdict||null, v.correct_company||null, v.notes||null, JSON.stringify(v.corrections||{}));
+    }
+    db.close();
+    res.json({ ok: true, saved: verdicts.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -990,11 +1138,13 @@ app.get('/api/eval/export.csv', (req, res) => {
     const db = new Database(join(__dirname, 'data', 'agent4.db'));
     const rows = db.prepare('SELECT * FROM eval_verdicts ORDER BY name ASC').all();
     db.close();
-    const header = 'record_id,name,verdict,correct_company,notes,reviewed_at\n';
-    const body = rows.map(r =>
-      [r.record_id, r.name, r.verdict, r.correct_company||'', r.notes||'', r.reviewed_at]
-      .map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',')
-    ).join('\n');
+    const header = 'record_id,name,verdict,correct_company,notes,job_title_correction,email_correction,company_correction,reviewed_at\n';
+    const body = rows.map(r => {
+      let corr = {};
+      try { corr = JSON.parse(r.corrections || '{}'); } catch {}
+      return [r.record_id, r.name, r.verdict, r.correct_company||'', r.notes||'', corr.job_title||'', corr.email||'', corr.company||'', r.reviewed_at]
+        .map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',');
+    }).join('\n');
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="eval-verdicts.csv"');
     res.send(header + body);
@@ -1066,6 +1216,117 @@ No preamble. No markdown. Raw JSON only.`;
     console.error('Synthesis error:', err);
     // Fail gracefully — return empty strings, don't break the UI
     res.json({ person_synthesis: '', company_focus: '' });
+  }
+});
+
+// SESSION MANAGEMENT — added 22 Mar 2026
+app.get('/api/eval/session', (req, res) => {
+  try {
+    const db = new Database(join(__dirname, 'data', 'agent4.db'));
+    const session = db.prepare('SELECT * FROM eval_sessions WHERE session_id = ?').get('pevc-mar2026');
+    const verdictCount = db.prepare('SELECT COUNT(*) as n FROM eval_verdicts WHERE verdict IS NOT NULL').get().n;
+    db.close();
+    res.json({ ...session, verdict_count: verdictCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/eval/session/reset', (req, res) => {
+  try {
+    const db = new Database(join(__dirname, 'data', 'agent4.db'));
+    db.prepare('DELETE FROM eval_verdicts').run();
+    db.prepare("UPDATE eval_sessions SET state='active', completed_at=NULL WHERE session_id='pevc-mar2026'").run();
+    db.close();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/eval/session/complete', (req, res) => {
+  try {
+    const db = new Database(join(__dirname, 'data', 'agent4.db'));
+    const verdictCount = db.prepare('SELECT COUNT(*) as n FROM eval_verdicts WHERE verdict IS NOT NULL').get().n;
+    if (verdictCount === 0) {
+      db.close();
+      return res.status(400).json({ error: 'No verdicts saved — nothing to complete' });
+    }
+    db.prepare("UPDATE eval_sessions SET state='complete', completed_at=datetime('now') WHERE session_id='pevc-mar2026'").run();
+    db.close();
+    res.json({ ok: true, verdict_count: verdictCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/eval/reload-contacts', async (req, res) => {
+  try {
+    const { execFile } = await import('child_process');
+    const scriptPath = join(__dirname, 'scripts', 'build-eval-data.cjs');
+    execFile('node', [scriptPath, ATTIO_KEY], { timeout: 120000 }, (err, stdout, stderr) => {
+      if (err) return res.status(500).json({ error: 'Reload failed', detail: stderr });
+      res.json({ ok: true });
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ATTIO PULL — queue_for_eval = true — added 22 Mar 2026
+app.get('/api/pipeline/attio/pull-queued', async (req, res) => {
+  try {
+    const response = await fetch('https://api.attio.com/v2/objects/people/records/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ATTIO_KEY}`,
+      },
+      body: JSON.stringify({
+        filter: { queue_for_eval: true },
+        limit: 100,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.data) return res.status(500).json({ error: 'Attio query failed', detail: data });
+
+    const records = data.data.map(r => {
+      const v = r.values;
+      const nameArr = v.name?.[0];
+      const companyRef = v.company?.[0];
+      return {
+        attio_record_id: r.id?.record_id,
+        first_name: nameArr?.first_name || '',
+        last_name: nameArr?.last_name || '',
+        job_title: v.job_title?.[0]?.value || '',
+        company_name: companyRef?.referenced_record?.name ||
+                      companyRef?.target_record_id || '',
+        email: v.email_addresses?.[0]?.email_address || '',
+        linkedin: v.linkedin?.[0]?.value || '',
+        geography: v.geography?.[0]?.option?.title || '',
+      };
+    });
+
+    res.json({ count: records.length, records });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Reset queue_for_eval for a list of record_ids after import
+app.post('/api/pipeline/attio/reset-queue', express.json(), async (req, res) => {
+  try {
+    const { record_ids } = req.body;
+    if (!Array.isArray(record_ids) || record_ids.length === 0)
+      return res.status(400).json({ error: 'record_ids array required' });
+
+    const results = [];
+    for (const id of record_ids) {
+      const r = await fetch(`https://api.attio.com/v2/objects/people/records/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ATTIO_KEY}` },
+        body: JSON.stringify({ data: { values: { queue_for_eval: false } } }),
+      });
+      results.push({ id, ok: r.ok });
+      await new Promise(res => setTimeout(res, 150)); // rate limit
+    }
+
+    res.json({ ok: true, reset: results.filter(r => r.ok).length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

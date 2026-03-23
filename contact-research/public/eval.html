@@ -6,113 +6,140 @@
 <title>Contact Eval — Review</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, 'SF Mono', 'Menlo', monospace; background: #1a1a2e; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  #eval-body { display: flex; flex: 1; overflow: hidden; }
 
   /* Sidebar */
-  #sidebar { width: 260px; min-width: 260px; background: #16213e; border-right: 1px solid #0f3460; display: flex; flex-direction: column; }
-  #sidebar-header { padding: 14px 16px; border-bottom: 1px solid #0f3460; background: #0f3460; }
-  #sidebar-header h2 { font-size: 16px; color: #e2e8f0; font-weight: 600; }
-  #review-counter { font-size: 16px; color: #94a3b8; margin-top: 6px; font-weight: 500; }
+  #sidebar { width: 260px; min-width: 260px; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
+  #sidebar-header { padding: 14px 16px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+  #sidebar-header h2 { font-size: 16px; color: #111827; font-weight: 600; }
+  #review-counter { font-size: 16px; color: #6b7280; margin-top: 6px; font-weight: 500; }
   #contact-list { flex: 1; overflow-y: auto; }
-  .sidebar-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #1a1a2e; border-left: 3px solid transparent; transition: background 0.15s; }
-  .sidebar-item:hover { background: #1e3a5f; }
-  .sidebar-item.active { background: #1e3a5f22; border-left-color: #3b82f6; }
-  .sidebar-item.reviewed { opacity: 0.5; }
-  .sidebar-item.reviewed.active { opacity: 1; }
-  .sidebar-name { font-size: 15px; font-weight: 600; color: #e2e8f0; }
-  .sidebar-company { font-size: 13px; color: #64748b; margin-top: 3px; }
-  .sidebar-check { color: #22c55e; margin-left: 4px; font-size: 12px; }
-  .sidebar-verdict-badge { font-size: 11px; display: inline-block; margin-top: 3px; padding: 2px 7px; border-radius: 3px; }
-  .badge-confirmed { background: #166534; color: #86efac; }
-  .badge-wrong { background: #7f1d1d; color: #fca5a5; }
-  .badge-advisory { background: #713f12; color: #fde047; }
-  .badge-portfolio { background: #312e81; color: #a5b4fc; }
+  .sidebar-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f3f4f6; border-left: 3px solid transparent; transition: background 0.15s; }
+  .sidebar-item:hover { background: #f0f9ff; }
+  .sidebar-item.active { background: #eff6ff; border-left-color: #1d4ed8; }
+  .sidebar-name { font-size: 15px; font-weight: 600; color: #111827; }
+  .sidebar-company { font-size: 13px; color: #6b7280; margin-top: 3px; }
+  .sidebar-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+  .dot-include { background: #16a34a; }
+  .dot-exclude { background: #dc2626; }
+  .dot-wrong { background: #d97706; }
 
   /* Main panel */
   #main { flex: 1; overflow-y: auto; padding: 28px 36px; }
   #top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-  #contact-counter { font-size: 16px; color: #94a3b8; }
-  .nav-btns button { background: #1e3a5f; border: 1px solid #3b82f6; color: #93c5fd; padding: 10px 20px; height: 40px; margin-left: 8px; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; }
-  .nav-btns button:hover { background: #2563eb; color: #fff; }
+  #contact-counter { font-size: 16px; color: #6b7280; }
+  .nav-btns button { background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 10px 20px; height: 40px; margin-left: 8px; cursor: pointer; border-radius: 6px; font-size: 14px; font-weight: 500; }
+  .nav-btns button:hover { background: #e5e7eb; }
 
   /* Identity row */
   #identity { margin-bottom: 20px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  #identity h1 { font-size: 28px; color: #f1f5f9; }
-  .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 13px; }
-  .badge-confidence { background: #065f46; color: #6ee7b7; }
-  .badge-role { background: #312e81; color: #a5b4fc; }
+  #identity h1 { font-size: 28px; color: #111827; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+  .badge-confidence { background: #f0fdf4; color: #16a34a; }
+  .badge-role { background: #ede9fe; color: #7c3aed; }
 
   /* Two-column detail */
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-  .detail-item { min-height: 48px; }
-  .detail-item label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; display: block; margin-bottom: 4px; }
-  .detail-item .value { font-size: 16px; color: #cbd5e1; }
-  .detail-item a { color: #60a5fa; text-decoration: none; }
+  .detail-item { min-height: 48px; position: relative; }
+  .detail-item label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; display: inline; font-weight: 600; margin-bottom: 0; }
+  .detail-item .value { font-size: 16px; color: #374151; margin-top: 4px; }
+  .detail-item a { color: #1d4ed8; text-decoration: none; }
   .detail-item a:hover { text-decoration: underline; }
-  .no-data { color: #f59e0b; font-size: 14px; }
-  .linkedin-btn { display: inline-block; padding: 8px 20px; background: #2563eb; color: #fff; border-radius: 6px; font-size: 14px; font-weight: 500; text-decoration: none; }
-  .linkedin-btn:hover { background: #1d4ed8; text-decoration: none; }
+  .no-data { color: #d97706; font-size: 14px; }
+  .linkedin-btn { display: inline-block; padding: 8px 20px; background: #1d4ed8; color: #ffffff !important; border-radius: 6px; font-size: 14px; font-weight: 500; text-decoration: none; }
+  .linkedin-btn:hover { background: #1e40af; color: #ffffff !important; text-decoration: none; }
+
+  /* Pencil edit — always visible, 20px, blue, inline with label */
+  .edit-pencil { display: inline; cursor: pointer; color: #1d4ed8; font-size: 20px; margin-left: 6px; vertical-align: middle; line-height: 1; }
+  .edit-pencil:hover { color: #1e40af; }
+  .edit-input { background: #fff; border: 1px solid #1d4ed8; color: #111827; border-radius: 6px; padding: 7px 10px; font-size: 14px; font-family: inherit; width: 100%; }
+  .edit-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(29,78,216,.15); }
+  .edit-textarea { background: #fff; border: 1px solid #1d4ed8; color: #111827; border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit; width: 100%; min-height: 100px; resize: vertical; }
+  .edit-textarea:focus { outline: none; box-shadow: 0 0 0 2px rgba(29,78,216,.15); }
+  .edit-done-btn { background: #1d4ed8; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 6px; }
+  .edit-done-btn:hover { background: #1e40af; }
+  .edited-marker { color: #1d4ed8; font-size: 11px; margin-left: 6px; font-weight: 600; }
 
   /* Synthesis lines */
   .synthesis-line { font-size: 15px; font-style: italic; line-height: 1.5; padding: 6px 0; }
-  .synthesis-person { color: #5eead4; }
-  .synthesis-company { color: #fbbf24; }
-  .synthesis-loading { color: #64748b; }
+  .synthesis-person { color: #0d9488; }
+  .synthesis-company { color: #d97706; }
+  .synthesis-loading { color: #9ca3af; }
 
   /* Scrollable sections */
   .section { margin-bottom: 20px; }
-  .section h3 { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 8px; letter-spacing: 0.5px; }
-  .scroll-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px; max-height: 160px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #cbd5e1; white-space: pre-wrap; }
+  .section-header { display: flex; align-items: center; margin-bottom: 8px; }
+  .section-header h3 { font-size: 12px; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px; font-weight: 600; }
+  .scroll-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; max-height: 160px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #374151; white-space: pre-wrap; }
   .scroll-box.short { max-height: 120px; }
-  .scroll-box.empty { color: #475569; font-style: italic; }
+  .scroll-box.empty { color: #9ca3af; font-style: italic; }
 
   /* Verdict */
   #verdict-section { margin-bottom: 20px; }
-  #verdict-section h3 { font-size: 14px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; letter-spacing: 0.5px; }
+  #verdict-section h3 { font-size: 14px; text-transform: uppercase; color: #6b7280; margin-bottom: 10px; letter-spacing: 0.5px; font-weight: 600; }
   .verdict-btns { display: flex; gap: 10px; flex-wrap: wrap; }
-  .verdict-btn { padding: 10px 12px; width: 180px; border: 2px solid #334155; background: #1e293b; color: #cbd5e1; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s; }
-  .verdict-btn:hover { border-color: #64748b; }
+  .verdict-btn { padding: 10px 12px; width: 200px; border: 2px solid #d1d5db; background: #fff; color: #374151; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .verdict-btn:hover { border-color: #9ca3af; background: #f9fafb; }
   .verdict-btn .v-main { font-size: 14px; font-weight: 600; display: block; }
-  .verdict-btn .v-sub { font-size: 11px; color: #64748b; display: block; margin-top: 3px; }
-  .verdict-btn.selected { border-color: #3b82f6; background: #1e3a5f; }
-  .verdict-btn.selected .v-sub { color: #93c5fd; }
-  .verdict-btn.v-confirmed.selected { border-color: #22c55e; background: #14532d; color: #86efac; }
-  .verdict-btn.v-wrong.selected { border-color: #ef4444; background: #7f1d1d; color: #fca5a5; }
-  .verdict-btn.v-advisory.selected { border-color: #eab308; background: #713f12; color: #fde047; }
-  .verdict-btn.v-portfolio.selected { border-color: #818cf8; background: #312e81; color: #a5b4fc; }
-
-  #correct-company-row { margin-top: 10px; display: none; }
-  #correct-company-row.show { display: block; }
-  #correct-company-row label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px; }
-  #correct-company-row input { width: 320px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; font-size: 14px; }
+  .verdict-btn .v-sub { font-size: 11px; color: #9ca3af; display: block; margin-top: 3px; }
+  .verdict-btn.selected .v-sub { color: inherit; opacity: 0.8; }
+  .verdict-btn.v-include.selected { border-color: #16a34a; background: #f0fdf4; color: #16a34a; }
+  .verdict-btn.v-exclude.selected { border-color: #dc2626; background: #fef2f2; color: #dc2626; }
+  .verdict-btn.v-wrong.selected { border-color: #d97706; background: #fffbeb; color: #d97706; }
 
   #notes-row { margin-top: 10px; }
-  #notes-row label { font-size: 12px; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px; letter-spacing: 0.5px; }
-  #notes-row input { width: 100%; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; font-size: 14px; }
+  #notes-row label { font-size: 12px; text-transform: uppercase; color: #6b7280; display: block; margin-bottom: 4px; letter-spacing: 0.5px; font-weight: 600; }
+  #notes-row input { width: 100%; padding: 8px 12px; background: #fff; border: 1px solid #d1d5db; color: #111827; border-radius: 6px; font-size: 14px; }
+  #notes-row input:focus { outline: none; border-color: #1d4ed8; box-shadow: 0 0 0 2px rgba(29,78,216,.15); }
 
-  #save-btn { margin-top: 16px; padding: 10px 28px; height: 40px; background: #2563eb; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-  #save-btn:hover { background: #1d4ed8; }
-  #save-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
-  #save-status { font-size: 13px; color: #22c55e; margin-left: 14px; display: inline-block; }
+  #save-btn { margin-top: 16px; padding: 10px 28px; height: 40px; background: #1d4ed8; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  #save-btn:hover { background: #1e40af; }
+  #save-status { font-size: 13px; color: #16a34a; margin-left: 14px; display: inline-block; }
 
-  #export-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b; }
-  #export-section a { color: #60a5fa; font-size: 14px; font-weight: 500; text-decoration: none; }
+  #export-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+  #export-section a { color: #1d4ed8; font-size: 14px; font-weight: 500; text-decoration: none; }
   #export-section a:hover { text-decoration: underline; }
-  #export-section .export-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  #export-section .export-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
-  /* Scrollbar */
+  /* Top nav */
+  .top-nav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#1d4ed8; color:#fff; position:sticky; top:0; z-index:100; }
+  .top-nav-brand { font-weight:700; font-size:16px; color:#fff; letter-spacing:-0.01em; }
+  .top-nav-links { display:flex; gap:8px; }
+  .top-nav-link { color:rgba(255,255,255,0.8); text-decoration:none; font-size:14px; padding:6px 14px; border-radius:6px; transition:background 0.15s; }
+  .top-nav-link:hover { background:rgba(255,255,255,0.15); color:#fff; }
+  .top-nav-link.active { background:rgba(255,255,255,0.2); color:#fff; font-weight:600; }
+  .top-nav-disabled { opacity:0.45; cursor:default; pointer-events:none; }
+
   ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #0f172a; }
-  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: #f9fafb; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
 </style>
 </head>
 <body>
 
+<nav class="top-nav">
+  <div class="top-nav-brand">Contact Research</div>
+  <div class="top-nav-links">
+    <a href="/" class="top-nav-link" id="nav-home">Contact Research</a>
+    <a href="/eval.html" class="top-nav-link" id="nav-eval">Contact Eval</a>
+    <a href="/pipeline" class="top-nav-link">Pipeline Status</a>
+  </div>
+</nav>
+
+<div id="eval-body">
 <div id="sidebar">
   <div id="sidebar-header">
     <h2>Contact Eval</h2>
-    <div id="review-counter">0 / 0 reviewed</div>
+    <div id="review-counter">0 with verdicts · 0 hidden · 0 remaining</div>
+    <div id="sidebar-controls" style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+      <button id="btn-expose" onclick="exposeAll()" style="display:none; padding:5px 10px; font-size:12px; background:#fff; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; color:#374151;">Expose All</button>
+      <button id="btn-reset" onclick="resetAll()" style="padding:5px 10px; font-size:12px; background:#fff; border:1px solid #dc2626; border-radius:4px; cursor:pointer; color:#dc2626;">Reset All</button>
+      <button id="btn-complete" onclick="completeSession()" style="padding:5px 10px; font-size:12px; background:#16a34a; border:none; border-radius:4px; cursor:pointer; color:#fff; font-weight:600;">Complete</button>
+    </div>
+    <div style="margin-top:6px;"><a href="#" id="refresh-contacts" onclick="reloadContacts(event)" style="font-size:12px; color:#6b7280; text-decoration:none;">&#8635; Refresh contacts</a></div>
   </div>
+  <div id="session-banner" style="display:none; padding:10px 16px; background:#f0fdf4; border-bottom:1px solid #bbf7d0; font-size:13px; color:#16a34a; font-weight:500;"></div>
   <div id="contact-list"></div>
 </div>
 
@@ -132,56 +159,64 @@
   </div>
 
   <div class="detail-grid">
-    <div class="detail-item"><label>Job Title</label><div class="value" id="c-title">&mdash;</div></div>
-    <div class="detail-item"><label>Company</label><div class="value" id="c-company">&mdash;</div></div>
-    <div class="detail-item"><label>Email</label><div class="value" id="c-email">&mdash;</div></div>
-    <div class="detail-item"><label>LinkedIn</label><div class="value" id="c-linkedin">&mdash;</div></div>
+    <div class="detail-item" id="field-title">
+      <label>Job Title <span class="edit-pencil" onclick="startEdit('job_title')">&#9998;</span></label>
+      <div class="value" id="c-title">&mdash;</div>
+    </div>
+    <div class="detail-item" id="field-company">
+      <label>Company <span class="edit-pencil" onclick="startEdit('company')">&#9998;</span></label>
+      <div class="value" id="c-company">&mdash;</div>
+    </div>
+    <div class="detail-item" id="field-email">
+      <label>Email <span class="edit-pencil" onclick="startEdit('email')">&#9998;</span></label>
+      <div class="value" id="c-email">&mdash;</div>
+    </div>
+    <div class="detail-item">
+      <label>LinkedIn</label>
+      <div class="value" id="c-linkedin">&mdash;</div>
+    </div>
   </div>
 
-  <div class="section">
+  <div class="section" id="section-linkedin">
     <div class="synthesis-line synthesis-person synthesis-loading" id="c-person-synthesis">Loading summary...</div>
-    <h3>Full LinkedIn About</h3>
+    <div class="section-header">
+      <h3>Full LinkedIn About <span class="edit-pencil" onclick="startEdit('linkedin_about')">&#9998;</span></h3>
+    </div>
     <div class="scroll-box" id="c-linkedin-summary"></div>
   </div>
 
-  <div class="section">
+  <div class="section" id="section-company-desc">
     <div class="synthesis-line synthesis-company synthesis-loading" id="c-company-focus">Loading focus...</div>
-    <h3 id="company-section-title">About Company</h3>
+    <div class="section-header">
+      <h3 id="company-section-title">About Company <span class="edit-pencil" onclick="startEdit('company_description')">&#9998;</span></h3>
+    </div>
     <div class="scroll-box short" id="c-company-desc"></div>
   </div>
 
   <div id="verdict-section">
     <h3>Your Verdict</h3>
     <div class="verdict-btns">
-      <button class="verdict-btn v-confirmed" data-verdict="confirmed" onclick="selectVerdict('confirmed')">
+      <button class="verdict-btn v-include" data-verdict="include" onclick="selectVerdict('include')">
         <span class="v-main">&#10003; Include</span>
         <span class="v-sub">Currently at this company</span>
       </button>
+      <button class="verdict-btn v-exclude" data-verdict="do_not_include" onclick="selectVerdict('do_not_include')">
+        <span class="v-main">&#10007; Do Not Include</span>
+        <span class="v-sub">Skip this campaign</span>
+      </button>
       <button class="verdict-btn v-wrong" data-verdict="wrong_company" onclick="selectVerdict('wrong_company')">
-        <span class="v-main">&#10007; Wrong Company</span>
+        <span class="v-main">&lt;&gt; Wrong Company</span>
         <span class="v-sub">Not working here anymore</span>
       </button>
-      <button class="verdict-btn v-advisory" data-verdict="advisory_only" onclick="selectVerdict('advisory_only')">
-        <span class="v-main">&#9670; Advisory / Board</span>
-        <span class="v-sub">Not full-time employed</span>
-      </button>
-      <button class="verdict-btn v-portfolio" data-verdict="portfolio_co" onclick="selectVerdict('portfolio_co')">
-        <span class="v-main">&#11055; Portfolio Co</span>
-        <span class="v-sub">Works at portfolio company, not the fund</span>
-      </button>
-    </div>
-    <div id="correct-company-row">
-      <label>Correct company name:</label>
-      <input type="text" id="correct-company" placeholder="Enter correct company">
     </div>
     <div id="notes-row">
       <label>Notes (optional)</label>
-      <input type="text" id="notes" placeholder="Add any observations...">
+      <input type="text" id="notes" placeholder="Add any observations..." oninput="updateViewedNotes()">
     </div>
   </div>
 
   <div>
-    <button id="save-btn" onclick="saveVerdict()" disabled>Save &amp; Next &rarr;</button>
+    <button id="save-btn" onclick="saveAllViewed()">Save All Viewed</button>
     <span id="save-status"></span>
   </div>
 
@@ -190,26 +225,75 @@
     <div class="export-sub">(downloads all reviewed contacts as CSV)</div>
   </div>
 </div>
+</div><!-- end eval-body -->
 
 <script>
-let contacts = [];
-let verdicts = {};
+let allContacts = [];   // full list from API
+let contacts = [];      // visible contacts in sidebar (filtered by hiddenIds)
+let savedVerdicts = {};  // from DB — keyed by record_id
+let viewed = {};         // in-memory session state — keyed by record_id
 let synthesisCache = {};
+let hiddenIds = new Set(); // hidden from sidebar (localStorage-backed)
 let currentIdx = 0;
-let selectedVerdict = null;
+let totalContacts = 0;
+let sessionState = 'active'; // 'active' or 'complete'
 
 async function init() {
-  const [cResp, vResp] = await Promise.all([
+  // Restore hiddenIds from localStorage
+  try {
+    const stored = localStorage.getItem('eval_hidden_ids');
+    if (stored) hiddenIds = new Set(JSON.parse(stored));
+  } catch {}
+
+  const [cResp, vResp, sResp] = await Promise.all([
     fetch('/api/eval/contacts').then(r => r.json()),
     fetch('/api/eval/verdicts').then(r => r.json()),
+    fetch('/api/eval/session').then(r => r.json()).catch(() => ({ state: 'active' })),
   ]);
-  contacts = cResp.contacts || [];
+  allContacts = cResp.contacts || [];
+  totalContacts = allContacts.length;
   for (const v of (vResp.verdicts || [])) {
-    verdicts[v.record_id] = v;
+    savedVerdicts[v.record_id] = v;
   }
+
+  sessionState = sResp.state || 'active';
+  if (sessionState === 'complete') {
+    showSessionComplete();
+  }
+
+  // Build visible contacts: all contacts not hidden
+  rebuildContacts();
+
+  // Restore drafts from localStorage
+  for (const c of allContacts) {
+    const draft = localStorage.getItem(`eval_draft_${c.record_id}`);
+    if (draft && !savedVerdicts[c.record_id]) {
+      try {
+        const d = JSON.parse(draft);
+        viewed[c.record_id] = {
+          record_id: c.record_id,
+          name: c.name,
+          verdict: d.verdict || null,
+          correct_company: null,
+          notes: d.notes || '',
+          corrections: d.corrections || {},
+        };
+      } catch {}
+    }
+  }
+
   renderSidebar();
-  if (contacts.length > 0) showContact(0);
+  if (contacts.length > 0) {
+    prefetchBatch(0);
+    showContact(0);
+  } else {
+    showAllDone();
+  }
   updateCounter();
+}
+
+function rebuildContacts() {
+  contacts = allContacts.filter(c => !hiddenIds.has(c.record_id));
 }
 
 function renderSidebar() {
@@ -217,30 +301,77 @@ function renderSidebar() {
   list.innerHTML = '';
   contacts.forEach((c, i) => {
     const div = document.createElement('div');
-    const isReviewed = !!verdicts[c.record_id];
-    div.className = 'sidebar-item' + (isReviewed ? ' reviewed' : '') + (i === currentIdx ? ' active' : '');
+    div.className = 'sidebar-item' + (i === currentIdx ? ' active' : '');
     div.dataset.idx = i;
-
-    let html = `<div class="sidebar-name">${esc(c.name || '\u2014')}`;
-    if (isReviewed) html += `<span class="sidebar-check">\u2713</span>`;
-    html += `</div>`;
+    let dot = '';
+    const v = savedVerdicts[c.record_id] || viewed[c.record_id];
+    if (v && v.verdict === 'include') dot = '<span class="sidebar-dot dot-include"></span>';
+    else if (v && v.verdict === 'do_not_include') dot = '<span class="sidebar-dot dot-exclude"></span>';
+    else if (v && v.verdict === 'wrong_company') dot = '<span class="sidebar-dot dot-wrong"></span>';
+    let html = `<div class="sidebar-name">${esc(c.name || '\u2014')}${dot}</div>`;
     html += `<div class="sidebar-company">${esc(c.company_name || '\u2014')}</div>`;
-    const v = verdicts[c.record_id];
-    if (v) {
-      const cls = { confirmed: 'badge-confirmed', wrong_company: 'badge-wrong', advisory_only: 'badge-advisory', portfolio_co: 'badge-portfolio' }[v.verdict] || '';
-      const labels = { confirmed: 'Include', wrong_company: 'Wrong Co', advisory_only: 'Advisory', portfolio_co: 'Portfolio' };
-      html += `<span class="sidebar-verdict-badge ${cls}">${esc(labels[v.verdict] || v.verdict)}</span>`;
-    }
     div.innerHTML = html;
     div.onclick = () => showContact(i);
     list.appendChild(div);
   });
 }
 
+function showAllDone() {
+  document.getElementById('c-name').textContent = 'All contacts reviewed';
+  document.getElementById('c-confidence').style.display = 'none';
+  document.getElementById('c-role').style.display = 'none';
+  document.getElementById('c-title').textContent = '';
+  document.getElementById('c-company').textContent = '';
+  document.getElementById('c-email').textContent = '';
+  document.getElementById('c-linkedin').textContent = '';
+  document.getElementById('c-linkedin-summary').textContent = '';
+  document.getElementById('c-company-desc').textContent = '';
+  document.getElementById('c-person-synthesis').textContent = '';
+  document.getElementById('c-company-focus').textContent = '';
+  document.getElementById('contact-counter').textContent = '';
+}
+
+function ensureViewed(c) {
+  if (!viewed[c.record_id]) {
+    viewed[c.record_id] = {
+      record_id: c.record_id,
+      name: c.name,
+      verdict: null,
+      correct_company: null,
+      notes: '',
+      corrections: {},
+    };
+  }
+  return viewed[c.record_id];
+}
+
+function saveDraftToLocalStorage(recordId) {
+  if (!recordId || !viewed[recordId]) return;
+  const v = viewed[recordId];
+  localStorage.setItem(`eval_draft_${recordId}`, JSON.stringify({
+    verdict: v.verdict,
+    notes: v.notes,
+    corrections: v.corrections,
+    timestamp: Date.now(),
+  }));
+  updateCounter();
+}
+
 function showContact(idx) {
   if (idx < 0 || idx >= contacts.length) return;
+  // Save draft of current contact before navigating away
+  if (contacts[currentIdx] && viewed[contacts[currentIdx].record_id]) {
+    saveDraftToLocalStorage(contacts[currentIdx].record_id);
+  }
   currentIdx = idx;
   const c = contacts[idx];
+  const v = ensureViewed(c);
+
+  // Prefetch next batch when approaching end of current batch
+  const batchStart = Math.floor(idx / 10) * 10;
+  if (idx >= batchStart + 8) {
+    prefetchBatch(batchStart + 10);
+  }
 
   document.getElementById('c-name').textContent = c.name || '\u2014';
 
@@ -252,18 +383,23 @@ function showContact(idx) {
   roleEl.textContent = c.role_type ? `Role: ${c.role_type}` : '';
   roleEl.style.display = c.role_type ? '' : 'none';
 
-  document.getElementById('c-title').textContent = c.job_title || '\u2014';
+  // Show corrected values if they exist, with edited marker
+  const titleVal = v.corrections.job_title || c.job_title || '\u2014';
+  const titleEl = document.getElementById('c-title');
+  titleEl.innerHTML = esc(titleVal) + (v.corrections.job_title ? '<span class="edited-marker">(edited)</span>' : '');
 
   const companyEl = document.getElementById('c-company');
+  const companyVal = v.corrections.company || c.company_name || '\u2014';
   if (c.company_url) {
-    companyEl.innerHTML = `<a href="${esc(c.company_url)}" target="_blank">${esc(c.company_name || '\u2014')} &#8599;</a>`;
+    companyEl.innerHTML = `<a href="${esc(c.company_url)}" target="_blank">${esc(companyVal)} &#8599;</a>` + (v.corrections.company ? '<span class="edited-marker">(edited)</span>' : '');
   } else {
-    companyEl.textContent = c.company_name || '\u2014';
+    companyEl.innerHTML = esc(companyVal) + (v.corrections.company ? '<span class="edited-marker">(edited)</span>' : '');
   }
 
   const emailEl = document.getElementById('c-email');
-  if (c.email) {
-    emailEl.innerHTML = `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`;
+  const emailVal = v.corrections.email || c.email;
+  if (emailVal) {
+    emailEl.innerHTML = `<a href="mailto:${esc(emailVal)}">${esc(emailVal)}</a>` + (v.corrections.email ? '<span class="edited-marker">(edited)</span>' : '');
   } else {
     emailEl.innerHTML = `<span class="no-data">\u26A0 No email \u2014 needs sourcing</span>`;
   }
@@ -277,8 +413,9 @@ function showContact(idx) {
 
   // LinkedIn summary
   const summaryEl = document.getElementById('c-linkedin-summary');
-  if (c.linkedin_summary) {
-    summaryEl.textContent = c.linkedin_summary;
+  const summaryVal = v.corrections.linkedin_about || c.linkedin_summary;
+  if (summaryVal) {
+    summaryEl.textContent = summaryVal;
     summaryEl.classList.remove('empty');
   } else {
     summaryEl.textContent = '(No LinkedIn summary available)';
@@ -287,29 +424,24 @@ function showContact(idx) {
 
   // Company description
   const descEl = document.getElementById('c-company-desc');
-  document.getElementById('company-section-title').textContent = `About ${c.company_name || 'Company'}`;
-  if (c.company_description) {
-    descEl.textContent = c.company_description;
+  document.getElementById('company-section-title').innerHTML = `About ${esc(c.company_name || 'Company')} <span class="edit-pencil" onclick="startEdit('company_description')">&#9998;</span>`;
+  const descVal = v.corrections.company_description || c.company_description;
+  if (descVal) {
+    descEl.textContent = descVal;
     descEl.classList.remove('empty');
   } else {
     descEl.textContent = '(No company description available)';
     descEl.classList.add('empty');
   }
 
-  // AI synthesis — async load
+  // AI synthesis
   loadSynthesis(c);
 
-  // Restore existing verdict
-  const existing = verdicts[c.record_id];
-  selectedVerdict = existing?.verdict || null;
-  document.getElementById('correct-company').value = existing?.correct_company || '';
-  document.getElementById('notes').value = existing?.notes || '';
-
+  // Restore verdict state from viewed
   document.querySelectorAll('.verdict-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.verdict === selectedVerdict);
+    btn.classList.toggle('selected', btn.dataset.verdict === v.verdict);
   });
-  document.getElementById('correct-company-row').classList.toggle('show', selectedVerdict === 'wrong_company');
-  document.getElementById('save-btn').disabled = !selectedVerdict;
+  document.getElementById('notes').value = v.notes || '';
 
   document.getElementById('contact-counter').textContent = `Contact ${idx + 1} of ${contacts.length}`;
   document.getElementById('save-status').textContent = '';
@@ -321,27 +453,57 @@ function showContact(idx) {
   if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
 }
 
+async function fetchSynthesis(c) {
+  if (synthesisCache[c.record_id]) return synthesisCache[c.record_id];
+  if (!c.linkedin_summary && !c.company_description) return null;
+  try {
+    const resp = await fetch('/api/eval/synthesise', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: c.name,
+        job_title: c.job_title,
+        company_name: c.company_name,
+        linkedin_summary: c.linkedin_summary || '',
+        company_description: c.company_description || '',
+      }),
+    });
+    const data = await resp.json();
+    synthesisCache[c.record_id] = data;
+    return data;
+  } catch { return null; }
+}
+
+let lastPrefetchStart = -1;
+function prefetchBatch(startIndex) {
+  if (startIndex === lastPrefetchStart) return;
+  lastPrefetchStart = startIndex;
+  const batch = contacts.slice(startIndex, startIndex + 10);
+  for (const contact of batch) {
+    if (!synthesisCache[contact.record_id]) {
+      fetchSynthesis(contact).catch(() => {});
+    }
+  }
+}
+
 async function loadSynthesis(c) {
   const personEl = document.getElementById('c-person-synthesis');
   const companyEl = document.getElementById('c-company-focus');
 
-  // Check cache first
   if (synthesisCache[c.record_id]) {
     const cached = synthesisCache[c.record_id];
     personEl.textContent = cached.person_synthesis || '';
-    personEl.classList.toggle('synthesis-loading', false);
+    personEl.classList.remove('synthesis-loading');
     companyEl.textContent = cached.company_focus || '';
-    companyEl.classList.toggle('synthesis-loading', false);
+    companyEl.classList.remove('synthesis-loading');
     return;
   }
 
-  // Show loading
   personEl.textContent = 'Loading summary...';
   personEl.classList.add('synthesis-loading');
   companyEl.textContent = 'Loading focus...';
   companyEl.classList.add('synthesis-loading');
 
-  // Skip if no meaningful data to synthesise
   if (!c.linkedin_summary && !c.company_description) {
     personEl.textContent = '';
     companyEl.textContent = '';
@@ -364,8 +526,6 @@ async function loadSynthesis(c) {
     });
     const data = await resp.json();
     synthesisCache[c.record_id] = data;
-
-    // Only update if still on same contact
     if (contacts[currentIdx]?.record_id === c.record_id) {
       personEl.textContent = data.person_synthesis || '';
       personEl.classList.remove('synthesis-loading');
@@ -380,56 +540,221 @@ async function loadSynthesis(c) {
   }
 }
 
-function selectVerdict(v) {
-  selectedVerdict = v;
-  document.querySelectorAll('.verdict-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.verdict === v);
-  });
-  document.getElementById('correct-company-row').classList.toggle('show', v === 'wrong_company');
-  document.getElementById('save-btn').disabled = false;
+// Inline editing
+function startEdit(field) {
+  const c = contacts[currentIdx];
+  const v = ensureViewed(c);
+
+  if (field === 'job_title') {
+    const el = document.getElementById('c-title');
+    const current = v.corrections.job_title || c.job_title || '';
+    el.innerHTML = `<input class="edit-input" value="${esc(current)}" onblur="finishEdit('job_title', this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
+    el.querySelector('input').focus();
+  } else if (field === 'email') {
+    const el = document.getElementById('c-email');
+    const current = v.corrections.email || c.email || '';
+    el.innerHTML = `<input class="edit-input" type="email" value="${esc(current)}" placeholder="email@example.com" onblur="finishEdit('email', this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
+    el.querySelector('input').focus();
+  } else if (field === 'company') {
+    const el = document.getElementById('c-company');
+    const current = v.corrections.company || c.company_name || '';
+    el.innerHTML = `<input class="edit-input" value="${esc(current)}" onblur="finishEdit('company', this.value)" onkeydown="if(event.key==='Enter')this.blur()">`;
+    el.querySelector('input').focus();
+  } else if (field === 'linkedin_about') {
+    const el = document.getElementById('c-linkedin-summary');
+    const current = v.corrections.linkedin_about || c.linkedin_summary || '';
+    el.innerHTML = `<textarea class="edit-textarea">${esc(current)}</textarea><button class="edit-done-btn" onclick="finishEditArea('linkedin_about')">Done</button>`;
+    el.querySelector('textarea').focus();
+  } else if (field === 'company_description') {
+    const el = document.getElementById('c-company-desc');
+    const current = v.corrections.company_description || c.company_description || '';
+    el.innerHTML = `<textarea class="edit-textarea">${esc(current)}</textarea><button class="edit-done-btn" onclick="finishEditArea('company_description')">Done</button>`;
+    el.querySelector('textarea').focus();
+  }
 }
 
-async function saveVerdict() {
-  if (!selectedVerdict) return;
+function finishEdit(field, value) {
   const c = contacts[currentIdx];
-  const body = {
+  const v = ensureViewed(c);
+  if (value && value.trim()) {
+    v.corrections[field] = value.trim();
+  } else {
+    delete v.corrections[field];
+  }
+  showContact(currentIdx);
+}
+
+function finishEditArea(field) {
+  const containerId = field === 'linkedin_about' ? 'c-linkedin-summary' : 'c-company-desc';
+  const textarea = document.querySelector(`#${containerId} textarea`);
+  if (textarea) finishEdit(field, textarea.value);
+}
+
+function selectVerdict(v) {
+  if (sessionState === 'complete') return;
+  const c = contacts[currentIdx];
+  const state = ensureViewed(c);
+  // Toggle: clicking selected button deselects
+  if (state.verdict === v) {
+    state.verdict = null;
+  } else {
+    state.verdict = v;
+  }
+  document.querySelectorAll('.verdict-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.verdict === state.verdict);
+  });
+  // Auto-save verdict immediately
+  autoSaveVerdict(c, state);
+}
+
+let notesTimer = null;
+function updateViewedNotes() {
+  const c = contacts[currentIdx];
+  if (!c) return;
+  const v = ensureViewed(c);
+  v.notes = document.getElementById('notes').value || '';
+  // Debounced auto-save notes (500ms after last keystroke)
+  clearTimeout(notesTimer);
+  if (v.verdict) {
+    notesTimer = setTimeout(() => autoSaveVerdict(c, v), 500);
+  }
+}
+
+function autoSaveVerdict(c, state) {
+  const payload = {
     record_id: c.record_id,
     name: c.name,
-    verdict: selectedVerdict,
-    correct_company: document.getElementById('correct-company').value || null,
-    notes: document.getElementById('notes').value || null,
+    verdict: state.verdict,
+    correct_company: state.correct_company || null,
+    notes: state.notes || '',
+    corrections: state.corrections || {},
   };
-
-  const resp = await fetch('/api/eval/verdict', {
+  fetch('/api/eval/verdict', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (resp.ok) {
-    verdicts[c.record_id] = body;
-    document.getElementById('save-status').textContent = 'Saved';
-    updateCounter();
-    renderSidebar();
-
-    // Auto-advance to next unreviewed
-    setTimeout(() => {
-      const nextUnreviewed = contacts.findIndex((c, i) => i > currentIdx && !verdicts[c.record_id]);
-      if (nextUnreviewed >= 0) {
-        showContact(nextUnreviewed);
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      if (state.verdict) {
+        savedVerdicts[c.record_id] = payload;
       } else {
-        const fromStart = contacts.findIndex(c => !verdicts[c.record_id]);
-        if (fromStart >= 0) showContact(fromStart);
+        delete savedVerdicts[c.record_id];
       }
-    }, 300);
+      updateCounter();
+      // Update sidebar dot
+      renderSidebar();
+    }
+  }).catch(() => {});
+}
+
+async function saveAllViewed() {
+  // Hide all viewed contacts from sidebar
+  const viewedIds = Object.keys(viewed);
+  if (viewedIds.length === 0) {
+    document.getElementById('save-status').textContent = 'Nothing viewed yet';
+    return;
+  }
+  for (const id of viewedIds) {
+    hiddenIds.add(id);
+  }
+  localStorage.setItem('eval_hidden_ids', JSON.stringify([...hiddenIds]));
+  rebuildContacts();
+  renderSidebar();
+  updateCounter();
+  document.getElementById('save-status').textContent = `Hidden ${viewedIds.length} contacts`;
+  setTimeout(() => { document.getElementById('save-status').textContent = ''; }, 3000);
+  if (contacts.length > 0) {
+    currentIdx = Math.min(currentIdx, contacts.length - 1);
+    showContact(currentIdx);
   } else {
-    document.getElementById('save-status').textContent = 'Error saving';
+    showAllDone();
+  }
+}
+
+function exposeAll() {
+  hiddenIds.clear();
+  localStorage.removeItem('eval_hidden_ids');
+  rebuildContacts();
+  renderSidebar();
+  updateCounter();
+  if (contacts.length > 0) {
+    currentIdx = 0;
+    showContact(0);
+  }
+}
+
+async function resetAll() {
+  if (!confirm('Reset all verdicts? This cannot be undone.')) return;
+  try {
+    const resp = await fetch('/api/eval/session/reset', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      // Clear all localStorage eval keys
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('eval_draft_') || key === 'eval_hidden_ids')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      location.reload();
+    }
+  } catch { alert('Reset failed'); }
+}
+
+async function completeSession() {
+  if (!confirm('Mark complete? Verdicts will be locked and sent to Attio in the next write-back.')) return;
+  try {
+    const resp = await fetch('/api/eval/session/complete', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      location.reload();
+    } else {
+      alert(data.error || 'Complete failed');
+    }
+  } catch { alert('Complete failed'); }
+}
+
+function showSessionComplete() {
+  const banner = document.getElementById('session-banner');
+  banner.style.display = 'block';
+  banner.textContent = 'Session complete \u2014 verdicts locked. Run write-back to sync to Attio.';
+  // Hide control buttons except expose
+  document.getElementById('btn-reset').style.display = 'none';
+  document.getElementById('btn-complete').style.display = 'none';
+  document.getElementById('save-btn').style.display = 'none';
+  // Disable verdict buttons
+  document.querySelectorAll('.verdict-btn').forEach(btn => {
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.5';
+  });
+}
+
+async function reloadContacts(e) {
+  e.preventDefault();
+  const link = document.getElementById('refresh-contacts');
+  link.textContent = 'Loading...';
+  try {
+    const resp = await fetch('/api/eval/reload-contacts', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      location.reload();
+    } else {
+      link.textContent = 'Reload failed';
+    }
+  } catch {
+    link.textContent = 'Reload failed';
   }
 }
 
 function updateCounter() {
-  const reviewed = contacts.filter(c => verdicts[c.record_id]).length;
-  document.getElementById('review-counter').textContent = `${reviewed} / ${contacts.length} reviewed`;
+  const verdictCount = Object.keys(savedVerdicts).length;
+  const hiddenCount = hiddenIds.size;
+  const remaining = totalContacts - verdictCount - hiddenCount;
+  document.getElementById('review-counter').textContent = `${verdictCount} with verdicts \u00B7 ${hiddenCount} hidden \u00B7 ${Math.max(0, remaining)} remaining`;
+  // Show/hide expose button
+  document.getElementById('btn-expose').style.display = hiddenCount > 0 ? '' : 'none';
 }
 
 function navPrev() { if (currentIdx > 0) showContact(currentIdx - 1); }
@@ -442,13 +767,13 @@ function esc(s) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'ArrowRight' || e.key === ']') navNext();
   if (e.key === 'ArrowLeft' || e.key === '[') navPrev();
-  if (e.key === 'Enter' && selectedVerdict) saveVerdict();
 });
 
 init();
+document.getElementById('nav-eval').classList.add('active');
 </script>
 </body>
 </html>

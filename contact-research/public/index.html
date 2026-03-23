@@ -7,8 +7,13 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; }
-.topnav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:100; }
-.topnav-brand { font-size:16px; font-weight:700; }
+.top-nav { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:52px; background:#1d4ed8; color:#fff; position:sticky; top:0; z-index:100; }
+.top-nav-brand { font-weight:700; font-size:16px; color:#fff; letter-spacing:-0.01em; }
+.top-nav-links { display:flex; gap:8px; }
+.top-nav-link { color:rgba(255,255,255,0.8); text-decoration:none; font-size:14px; padding:6px 14px; border-radius:6px; transition:background 0.15s; }
+.top-nav-link:hover { background:rgba(255,255,255,0.15); color:#fff; }
+.top-nav-link.active { background:rgba(255,255,255,0.2); color:#fff; font-weight:600; }
+.top-nav-disabled { opacity:0.45; cursor:default; pointer-events:none; }
 .page { max-width:1100px; margin:0 auto; padding:24px; }
 .section { background:#fff; border-radius:8px; border:1px solid #e5e7eb; margin-bottom:20px; padding:20px; }
 .section h2 { font-size:15px; font-weight:600; margin-bottom:4px; }
@@ -63,8 +68,13 @@ input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#3b
 </head>
 <body>
 
-<nav class="topnav">
-  <span class="topnav-brand">Contact Research</span>
+<nav class="top-nav">
+  <div class="top-nav-brand">Contact Research</div>
+  <div class="top-nav-links">
+    <a href="/" class="top-nav-link" id="nav-home">Contact Research</a>
+    <a href="/eval.html" class="top-nav-link" id="nav-eval">Contact Eval</a>
+    <a href="/pipeline" class="top-nav-link">Pipeline Status</a>
+  </div>
 </nav>
 
 <div class="page">
@@ -611,6 +621,7 @@ async function importFullEnrich() {
 
 // Init
 loadLibrary();
+document.getElementById('nav-home').classList.add('active');
 </script>
 </body>
 </html>

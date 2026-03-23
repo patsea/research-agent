@@ -38,3 +38,24 @@ Findings: docs/findings/ (central — NOT per-project)
 | Safety & Governance | safety-governance/ | — | — | Pre-commit gate: credentials, CRM writes, Gmail writes, API calls |
 | QA Engineer | qa-engineer/ | — | — | Verification commands, test baselines, pipeline checks |
 | Code Reviewer | code-reviewer/ | — | — | Pre-commit: patterns, pitfalls, prompt loading, ESM/CJS |
+---
+
+## Roadmap Agent
+**Invoke:** "Read agents/roadmap-agent.md. Act as Roadmap Agent for job-search-agent."
+
+Builds and maintains the job-search-agent pipeline roadmap. Features include:
+new agents, new scoring rubrics, new enrichment integrations, new outreach patterns.
+Sizing accounts for test baselines (25 podcast / 5 suites, 29-30 newsletter / 4 suites).
+Notion DB: 32cc9e45e6a680d79bead2796cae8fdd
+
+---
+
+## AI Spec Agent
+**Invoke:** "Read agents/ai-spec-agent.md. Act as AI Spec Agent for [feature]."
+
+Owns the full AI Spec pipeline for job-search-agent features.
+User stories define: which agent is affected, input (contact/company data shape),
+output (Attio write, DB update, scoring result). Functional requirements include
+Attio protected status rules and prompt loading at call time (Pitfall 445).
+Claude Code writes investigation findings to Notion in real time.
+Notion DB: 32cc9e45e6a680d79bead2796cae8fdd
