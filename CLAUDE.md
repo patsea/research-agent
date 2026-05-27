@@ -43,7 +43,7 @@ If working outside these two apps, stop and load the correct CLAUDE.md.
 | CLI | `cli/` at repo root — `jsa start\|stop\|restart\|status\|tail\|doctor\|pipeline\|prompts\|costs` |
 | jsa doctor | 30 checks, 7 groups (Environment, API Keys, OAuth/Keychain, Configuration, DB Integrity, Network+Services, Topology) |
 | JSA test baseline | ~437 passing, ~81 failing (pre-existing) |
-| CE test baseline | 295 passing, 0 failing (42 suites) |
+| CE test baseline | 357 passing, 82 failing (89 suites) — failing tests are pre-existing in `_retired/`, `backups/`, `aloma-backup/`, and port-dependent integration tests |
 | Anthropic API | Raw fetch via `shared/anthropic.cjs` — no @anthropic-ai/sdk runtime dependency |
 | Pitfall count | 501 (universal) + JSA-specific in JSA-BEST-PRACTICES.md |
 
@@ -107,7 +107,7 @@ Tests that do NOT satisfy Gate 9 on their own:
 - No new test file required unless the bug reveals a coverage gap
 - Final step of every instruction file: run full Jest suite for the relevant app
 - JSA baseline: ~437 passing, ~81 failing (pre-existing, do not fix unless tasked)
-- CE baseline: 295 passing, 0 failing
+- CE baseline: 357 passing, 82 failing (failures pre-existing — `_retired/`, `backups/`, `aloma-backup/`, port-dependent)
 
 ### Never
 - Never skip the Jest regression run at end of any instruction file
